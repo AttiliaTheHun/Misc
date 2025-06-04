@@ -1,0 +1,9 @@
+Program/bin/
+Program/obj/
+Program/.vscode/
+Program/.pytest_cache/
+Program.Tests/bin/
+Program.Tests/obj/
+Program.Tests/.pytest_cache/
+examples/*.encrypted
+examples/*.decrypted
