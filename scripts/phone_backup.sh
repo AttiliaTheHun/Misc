@@ -1,16 +1,35 @@
 #!/bin/bash
 
-echo "Note that the creation of the archives as well as the recreation into zip archives can take MINUTES. Be patient!"
-echo ""
-
 set -ueo pipefail
 
-tar2zip=1
-remove_originals=1
+print_help() {
+	echo "Edit the folders to backup in the script and then run the script from the backup folder (that is to say, cd to it)"
+	echo "options"
+	echo "    -z | --zip to pack folders into zip files"
+}
+
+init_sd_card() {
+	external_storage=0
+	for path in $(adb -d shell ls /storage)
+	do
+		if [ "$path" != "emulated" ] && [ "$path" != "self" ] && [ "$path" != "sdcard0" ]; then
+			external_storage="storage/$path"
+		elif [[ "$path" == *"-"* ]]; then
+			external_storage="storage/$path"
+		fi
+	done
+	if [ "$external_storage" -eq 0 ]; then
+		echo "no SD card found"
+	else
+		echo "SD card found"
+	fi
+}
+
+create_zips=0
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
-		-z|--tar2zip) tar2zip=1; shift ;;
-		-r|--cleanup) remove_originals=1; shift ;;
+		-z|--zip) create_zips=1; ;;
+		-h|--help) print_help; ;;
 		*) echo "Unknown parameter: $1" ;;
 	esac
 	shift
@@ -18,57 +37,69 @@ done
 
 adb devices > /dev/null
 
-sdcard="/sdcard"
-DIRS=("Music" "Documents" "DCIM" "Pictures" "Recordings")
-tar_extension=".tar.gz"
+internal_storage="/sdcard"
+init_sd_card
+internal_backup_dir="internal"
+external_backup_dir="external"
+INTERNAL_DIRS=("Music" "Download" "Documents" "DCIM" "Pictures" "Recordings")
+EXTERNAL_DIRS=()
+
 zip_extension=".zip"
 
-# this opens abd bash shell, but we no longer need it
+# this opens adb bash shell, but we no longer need it, I just want to note the command
 # adb shell -t bash -i
 
-echo "directories to backup:"
-# create the scripts to send over to adb
-adb_script="cd $sdcard"
-adb_cleanup_script="cd $sdcard" 
-for path in "${DIRS[@]}"
+echo "directories to backup (* are on SD card):"
+
+echo "" 
+for path in "${INTERNAL_DIRS[@]}"
 do
-	adb_script="${adb_script};tar -czf $path$tar_extension $path"
-	adb_cleanup_script="${adb_cleanup_script};rm $path$tar_extension"
 	echo "- $path"
 done
-
+if [ "$external_storage" != 0 ]; then
+	for path in "${EXTERNAL_DIRS[@]}"
+	do
+		echo "* $path"
+	done
+fi
 echo ""
 
-adb_script="${adb_script};exit"
-adb_cleanup_script="${adb_cleanup_script};exit"
-
-echo "creating archives..."
-echo "$adb_script" | adb shell
-
-echo ""
-echo "pulling archives from the device..."
-for path in "${DIRS[@]}"
+echo "pulling files from the device..."
+mkdir -p "$internal_backup_dir" && cd "$internal_backup_dir" || exit 1
+for path in "${INTERNAL_DIRS[@]}"
 do
 true
-	adb pull "$sdcard/$path$tar_extension"
+	adb -d pull "$internal_storage/$path"
 done
-
-echo ""
-echo "removing archives from the device..."
-echo "$adb_cleanup_script" | adb shell #2> /dev/null
-
-# Convert a tar file into a zip file by repacking the files
-if [ "$tar2zip" == 1 ]; then
-	echo ""
-	echo "converting TAR archives to ZIP archives..."
-	for path in "${DIRS[@]}"
+cd ..
+if [ "$external_storage" != 0 ]; then
+	mkdir -p "$external_backup_dir" && cd "$external_backup_dir" || exit 1
+	for path in "${EXTERNAL_DIRS[@]}"
 	do
-		if [ -e "$path$tar_extension" ]; then
-			tar -xzf "$path$tar_extension"
-			zip -r "$path$zip_extension" "$path" > /dev/null && echo "created: $path$zip_extension" && rm -rf "$path" || echo "failed to create: $path$zip_extension" 
-			test "$remove_originals" -eq 1 && rm "$path$tar_extension"
+		adb -d pull "$external_storage/$path"
+	done
+fi
+cd ..
+
+if [ "$create_zips" -eq 1 ]; then
+	echo ""
+	echo "creating archives..."
+	cd "$internal_backup_dir"
+	for path in "${INTERNAL_DIRS[@]}"
+	do
+		if [ -d "$path" ]; then
+			zip "$path$zip_extension" "$path" > /dev/null && rm -rf "$path" && echo "created: $path$zip_extension"
 		fi
 	done
+	if [ "$external_storage" != 0 ]; then
+		cd "../$external_backup_dir"
+		for path in "${EXTERNAL_DIRS[@]}"
+		do
+			if [ -d "$path" ]; then
+				zip "$path$zip_extension" "$path" > /dev/null && rm -rf "$path" && echo "created: $path$zip_extension"
+			fi
+		done
+	fi
 fi
 
 echo ""
