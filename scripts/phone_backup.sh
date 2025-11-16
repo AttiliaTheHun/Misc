@@ -6,11 +6,11 @@ print_help() {
 	echo "Edit the folders to backup in the script and then run the script from the backup folder (that is to say, cd to it)"
 	echo "options"
 	echo "    -z | --zip to pack folders into zip files"
+    echo "    -s | --skip to skip pulling the files"
 	exit 0
 }
 
 init_sd_card() {
-	external_storage=""
 	for path in $(adb -d shell ls /storage)
 	do
 		if [ "$path" != "emulated" ] && [ "$path" != "self" ] && [ "$path" != "sdcard0" ]; then
@@ -27,63 +27,70 @@ init_sd_card() {
 }
 
 create_zips=0
+skip_pull=0
+
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		-z|--zip) create_zips=1; ;;
 		-h|--help) print_help; ;;
+		-s|--skip) skip_pull=1; ;;
 		*) echo "Unknown parameter: $1" ;;
 	esac
 	shift
 done
 
-# if "adb devices" print more than two lines, it listed a device, otherwise we exit
-test "$(adb devices | wc -l)" -gt 2 || (echo "no device found" && exit 0)
+external_storage=0
 
-internal_storage="/sdcard"
-init_sd_card
 internal_backup_dir="internal"
 external_backup_dir="external"
-#INTERNAL_DIRS=("Music" "Download" "Documents" "DCIM" "Pictures" "Recordings")
-INTERNAL_DIRS=("Recordings")
+INTERNAL_DIRS=("Music" "Download" "Documents" "Pictures" "Recordings")
 EXTERNAL_DIRS=()
 
 zip_extension=".zip"
 
-# this opens adb bash shell, but we no longer need it, I just want to note the command
-# adb shell -t bash -i
+if [ $skip_pull == 0 ]; then
 
-echo "directories to backup (* are on SD card):"
+	# if "adb devices" print more than two lines, it listed a device, otherwise we exit
+	test "$(adb devices | wc -l)" -gt 2 || (echo "no device found" && exit 0)
 
-echo "" 
-for path in "${INTERNAL_DIRS[@]}"
-do
-	echo "- $path"
-done
-if [ "$external_storage" != 0 ]; then
-	for path in "${EXTERNAL_DIRS[@]}"
+	internal_storage="/sdcard"
+	init_sd_card
+
+	# this opens adb bash shell, but we no longer need it, I just want to note the command
+	# adb shell -t bash -i
+
+	echo "directories to backup (* are on SD card):"
+
+	echo "" 
+	for path in "${INTERNAL_DIRS[@]}"
 	do
-		echo "* $path"
+		echo "- $path"
 	done
-fi
-echo ""
+	if [ "$external_storage" != 0 ]; then
+		for path in "${EXTERNAL_DIRS[@]}"
+		do
+			echo "* $path"
+		done
+	fi
+	echo ""
 
-echo "pulling files from the device..."
-mkdir -p "$internal_backup_dir" && cd "$internal_backup_dir" || exit 1
-for path in "${INTERNAL_DIRS[@]}"
-do
-true
-	adb -d pull "$internal_storage/$path"
-done
-cd ..
-if [ -n "$external_storage" ]; then
-	mkdir -p "$external_backup_dir" && cd "$external_backup_dir" || exit 1
-	for path in "${EXTERNAL_DIRS[@]}"
+	echo "pulling files from the device..."
+	mkdir -p "$internal_backup_dir" && cd "$internal_backup_dir" || exit 1
+	for path in "${INTERNAL_DIRS[@]}"
 	do
-		adb -d pull "$external_storage/$path"
+	true
+		adb -d pull "$internal_storage/$path"
 	done
-cd ..
+	cd ..
+	if [ -n "$external_storage" ]; then
+		mkdir -p "$external_backup_dir" && cd "$external_backup_dir" || exit 1
+		for path in "${EXTERNAL_DIRS[@]}"
+		do
+			adb -d pull "$external_storage/$path"
+		done
+	cd ..
+	fi
 fi
-
 if [ "$create_zips" -eq 1 ]; then
 	echo ""
 	echo "creating archives..."
