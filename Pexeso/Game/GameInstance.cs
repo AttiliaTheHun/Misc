@@ -4,6 +4,8 @@ using Pexeso.ViewModels;
 using System;
 using Avalonia.Media;
 using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using System.Diagnostics;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -11,6 +13,7 @@ using Avalonia.Layout;
 namespace Pexeso.Game;
 
 public class GameInstance {
+    public static readonly Uri BASE_ASSETS_URI = new Uri("avares://Pexeso/Assets/");
     private GameWindow window = new GameWindow {
                 DataContext = new GameWindowViewModel(),
     };
@@ -23,6 +26,7 @@ public class GameInstance {
     private Tile secondUncoveredTile = null;
     private int claimedTilesNum = 0;
     private bool singlePlayer = false;
+    private bool isOver = false;
 
 
     public GameInstance(GameSettings settings) {
@@ -45,8 +49,10 @@ public class GameInstance {
         tiles = new Tile[content.Length*2];
         int contentIndex = 0;
         for (int i = 0; i < tiles.Length; i+=2) {
-            tiles[i] = new Tile(content[contentIndex].First);
-            tiles[i+1] = new Tile(content[contentIndex].Second);
+            bool isFirstGraphic = (settings.ContentProvider.IsGraphic() && content[contentIndex].First.Contains('.'));;
+            bool isSecondGraphic = (settings.ContentProvider.IsGraphic() && content[contentIndex].Second.Contains('.'));
+            tiles[i] = new Tile(content[contentIndex].First, isFirstGraphic);
+            tiles[i+1] = new Tile(content[contentIndex].Second, isSecondGraphic);
             tiles[i].Other = tiles[i+1];
             tiles[i+1].Other = tiles[i];
             contentIndex++;
@@ -95,6 +101,10 @@ public class GameInstance {
 
     private void HandleTileTapped(object sender, RoutedEventArgs e) {
         Debug.Assert(sender != null, "The ministry has fallen, we received a null sender");
+        if (isOver) {
+            new EndWindow(settings, players);
+            window.Close();
+        }
         if (secondUncoveredTile != null) {
             HandleKeyReleased(null, null);
             return;
@@ -124,6 +134,10 @@ public class GameInstance {
     }
 
     private void HandleKeyReleased(object sender, RoutedEventArgs e) {
+        if (isOver) {
+            new EndWindow(settings, players);
+            window.Close();
+        }
         // the user is expected to select a field via mouse until two fields are uncovered 
         if (secondUncoveredTile == null) {
             return;
@@ -147,8 +161,7 @@ public class GameInstance {
         ClearTiles();
         claimedTilesNum += 2;
         if (claimedTilesNum == tiles.Length) {
-            new EndWindow(settings, players);
-            window.Close();
+           isOver = true;
         }
     }
 
@@ -181,13 +194,15 @@ class Tile {
     public const int UNCOVERED_TILE = 1;
     public const int CLAIMED_TILE = 2;
     public string Content {get;}
+    public bool IsGraphic {get;}
     public Tile Other { get; set; }
     [Obsolete]
     private int state = HIDDEN_TILE;
     private Border UIControl;
 
-    public Tile(string content) {
+    public Tile(string content, bool graphic) {
         this.Content = content;
+        this.IsGraphic = graphic;
     }
 
     public void ChangeState(int state) {
@@ -205,18 +220,30 @@ class Tile {
     }
 
     private void SetStateHidden() {
-        UIControl.Child.SetValue(TextBlock.TextProperty, "");
+        if (IsGraphic) {
+            UIControl.Child.SetValue(Image.SourceProperty, null);
+        } else {
+            UIControl.Child.SetValue(TextBlock.TextProperty, "");
+        }
         UIControl.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.Parse("DarkBlue")));
     }
 
     private void SetStateUncovered() {
-        UIControl.Child.SetValue(TextBlock.TextProperty, Content);
+        if (IsGraphic) {
+            UIControl.Child.SetValue(Image.SourceProperty, new Bitmap(AssetLoader.Open(new Uri(GameInstance.BASE_ASSETS_URI, Content))));
+        } else {
+            UIControl.Child.SetValue(TextBlock.TextProperty, Content);
+        }
         UIControl.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.Parse("LightBlue")));
     }
 
     private void SetStateClaimed() {
         UIControl.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.Parse("LightGreen")));
-        UIControl.Child.SetValue(TextBlock.IsEnabledProperty, false);
+        if (IsGraphic) {
+            UIControl.Child.SetValue(Image.IsEnabledProperty, false);
+        } else {
+            UIControl.Child.SetValue(TextBlock.IsEnabledProperty, false);
+        }
         UIControl.SetValue(Border.IsEnabledProperty, false);
         
     }
@@ -224,6 +251,9 @@ class Tile {
     public void Bind(Border control) {
         Debug.Assert(control.Child != null, "border child is null, we've lost the TextBlock");
         UIControl = control;
+        if (IsGraphic) {
+            UIControl.Child = new Image();
+        }
         SetStateHidden();
     }
 }

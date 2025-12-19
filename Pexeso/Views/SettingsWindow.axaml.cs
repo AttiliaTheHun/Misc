@@ -50,6 +50,7 @@ public partial class SettingsWindow : Window {
         providers.Add("Czech", new CzechContentProvider());
         providers.Add("Age of Empires II", new AOEIIContentProvider());
         providers.Add("Cuphead", new CupheadContentProvider());
+        providers.Add("StarGate", new StarGateContentProvider());
         return providers;
     }
 

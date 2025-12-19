@@ -1,5 +1,7 @@
 namespace Pexeso.Game.ContentProviders;
 
+using System;
+
 public class CupheadContentProvider : IContentProvider {
     private string[] content = {
         "The Root Pack:Botanic Panic", "Goopy Le Grande:Ruse of an Ooze", "Ribby and Croaks:Clip Joint Calamity", "Cagney Carnation:Floral Fury",
@@ -14,6 +16,7 @@ public class CupheadContentProvider : IContentProvider {
     };
 
     public Pair[] GetPairs(int number) {
+        number = Math.Min(number, content.Length);
         string[] shuffled = (string[]) content.Clone();
         shuffled.Shuffle();
         Pair[] pairs = new Pair[number];
@@ -24,5 +27,9 @@ public class CupheadContentProvider : IContentProvider {
             contentIndex++;
         }
         return pairs;
+    }
+
+    public bool IsGraphic() {
+        return false;
     }
 }

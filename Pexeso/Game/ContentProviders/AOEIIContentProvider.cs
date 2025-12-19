@@ -1,5 +1,7 @@
 namespace Pexeso.Game.ContentProviders;
 
+using System;
+
 public class AOEIIContentProvider : IContentProvider {
     private string[] content = {
         "Britons:Longbowman", "Franks:Throwing Axeman", "Goths:Huskarl", "Teutons:Teutonic Knight", "Japanese:Samurai",
@@ -13,6 +15,7 @@ public class AOEIIContentProvider : IContentProvider {
     };
 
     public Pair[] GetPairs(int number) {
+        number = Math.Min(number, content.Length);
         string[] shuffled = (string[]) content.Clone();
         shuffled.Shuffle();
         Pair[] pairs = new Pair[number];
@@ -24,4 +27,9 @@ public class AOEIIContentProvider : IContentProvider {
         }
         return pairs;
     }
+
+    public bool IsGraphic() {
+        return false;
+    }
+
 }

@@ -4,7 +4,8 @@ namespace Pexeso.Game;
 
 public class Player {
     private static readonly string[] RandomNames = {"Mjr. John Sheppard", "Edward Snowden", "Clarke Kent", "John Reese", "Harold Finch",
-        "James Bond", "Adam Sandler", "John Powell", "Hans Zimmer", "Hugo Boss", "Jean Gionno", "Elvis Presley", "Tony Stark", "William Wallace"};
+        "James Bond", "Adam Sandler", "John Powell", "Hans Zimmer", "Hugo Boss", "Jean Gionno", "Elvis Presley", "Tony Stark", "William Wallace",
+        "Jim Carry"};
     public Player(string name) {
         Debug.Assert(name != null && name.Length > 0, "player name null or empty");
         this.Name = name;
