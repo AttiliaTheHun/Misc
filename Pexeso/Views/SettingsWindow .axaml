@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Pexeso.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Pexeso.Views.SettingsWindow"
+        x:DataType="vm:SettingsWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Settings">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+
+    <StackPanel>
+        <Border Margin="5">
+            <Panel>
+                <Label Target="PairsNumBox">Pairs:</Label>
+                <TextBox x:Name="PairsNumBox" Margin="60, 0, 0, 0">10</TextBox>
+            </Panel>
+        </Border>
+        <Border Margin="5">
+            <Panel>
+                <Label Target="PlayersNumBox">Players</Label>
+                <TextBox x:Name="PlayersNumBox"  Margin="60, 0, 0, 0">2</TextBox>
+            </Panel>
+        </Border>
+        <Border Margin="5">
+            <Panel>
+                <Label Target="ContentSelectionSpinner">Topic:</Label>
+                <ComboBox x:Name="ContentSelectionSpinner"  Margin="60, 0, 0, 0"></ComboBox>
+            </Panel>
+        </Border>
+        <Border Margin="5">
+            <Button x:Class="Pexeso.Views.SettingsWindow" Click="ApplySettingsButton_OnClick" HorizontalAlignment="Center" HorizontalContentAlignment="Center">Apply</Button>
+        </Border>
+    </StackPanel>
+
+    
+
+</Window>

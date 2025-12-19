@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Pexeso.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Pexeso.Views.EndWindow"
+        x:DataType="vm:EndWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="End screen">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:EndWindowViewModel/>
+    </Design.DataContext>
+
+
+    <StackPanel>
+        <Border Margin="5" CornerRadius="10" Background="LightBlue">
+            <TextBlock Margin="5"
+                       FontSize="24" 
+                       HorizontalAlignment="Center"
+                       Text="Results">
+            </TextBlock>
+        </Border>
+        <ListBox ItemsSource="{Binding Results}" HorizontalAlignment="Center"></ListBox>
+        <DockPanel HorizontalAlignment="Center">
+            <Border Margin="5">
+                <Button x:Class="Pexeso.Views.EndWindow" Click="RematchButton_OnClick" HorizontalAlignment="Center" HorizontalContentAlignment="Center">Rematch</Button>
+            </Border>
+            <Border Margin="5">
+                <Button x:Class="Pexeso.Views.EndWindow" Click="MainTitleButton_OnClick" HorizontalAlignment="Center" HorizontalContentAlignment="Center">Main title</Button>
+            </Border>
+        </DockPanel>
+    </StackPanel>
+
+    
+
+</Window>
