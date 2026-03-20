@@ -29,7 +29,7 @@ To get to the fun part, I searched YouTube for how it looks when a li-ion batter
 
 The most relevant video I found is [this](https://www.youtube.com/watch?v=HCGtRgBUHX8). The battery displayed is closest to the smartphone and earphones and IoT and other batteries that are in the portable electronics. It is much bigger than a battery that could realistically be in the earphones. By my educated guess (I recently finished high school), it can be something around 500 mAh. This is what a 60 mAh li-ion battery looks like for reference.
 
-![image](../../assets/4453-li-pol-baterie-60mah-37v-501015.png)
+![image](/assets/4453-li-pol-baterie-60mah-37v-501015.png)
 
 source: [https://ampul.eu/cs/baterie/4453-li-pol-baterie-60mah-37v-501015](https://ampul.eu/cs/baterie/4453-li-pol-baterie-60mah-37v-501015)
 

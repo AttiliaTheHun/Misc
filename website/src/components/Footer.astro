@@ -3,8 +3,45 @@ const today = new Date();
 ---
 
 <footer>
-	The Life of an Elephant LLC &copy; {today.getFullYear()}
+	The Life of an Elephant LLC &copy; {today.getFullYear()} <br>
+	<a id="font-switch" href="#/" onClick="javascript:toggleFont()">View in Tengwar</a>
+
+<script is:inline>
+
+let nastyElvses = sessionStorage.getItem("nastyElvses");
+if (nastyElvses === null) {
+	nastyElvses = false;
+} else {
+	nastyElvses = nastyElvses === 'true'; // this is how they parse booleans in JS I guess
+	nastyElvses = !nastyElvses; // the function toggles to the other state, so by flipping the value, it will toggle to the current state
+	toggleFont();
+}
+
+function toggleFont() {
+	console.log("toggled")
+	if (nastyElvses) {
+		changeToDefault();
+	} else {
+		changeToTengwar();
+	}
+	sessionStorage.setItem("nastyElvses", nastyElvses);
+}
+
+function changeToTengwar() {
+	document.body.style.fontFamily = "Tengwar"
+	document.querySelector("#font-switch").setAttribute("text", "View in latin script");
+	nastyElvses = true;
+}
+
+function changeToDefault() {
+	document.body.style.fontFamily = "Atkinson, sans-serif";
+	document.querySelector("#font-switch").setAttribute("text", "View in Tengwar");
+	nastyElvses = false;
+}
+
+</script>
 </footer>
+
 <style>
 	footer {
 		padding: 2em 1em 6em 1em;
