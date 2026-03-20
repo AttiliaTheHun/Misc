@@ -1,9 +1,0 @@
-{
-  "name": "website",
-  "assets": {
-    "directory": "./dist"
-  },
-  "observability": {
-    "enabled": true
-  }
-}
