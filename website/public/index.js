@@ -8,7 +8,6 @@ if (nastyElvses === null) {
 }
 
 function toggleFont() {
-    console.log("toggled")
     if (nastyElvses) {
         changeToDefault();
     } else {
