@@ -1,0 +1,23 @@
+@font-face {
+	font-family: Sono;
+	src: url("/assets/fonts/Sono.woff2") format("woff2-variations");
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+
+
+@font-face {
+	font-family: Alteran;
+	src: url("/assets/fonts/Alteran.ttf") format("truetype");
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: Anquietas;
+	src: url("/assets/fonts/Anquietas.ttf") format("truetype");
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}

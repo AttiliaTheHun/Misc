@@ -1,0 +1,8 @@
+# HTTrack Website Copier Cookie File
+# This file format is compatible with Netscape cookies
+.appbrain.com	TRUE	/	FALSE	1999999999	__cfduid	dfdb748d1edf659e7965189f2186327f41602104584
+www.appbrain.com	TRUE	/	FALSE	1999999999	SameSite	Lax
+.appbrain.com	TRUE	/	FALSE	1999999999	vid	1602104585|SzWa|Jz2rVFn6DR
+.appbrain.com	TRUE	/	FALSE	1999999999	usid	sig=ngb2JFGMr2uPOXRK&id=1JPqwZzrDqE
+www.appbrain.com	TRUE	/	FALSE	1999999999	JSESSIONID	node01r54edqzo140bmqzy5ca65oul170271.node0
+

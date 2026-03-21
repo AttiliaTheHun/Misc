@@ -1,0 +1,244 @@
+/*** ESSENTIAL STYLES ***/
+.sf-menuv, .sf-menuv * {
+	margin:			0;
+	padding:		0;
+	list-style:		none;
+	z-index: 9;
+}
+.sf-menuv {
+	line-height:	1.0;
+}
+.sf-menuv ul {
+	position:		absolute;
+	top:			-999em;
+	width:			230px; /* left offset of submenus need to match (see below) */
+}
+.sf-menuv ul li {
+	width:			100%;
+}
+.sf-menuv li:hover {
+	visibility:		inherit; /* fixes IE7 'sticky bug' */
+}
+.sf-menuv li {
+	float:			left;
+	position:		relative;
+}
+.sf-menuv a {
+	display:		block;
+	position:		relative;
+}
+.sf-menuv li:hover ul,
+.sf-menuv li.sfHover ul {
+	left:			0;
+	top:			2.5em; /* match top ul list item height */
+	z-index:		99;
+}
+ul.sf-menuv li:hover li ul,
+ul.sf-menuv li.sfHover li ul {
+	top:			-999em;
+}
+ul.sf-menuv li li:hover ul,
+ul.sf-menuv li li.sfHover ul {
+	left:			230px; /* match ul width */
+	top:			0;
+}
+ul.sf-menuv li li:hover li ul,
+ul.sf-menuv li li.sfHover li ul {
+	top:			-999em;
+}
+ul.sf-menuv li li li:hover ul,
+ul.sf-menuv li li li.sfHover ul {
+	left:			230px; /* match ul width */
+	top:			0;
+}
+
+.sf-menuv {
+	float:			left;
+	margin-bottom:	1em;
+}
+.sf-menuv a {	
+	padding: 7px 5px 8px 24px;
+	font-size: 12px;
+	font-weight: bold;
+	text-decoration:none;	
+}
+.sf-menuv li.current a {	
+	padding: 6px 5px 7px 24px;
+}
+.sf-menuv li.firstcurrent a {	
+	padding: 7px 5px 7px 24px;
+}
+.sf-menuv li.lastcurrent a {	
+	padding: 6px 5px 8px 24px;
+}
+.sf-menuv a, .sf-menuv a:visited {
+	color:			#333;
+	font-weight: bold;
+	text-decoration:none;
+	/*text-shadow: #999 1px 1px 3px;*/
+}
+.sf-menuv li {
+	margin-bottom:	0px;
+}
+.sf-menuv li li {
+	background:		#fff;
+	border-left:	1px solid #aaa;
+	border-top:	1px solid #aaa;
+	border-right:	1px solid #aaa;
+	border-bottom:	0px;
+	margin-bottom:	0px;
+	margin-left: 5px;
+	margin-top:	0px;
+}
+
+.sf-menuv li li li {
+	background:		#fff;
+	border-left:	1px solid #aaa;
+	border-top:	1px solid #aaa;
+	border-bottom:	0px;
+	margin-bottom: 5px;
+	margin-bottom:	0px;
+}
+.sf-menuv a:focus, .sf-menuv a:hover, .sf-menuv a:active {
+	background:		#aaa;
+	outline:		0;
+	color:			#fff;
+	font-weight: bold;
+	text-decoration:none;
+	/*text-shadow: #333 1px 1px 1px;*/
+}
+
+
+.sf-menuv li.current {
+	background:		white;
+	border-right: solid 1px white;
+}
+
+.sf-menuv li.current-pre {
+	border-bottom: solid 1px #bbb;
+}
+
+.sf-menuv li.current-post {
+	border-top: solid 1px #bbb;
+}
+
+.sf-menuv li:hover, .sf-menuv li.current:hover, .sf-menuv li.sfHover {
+	background:		#E8E8E8;
+	outline:		0;
+	font-weight: bold;
+	text-decoration:none;	
+	border-right: solid 1px #bbb;
+}
+
+.sf-menuv li.subsub a, .sf-menuv li.subsub a:visited {
+	font-size: 10px;
+	padding: 		3px 5px 4px 24px;
+}
+
+.sf-menuv li li a, .sf-menuv li li a:visited {	
+	padding: 		6px 5px 7px 24px;
+	font-size: 12px;
+	font-weight: bold;
+	text-decoration:none;
+}
+
+.sf-menuv li.first {
+	border-top: double 3px #bbb;
+}
+
+.sf-menuv li li.last {
+	border-bottom:	1px solid #aaa;
+}
+
+.sf-menuv li.outlink a, .sf-menuv li.outlink a:visited {
+	font-weight: normal;
+}
+
+/*** arrows **/
+.sf-menuv a.sf-with-ul {
+	padding-right: 	10px;
+	min-width:		1px; /* trigger IE7 hasLayout so spans position accurately */
+}
+.sf-sidebar .sf-sub-indicator {
+	position:		absolute;
+	display:		block;
+	right:			5px;
+	top:			9px; /* IE6 only */	
+	width:			10px;
+	height:			10px;
+	text-indent: 	-999em;
+	overflow:		hidden;
+	background:		url('../images/superfish/arrows-black.html') no-repeat -10px -100px; /* 8-bit indexed alpha png. IE6 gets solid image only */
+}
+.sf-menuv a > .sf-sub-indicator {  /* give all except IE6 the correct values */
+	top:			8px;
+	background-position: 0 -100px; /* use translucent arrow for modern browsers*/
+}
+/* apply hovers to modern browsers */
+.sf-sidebar a:focus > .sf-sub-indicator,
+.sf-sidebar a:hover > .sf-sub-indicator,
+.sf-sidebar a:active > .sf-sub-indicator,
+.sf-sidebar li:hover > a > .sf-sub-indicator,
+.sf-sidebar li.sfHover > a > .sf-sub-indicator {
+	background-position: -10px -100px; /* arrow hovers for modern browsers*/
+}
+
+/* point right for anchors in subs */
+.sf-menuv ul .sf-sub-indicator 		{ background-position:  -10px 0; }
+.sf-menuv ul a > .sf-sub-indicator 	{ background-position:  0 0; }
+
+/* apply hovers to modern browsers */
+.sf-menuv ul a:focus > .sf-sub-indicator,
+.sf-menuv ul a:hover > .sf-sub-indicator,
+.sf-menuv ul a:active > .sf-sub-indicator,
+.sf-menuv ul li:hover > a > .sf-sub-indicator,
+.sf-menuv ul li.sfHover > a > .sf-sub-indicator {
+	background-position: -10px 0; /* arrow hovers for modern browsers*/
+}
+
+ul.sf-menu li a.sf-with-ul {
+	padding-right: 	18px;
+	min-width:		1px; /* trigger IE7 hasLayout so spans position accurately */
+}
+ul.sf-menu li li a.sf-with-ul {
+	padding-right: 	10px;
+	min-width:		1px; /* trigger IE7 hasLayout so spans position accurately */
+}
+
+.sf-menu a > .sf-sub-indicator {  /* give all except IE6 the correct values */
+	top:			10px;
+	background-position: 0 -100px; /* use translucent arrow for modern browsers*/
+}
+
+/*** adding sf-vertical in addition to sf-menu creates a vertical menu ***/
+.sf-sidebar, .sf-sidebar li {
+	width:	230px;
+}
+/* this lacks ul at the start of the selector, so the styles from the main CSS file override it where needed */
+.sf-sidebar li:hover ul,
+.sf-sidebar li.sfHover ul {
+	left:	230px; /* match ul width */
+	top:	0;
+}
+
+/*** alter arrow directions ***/
+.sf-sidebar .sf-sub-indicator 		{ background-position: -10px 0; } /* IE6 gets solid image only */
+.sf-sidebar a > .sf-sub-indicator 	{ background-position: 	0 	 0; } /* use translucent arrow for modern browsers*/
+
+/* hover arrow direction for modern browsers*/
+.sf-sidebar a:focus  > .sf-sub-indicator,
+.sf-sidebar a:hover  > .sf-sub-indicator,
+.sf-sidebar a:active > .sf-sub-indicator,
+.sf-sidebar li:hover > a > .sf-sub-indicator,
+.sf-sidebar li.sfHover > a > .sf-sub-indicator {
+	background-position: -10px 0; /* arrow hovers for modern browsers*/
+}
+
+
+/*** shadows for all but IE6 ***/
+.sf-sidebar ul {
+	background: transparent;
+}
+.sf-sidebar ul.sf-shadow-off {
+	background: transparent;
+}

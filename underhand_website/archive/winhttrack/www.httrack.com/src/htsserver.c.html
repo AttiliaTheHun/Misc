@@ -1,0 +1,1897 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsserver.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsserver.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsserver.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Mini-server                                            */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Bypass internal definition protection */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;time.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;fcntl.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;arpa/inet.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;signal.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* définitions globales */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* htslib */</FONT></I>
+<I><FONT COLOR="#B22222">/*#include &quot;htslib.h&quot;*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* HTTrack Website Copier Library */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Language files */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Bypass internal definition protection */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<B><FONT COLOR="#228B22">int</FONT></B> NewLangStrSz = 1024;
+coucal NewLangStr = NULL;
+<B><FONT COLOR="#228B22">int</FONT></B> NewLangStrKeysSz = 1024;
+coucal NewLangStrKeys = NULL;
+<B><FONT COLOR="#228B22">int</FONT></B> NewLangListSz = 1024;
+coucal NewLangList = NULL;
+
+<I><FONT COLOR="#B22222">/* Language files */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsserver.h&quot;</FONT></B>
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">gethomedir</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">int</FONT></B> commandRunning = 0;
+<B><FONT COLOR="#228B22">int</FONT></B> commandEndRequested = 0;
+<B><FONT COLOR="#228B22">int</FONT></B> commandEnd = 0;
+<B><FONT COLOR="#228B22">int</FONT></B> commandReturn = 0;
+<B><FONT COLOR="#228B22">char</FONT></B> *commandReturnMsg = NULL;
+<B><FONT COLOR="#228B22">char</FONT></B> *commandReturnCmdl = NULL;
+<B><FONT COLOR="#228B22">int</FONT></B> commandReturnSet = 0;
+
+httrackp *global_opt = NULL;
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*pingFun)(<B><FONT COLOR="#228B22">void</FONT></B>*) = NULL;
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* pingFunArg = NULL;
+
+<I><FONT COLOR="#B22222">/* Extern */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">webhttrack_main</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *cmd);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">webhttrack_lock</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">webhttrack_release</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_image</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.gif&quot;</FONT></B>) != NULL
+         || strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.png&quot;</FONT></B>) != NULL;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_text</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> ((strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.txt&quot;</FONT></B>) != NULL));
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_html</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> ((strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.htm&quot;</FONT></B>) != NULL));
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_css</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> ((strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.css&quot;</FONT></B>) != NULL));
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_js</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> ((strstr(file, <B><FONT COLOR="#BC8F8F">&quot;.js&quot;</FONT></B>) != NULL));
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_brpipe</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {
+  <I><FONT COLOR="#B22222">/* ignore */</FONT></I>
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">int</FONT></B> timeout);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">recv_bl</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">void</FONT></B> *buffer, size_t len, <B><FONT COLOR="#228B22">int</FONT></B> timeout);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput</FONT></B>(htsblk * r);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max, <B><FONT COLOR="#228B22">int</FONT></B> timeout);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+
+<I><FONT COLOR="#B22222">/* Language files */</FONT></I>
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htslang_load</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *limit_to, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *apppath);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">conv_printf</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *from, <B><FONT COLOR="#228B22">char</FONT></B> *to);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">LANG_DELETE</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">LANG_INIT</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_T</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">int</FONT></B> l);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">QLANG_T</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> l);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">LANGSEL</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">LANGINTKEY</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_SEARCH</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iso);
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_LIST</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">char</FONT></B> *buffer, size_t size);
+
+<I><FONT COLOR="#B22222">// URL Link catcher
+</FONT></I>
+<I><FONT COLOR="#B22222">// 0- Init the URL catcher with standard port
+</FONT></I>
+<I><FONT COLOR="#B22222">// smallserver_init(&amp;port,&amp;return_host);
+</FONT></I>T_SOC <B><FONT COLOR="#0000FF">smallserver_init_std</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port_prox, <B><FONT COLOR="#228B22">char</FONT></B> *adr_prox, <B><FONT COLOR="#228B22">int</FONT></B> defaultPort) {
+  T_SOC soc;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (defaultPort &lt;= 0) {
+    <B><FONT COLOR="#228B22">int</FONT></B> try_to_listen_to[] =
+      { 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089,
+      32000, 32001, 32002, 32003, 32004, 32006, 32006, 32007, 32008, 32009,
+      42000, 42001, 42002, 42003, 42004, 42006, 42006, 42007, 42008, 42009,
+      0, -1
+    };
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+    <B><FONT COLOR="#A020F0">do</FONT></B> {
+      soc = smallserver_init(&amp;try_to_listen_to[i], adr_prox);
+      *port_prox = try_to_listen_to[i];
+      i++;
+    } <B><FONT COLOR="#A020F0">while</FONT></B>((soc == INVALID_SOCKET) &amp;&amp; (try_to_listen_to[i] &gt;= 0));
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    soc = smallserver_init(&amp;defaultPort, adr_prox);
+    *port_prox = defaultPort;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+}
+
+<I><FONT COLOR="#B22222">// 1- Init the URL catcher
+</FONT></I>
+<I><FONT COLOR="#B22222">// get hostname. return 1 upon success.
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">gethost</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hostname, SOCaddr * server) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hostname != NULL &amp;&amp; *hostname != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>==0
+    <I><FONT COLOR="#B22222">/* ipV4 resolver */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> hostent *hp = gethostbyname(hostname);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hp != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hp-&gt;h_length) {
+        SOCaddr_copyaddr2(*server, hp-&gt;h_addr_list[0], hp-&gt;h_length);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <I><FONT COLOR="#B22222">/* ipV6 resolver */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> addrinfo *res = NULL;
+    <B><FONT COLOR="#228B22">struct</FONT></B> addrinfo hints;
+
+    memset(&amp;hints, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hints));
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (getaddrinfo(hostname, NULL, &amp;hints, &amp;res) == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (res) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((res-&gt;ai_addr) &amp;&amp; (res-&gt;ai_addrlen)) {
+          SOCaddr_copyaddr2(*server, res-&gt;ai_addr, res-&gt;ai_addrlen);
+          freeaddrinfo(res);
+          <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+        }
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (res) {
+      freeaddrinfo(res);
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">my_getlocalhost</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *h_loc, size_t size) {
+  SOCaddr addr;
+  strcpy(h_loc, <B><FONT COLOR="#BC8F8F">&quot;localhost&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethost(h_loc, &amp;addr) == 1) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <I><FONT COLOR="#B22222">// come on ...
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    strcpy(h_loc, <B><FONT COLOR="#BC8F8F">&quot;127.0.0.1&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+}
+
+<I><FONT COLOR="#B22222">// get local hostname; falls back to &quot;localhost&quot; in case of error 
+</FONT></I><I><FONT COLOR="#B22222">// always returns 0
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">my_gethostname</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *h_loc, size_t size) {
+  h_loc[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethostname(h_loc, (<B><FONT COLOR="#228B22">int</FONT></B>) size) == 0) {    <I><FONT COLOR="#B22222">// host name
+</FONT></I>    SOCaddr addr;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (gethost(h_loc, &amp;addr) == 1) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> my_getlocalhost(h_loc, size);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> my_getlocalhost(h_loc, size);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// smallserver_init(&amp;port,&amp;return_host);
+</FONT></I>T_SOC <B><FONT COLOR="#0000FF">smallserver_init</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port, <B><FONT COLOR="#228B22">char</FONT></B> *adr) {
+  T_SOC soc = INVALID_SOCKET;
+  <B><FONT COLOR="#228B22">char</FONT></B> h_loc[256 + 2];
+
+  commandRunning = commandEnd = commandReturn = commandReturnSet =
+    commandEndRequested = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (commandReturnMsg)
+    free(commandReturnMsg);
+  commandReturnMsg = NULL;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (commandReturnCmdl)
+    free(commandReturnCmdl);
+  commandReturnCmdl = NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (my_gethostname(h_loc, 256) == 0) {   <I><FONT COLOR="#B22222">// host name
+</FONT></I>    SOCaddr server;
+
+    SOCaddr_initany(server);
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((soc =
+         (T_SOC) socket(SOCaddr_sinfamily(server), SOCK_STREAM,
+                        0)) != INVALID_SOCKET) {
+      SOCaddr_initport(server, *port);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (bind(soc, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (listen(soc, 10) &gt;= 0) {
+          <I><FONT COLOR="#B22222">// SOCaddr_inetntoa(adr, 128, server2);
+</FONT></I>          strcpy(adr, h_loc);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          soc = INVALID_SOCKET;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+        closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        soc = INVALID_SOCKET;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+}
+
+<I><FONT COLOR="#B22222">// 2 - Wait for URL
+</FONT></I>
+<I><FONT COLOR="#B22222">// check if data is available
+</FONT></I>
+<I><FONT COLOR="#B22222">// smallserver
+</FONT></I><I><FONT COLOR="#B22222">// returns 0 if error
+</FONT></I><I><FONT COLOR="#B22222">// url: buffer where URL must be stored - or ip:port in case of failure
+</FONT></I><I><FONT COLOR="#B22222">// data: 32Kb
+</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name;
+  <B><FONT COLOR="#228B22">int</FONT></B> value;
+} initIntElt;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *value;
+} initStrElt;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SET_ERROR</FONT></B>(err) do { \
+  coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;error&quot;</FONT></B>, (intptr_t)strdup(err)); \
+  error_redirect = <B><FONT COLOR="#BC8F8F">&quot;/server/error.html&quot;</FONT></B>; \
+} while(0)
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">smallserver</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">char</FONT></B> *method, <B><FONT COLOR="#228B22">char</FONT></B> *data, <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">int</FONT></B> timeout = 30;
+  <B><FONT COLOR="#228B22">int</FONT></B> retour = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> willexit = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> buffer_size = 32768;
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffer = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(buffer_size);
+  String headers = STRING_EMPTY;
+  String output = STRING_EMPTY;
+  String tmpbuff = STRING_EMPTY;
+  String tmpbuff2 = STRING_EMPTY;
+  String fspath = STRING_EMPTY;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <I><FONT COLOR="#B22222">/* Load strings */</FONT></I>
+  htslang_init();
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!htslang_load(NULL, path)) {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;unable to find lang.def and/or lang/ strings in %s\n&quot;</FONT></B>,
+            path);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  LANG_T(path, 0);
+
+  <I><FONT COLOR="#B22222">/* Init various values */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">char</FONT></B> pth[1024];
+
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *initOn[] = { <B><FONT COLOR="#BC8F8F">&quot;parseall&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;Cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;ka&quot;</FONT></B>,
+      <B><FONT COLOR="#BC8F8F">&quot;cookies&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;parsejava&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;testall&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;updhack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;urlhack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;index&quot;</FONT></B>, NULL
+    };
+    <B><FONT COLOR="#228B22">const</FONT></B> initIntElt initInt[] = {
+      {<B><FONT COLOR="#BC8F8F">&quot;filter&quot;</FONT></B>, 4},
+      {<B><FONT COLOR="#BC8F8F">&quot;travel&quot;</FONT></B>, 2},
+      {<B><FONT COLOR="#BC8F8F">&quot;travel2&quot;</FONT></B>, 1},
+      {<B><FONT COLOR="#BC8F8F">&quot;travel3&quot;</FONT></B>, 1},
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      {<B><FONT COLOR="#BC8F8F">&quot;connexion&quot;</FONT></B>, 4},
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      {<B><FONT COLOR="#BC8F8F">&quot;maxrate&quot;</FONT></B>, 25000},
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      {<B><FONT COLOR="#BC8F8F">&quot;build&quot;</FONT></B>, 1},
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      {<B><FONT COLOR="#BC8F8F">&quot;checktype&quot;</FONT></B>, 2},
+      {<B><FONT COLOR="#BC8F8F">&quot;robots&quot;</FONT></B>, 3},
+
+      {NULL, 0}
+    };
+    initStrElt initStr[] = {
+      {<B><FONT COLOR="#BC8F8F">&quot;user&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;Mozilla/4.5 (compatible; HTTrack 3.0x; Windows 98)&quot;</FONT></B>},
+      {<B><FONT COLOR="#BC8F8F">&quot;footer&quot;</FONT></B>,
+       <B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Mirrored from %s%s by HTTrack Website Copier/3.x [XR&amp;CO'2014], %s --&gt;&quot;</FONT></B>},
+      {<B><FONT COLOR="#BC8F8F">&quot;url2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;+*.png +*.gif +*.jpg +*.jpeg +*.css +*.js -ad.doubleclick.net/*&quot;</FONT></B>},
+      {NULL, NULL}
+    };
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; initInt[i].name; i++) {
+      <B><FONT COLOR="#228B22">char</FONT></B> tmp[32];
+
+      sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, initInt[i].value);
+      coucal_write(NewLangList, initInt[i].name, (intptr_t) strdup(tmp));
+    }
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; initOn[i]; i++) {
+      coucal_write(NewLangList, initOn[i], (intptr_t) strdup(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>));    <I><FONT COLOR="#B22222">/* &quot;on&quot; */</FONT></I>
+    }
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; initStr[i].name; i++) {
+      coucal_write(NewLangList, initStr[i].name,
+                    (intptr_t) strdup(initStr[i].value));
+    }
+    strcpybuff(pth, gethomedir());
+    strcatbuff(pth, <B><FONT COLOR="#BC8F8F">&quot;/websites&quot;</FONT></B>);
+    coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;path&quot;</FONT></B>, (intptr_t) strdup(pth));
+  }
+
+  <I><FONT COLOR="#B22222">/* Lock */</FONT></I>
+  webhttrack_lock();
+
+  <I><FONT COLOR="#B22222">// connexion (accept)
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>(!willexit &amp;&amp; buffer != NULL &amp;&amp; soc != INVALID_SOCKET) {
+    <B><FONT COLOR="#228B22">char</FONT></B> line1[1024];
+    <B><FONT COLOR="#228B22">char</FONT></B> line[8192];
+    <B><FONT COLOR="#228B22">char</FONT></B> line2[1024];
+    T_SOC soc_c;
+    LLint length = 0;
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *error_redirect = NULL;
+
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    buffer[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    StringClear(headers);
+    StringClear(output);
+    StringClear(tmpbuff);
+    StringClear(tmpbuff2);
+    StringClear(fspath);
+    StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    StringCat(tmpbuff2, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    StringCat(fspath, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+
+    <I><FONT COLOR="#B22222">/* UnLock */</FONT></I>
+    webhttrack_release();
+
+    <I><FONT COLOR="#B22222">/* sigpipe */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    signal(SIGPIPE, sig_brpipe);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <I><FONT COLOR="#B22222">/* Accept */</FONT></I>
+    <B><FONT COLOR="#A020F0">while</FONT></B>((soc_c = (T_SOC) accept(soc, NULL, NULL)) == INVALID_SOCKET) ;
+
+    <I><FONT COLOR="#B22222">/* Ping */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pingFun != NULL) {
+      pingFun(pingFunArg);
+    }
+
+    <I><FONT COLOR="#B22222">/* Lock */</FONT></I>
+    webhttrack_lock();
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (linputsoc_t(soc_c, line1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line1) - 2, timeout) &gt; 0) {
+      <B><FONT COLOR="#228B22">int</FONT></B> meth = 0;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line1, <B><FONT COLOR="#BC8F8F">&quot;get &quot;</FONT></B>)) {
+        meth = 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line1, <B><FONT COLOR="#BC8F8F">&quot;post &quot;</FONT></B>)) {
+        meth = 2;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line1, <B><FONT COLOR="#BC8F8F">&quot;head &quot;</FONT></B>)) {    <I><FONT COLOR="#B22222">/* yes, we can do that */</FONT></I>
+        meth = 10;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+        <I><FONT COLOR="#B22222">// assert(FALSE);
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (meth) {
+        <I><FONT COLOR="#B22222">/* Flush headers */</FONT></I>
+        length = buffer_size - 2;
+        <B><FONT COLOR="#A020F0">while</FONT></B>(linputsoc_t(soc_c, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2, timeout) &gt; 0) {
+          <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(line, <B><FONT COLOR="#BC8F8F">&quot;Content-length:&quot;</FONT></B>)) != 0) {
+            sscanf(line + p, LLintP, &amp;(length));
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(line, <B><FONT COLOR="#BC8F8F">&quot;Accept-language:&quot;</FONT></B>)) != 0) {
+            <B><FONT COLOR="#228B22">char</FONT></B> tmp[32];
+            <B><FONT COLOR="#228B22">char</FONT></B> *s = line + p;
+
+            <I><FONT COLOR="#B22222">/*int l; */</FONT></I>
+            <B><FONT COLOR="#A020F0">while</FONT></B>(*s == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+              s++;
+            tmp[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            strncatbuff(tmp, s, 2);
+            <I><FONT COLOR="#B22222">/*l = LANG_SEARCH(path, tmp); */</FONT></I>
+          }
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (meth == 2) {
+          <B><FONT COLOR="#228B22">int</FONT></B> sz = 0;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (length &gt; buffer_size - 2) {
+            length = buffer_size - 2;
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (length &gt; 0
+              &amp;&amp; (sz = recv_bl(soc_c, buffer, (<B><FONT COLOR="#228B22">int</FONT></B>) length, timeout)) &lt; 0) {
+            meth = 0;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            buffer[sz] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Generated variables */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (commandEnd &amp;&amp; !commandReturnSet) {
+        commandReturnSet = 1;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (commandReturn) {
+          <B><FONT COLOR="#228B22">char</FONT></B> tmp[32];
+
+          sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, commandReturn);
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturn&quot;</FONT></B>, (intptr_t) strdup(tmp));
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturnMsg&quot;</FONT></B>,
+                        (intptr_t) commandReturnMsg);
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturnCmdl&quot;</FONT></B>,
+                        (intptr_t) commandReturnCmdl);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturn&quot;</FONT></B>, (intptr_t) NULL);
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturnMsg&quot;</FONT></B>, (intptr_t) NULL);
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;commandReturnCmdl&quot;</FONT></B>, (intptr_t) NULL);
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* SID check */</FONT></I>
+      {
+        intptr_t adr = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;_sid&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_write
+              (NewLangList, <B><FONT COLOR="#BC8F8F">&quot;sid&quot;</FONT></B>, (intptr_t) strdup((<B><FONT COLOR="#228B22">char</FONT></B> *) adr))) {
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* check variables */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (meth &amp;&amp; buffer[0]) {
+        <B><FONT COLOR="#228B22">char</FONT></B> *s = buffer;
+        <B><FONT COLOR="#228B22">char</FONT></B> *e, *f;
+
+        strcatbuff(buffer, <B><FONT COLOR="#BC8F8F">&quot;&amp;&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">while</FONT></B>(s &amp;&amp; (e = strchr(s, <B><FONT COLOR="#BC8F8F">'='</FONT></B>)) &amp;&amp; (f = strchr(s, <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>))) {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *ua;
+          String sua = STRING_EMPTY;
+
+          *e = *f = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          ua = e + 1;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strfield2(ua, <B><FONT COLOR="#BC8F8F">&quot;on&quot;</FONT></B>))      <I><FONT COLOR="#B22222">/* hack : &quot;on&quot; == 1 */</FONT></I>
+            ua = <B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>;
+          unescapehttp(ua, &amp;sua);
+          coucal_write(NewLangList, s, (intptr_t) StringAcquire(&amp;sua));
+          s = f + 1;
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Error check */</FONT></I>
+      {
+        intptr_t adr = 0;
+        intptr_t adr2 = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;sid&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;_sid&quot;</FONT></B>, &amp;adr2)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, (<B><FONT COLOR="#228B22">char</FONT></B> *) adr2) != 0) {
+              meth = 0;
+            }
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Check variables (internal) */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (meth) {
+        <B><FONT COLOR="#228B22">int</FONT></B> doLoad = 0;
+        intptr_t adr = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;lang&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#228B22">int</FONT></B> n = 0;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n) == 1 &amp;&amp; n &gt; 0
+              &amp;&amp; n - 1 != LANG_T(path, -1)) {
+            LANG_T(path, n - 1);
+            <I><FONT COLOR="#B22222">/* make a backup, because the GUI will override it */</FONT></I>
+            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;lang_&quot;</FONT></B>,
+                          (intptr_t) strdup((<B><FONT COLOR="#228B22">char</FONT></B> *) adr));
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Load existing project settings */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;loadprojname&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *pname = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*pname) {
+            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;projname&quot;</FONT></B>, (intptr_t) strdup(pname));
+          }
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;loadprojname&quot;</FONT></B>, (intptr_t) NULL);
+          doLoad = 1;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;loadprojcateg&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *pname = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*pname) {
+            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;projcateg&quot;</FONT></B>, (intptr_t) strdup(pname));
+          }
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;loadprojcateg&quot;</FONT></B>, (intptr_t) NULL);
+        }
+
+        <I><FONT COLOR="#B22222">/* intial configuration */</FONT></I>
+        {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_read(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;conf_file_loaded&quot;</FONT></B>, NULL)) {
+            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;conf_file_loaded&quot;</FONT></B>,
+                          (intptr_t) strdup(<B><FONT COLOR="#BC8F8F">&quot;true&quot;</FONT></B>));
+            doLoad = 2;
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* path : &lt;path&gt;/&lt;project&gt; */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!commandRunning) {
+          intptr_t adrpath = 0, adrprojname = 0;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;path&quot;</FONT></B>, &amp;adrpath)
+              &amp;&amp; coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;projname&quot;</FONT></B>, &amp;adrprojname)) {
+            StringClear(fspath);
+            StringCat(fspath, (<B><FONT COLOR="#228B22">char</FONT></B> *) adrpath);
+            StringCat(fspath, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            StringCat(fspath, (<B><FONT COLOR="#228B22">char</FONT></B> *) adrprojname);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Load existing project settings */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (doLoad) {
+          FILE *fp;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (doLoad == 1) {
+            StringCat(fspath, <B><FONT COLOR="#BC8F8F">&quot;/hts-cache/winprofile.ini&quot;</FONT></B>);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (doLoad == 2) {
+            StringCopy(fspath, gethomedir());
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+            StringCat(fspath, <B><FONT COLOR="#BC8F8F">&quot;/httrack.ini&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+            StringCat(fspath, <B><FONT COLOR="#BC8F8F">&quot;/.httrack.ini&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          }
+          fp = fopen(StringBuff(fspath), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+            <I><FONT COLOR="#B22222">/* Read file */</FONT></I>
+            <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+              <B><FONT COLOR="#228B22">char</FONT></B> *str = line;
+              <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!linput(fp, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2)) {
+                *str = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              }
+              pos = strchr(line, <B><FONT COLOR="#BC8F8F">'='</FONT></B>);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (pos) {
+                String escline = STRING_EMPTY;
+
+                *pos++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                <B><FONT COLOR="#A020F0">if</FONT></B> (pos[0] == <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; pos[1] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>)
+                  *pos = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;  <I><FONT COLOR="#B22222">/* 0 =&gt; empty */</FONT></I>
+                unescapeini(pos, &amp;escline);
+                coucal_write(NewLangList, line,
+                              (intptr_t) StringAcquire(&amp;escline));
+              }
+            }
+
+            fclose(fp);
+          }
+        }
+
+      }
+
+      <I><FONT COLOR="#B22222">/* Execute command */</FONT></I>
+      {
+        intptr_t adr = 0;
+        <B><FONT COLOR="#228B22">int</FONT></B> p = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;command&quot;</FONT></B>, &amp;adr)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;cancel&quot;</FONT></B>) == 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!commandEndRequested) {
+                commandEndRequested = 1;
+                hts_request_stop(global_opt, 0);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                hts_request_stop(global_opt, 1);        <I><FONT COLOR="#B22222">/* note: the force flag does not have anyeffect yet */</FONT></I>
+                commandEndRequested = 2;        <I><FONT COLOR="#B22222">/* will break the loop() callback */</FONT></I>
+              }
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;cancel-file=&quot;</FONT></B>))) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              hts_cancel_file_push(global_opt, (<B><FONT COLOR="#228B22">char</FONT></B> *) adr + p);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;cancel-parsing&quot;</FONT></B>) == 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              hts_cancel_parsing(global_opt);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;pause=&quot;</FONT></B>))) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              hts_setpause(global_opt, 1);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;unpause&quot;</FONT></B>))) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              hts_setpause(global_opt, 0);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;abort&quot;</FONT></B>) == 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              hts_request_stop(global_opt, 1);
+              commandEndRequested = 2;  <I><FONT COLOR="#B22222">/* will break the loop() callback */</FONT></I>
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;add-url=&quot;</FONT></B>))) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+              <B><FONT COLOR="#228B22">char</FONT></B> *ptraddr[2];
+
+              ptraddr[0] = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr + p;
+              ptraddr[1] = NULL;
+              hts_addurl(global_opt, ptraddr);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;httrack&quot;</FONT></B>))) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!commandRunning) {
+              intptr_t adrcd = 0;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;command_do&quot;</FONT></B>, &amp;adrcd)) {
+                intptr_t adrw = 0;
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;winprofile&quot;</FONT></B>, &amp;adrw)) {
+
+                  <I><FONT COLOR="#B22222">/* User general profile */</FONT></I>
+                  intptr_t adruserprofile = 0;
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr
+                      (NewLangList, <B><FONT COLOR="#BC8F8F">&quot;userprofile&quot;</FONT></B>, &amp;adruserprofile)
+                      &amp;&amp; adruserprofile != 0) {
+                    <B><FONT COLOR="#228B22">int</FONT></B> count = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen((<B><FONT COLOR="#228B22">char</FONT></B> *) adruserprofile);
+
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (count &gt; 0) {
+                      FILE *fp;
+
+                      StringClear(tmpbuff);
+                      StringCopy(tmpbuff, gethomedir());
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+                      StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;/httrack.ini&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+                      StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;/.httrack.ini&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                      fp = fopen(StringBuff(tmpbuff), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                        (<B><FONT COLOR="#228B22">void</FONT></B>) ((<B><FONT COLOR="#228B22">int</FONT></B>)
+                                fwrite((<B><FONT COLOR="#228B22">void</FONT></B> *) adruserprofile, 1, count, fp));
+                        fclose(fp);
+                      }
+                    }
+                  }
+
+                  <I><FONT COLOR="#B22222">/* Profile */</FONT></I>
+                  StringClear(tmpbuff);
+                  StringCat(tmpbuff, StringBuff(fspath));
+                  StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;/hts-cache/&quot;</FONT></B>);
+
+                  <I><FONT COLOR="#B22222">/* Create minimal directory structure */</FONT></I>
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (!structcheck(StringBuff(tmpbuff))) {
+                    FILE *fp;
+
+                    StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;winprofile.ini&quot;</FONT></B>);
+                    fp = fopen(StringBuff(tmpbuff), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                      <B><FONT COLOR="#228B22">int</FONT></B> count = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen((<B><FONT COLOR="#228B22">char</FONT></B> *) adrw);
+
+                      <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) fwrite((<B><FONT COLOR="#228B22">void</FONT></B> *) adrw, 1, count, fp) == count) {
+
+                        <I><FONT COLOR="#B22222">/* Wipe the doit.log file, useless here (all options are replicated) and
+                           even a bit annoying (duplicate/ghost options)
+                           The behaviour is exactly the same as in WinHTTrack
+                         */</FONT></I>
+                        StringClear(tmpbuff);
+                        StringCat(tmpbuff, StringBuff(fspath));
+                        StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;/hts-cache/doit.log&quot;</FONT></B>);
+                        remove(StringBuff(tmpbuff));
+
+                        <I><FONT COLOR="#B22222">/*
+                           RUN THE SERVER
+                         */</FONT></I>
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adrcd, <B><FONT COLOR="#BC8F8F">&quot;start&quot;</FONT></B>) == 0) {
+                          webhttrack_main((<B><FONT COLOR="#228B22">char</FONT></B> *) adr + p);
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                          commandRunning = 0;
+                          commandEnd = 1;
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        <B><FONT COLOR="#228B22">char</FONT></B> tmp[1024];
+
+                        sprintf(tmp,
+                                <B><FONT COLOR="#BC8F8F">&quot;Unable to write %d bytes in the the init file %s&quot;</FONT></B>,
+                                count, StringBuff(fspath));
+                        SET_ERROR(tmp);
+                      }
+                      fclose(fp);
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                      <B><FONT COLOR="#228B22">char</FONT></B> tmp[1024];
+
+                      sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;Unable to create the init file %s&quot;</FONT></B>,
+                              StringBuff(fspath));
+                      SET_ERROR(tmp);
+                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    <B><FONT COLOR="#228B22">char</FONT></B> tmp[1024];
+
+                    sprintf(tmp,
+                            <B><FONT COLOR="#BC8F8F">&quot;Unable to create the directory structure in %s&quot;</FONT></B>,
+                            StringBuff(fspath));
+                    SET_ERROR(tmp);
+                  }
+
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  SET_ERROR
+                    (<B><FONT COLOR="#BC8F8F">&quot;Internal server error: unable to fetch project name or path&quot;</FONT></B>);
+                }
+              }
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;quit&quot;</FONT></B>) == 0) {
+            willexit = 1;
+          }
+          coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;command&quot;</FONT></B>, (intptr_t) NULL);
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Response */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (meth) {
+        <B><FONT COLOR="#228B22">int</FONT></B> virtualpath = 0;
+        <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+        <B><FONT COLOR="#228B22">char</FONT></B> *url = strchr(line1, <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (url &amp;&amp; *++url == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; (pos = strchr(url, <B><FONT COLOR="#BC8F8F">' '</FONT></B>)) &amp;&amp; !(*pos = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>)) {
+          <B><FONT COLOR="#228B22">char</FONT></B> fsfile[1024];
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file;
+          FILE *fp;
+          <B><FONT COLOR="#228B22">char</FONT></B> *qpos;
+
+          <I><FONT COLOR="#B22222">/* get the URL */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (error_redirect == NULL) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((qpos = strchr(url, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>))) {
+              *qpos = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            }
+            fsfile[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(url, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>) == 0) {
+              file = <B><FONT COLOR="#BC8F8F">&quot;/server/index.html&quot;</FONT></B>;
+              meth = 2;
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              file = url;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            file = error_redirect;
+            meth = 2;
+          }
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(file, <B><FONT COLOR="#BC8F8F">&quot;/website/&quot;</FONT></B>, 9) == 0) {
+            virtualpath = 1;
+          }
+
+          <I><FONT COLOR="#B22222">/* override */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (commandRunning) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (is_html(file)) {
+              file = <B><FONT COLOR="#BC8F8F">&quot;/server/refresh.html&quot;</FONT></B>;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (commandEnd &amp;&amp; !virtualpath &amp;&amp; !willexit) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (is_html(file)) {
+              file = <B><FONT COLOR="#BC8F8F">&quot;/server/finished.html&quot;</FONT></B>;
+            }
+          }
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(path) + strlen(file) + 32 &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(fsfile)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(file, <B><FONT COLOR="#BC8F8F">&quot;/website/&quot;</FONT></B>, 9) != 0) {
+              sprintf(fsfile, <B><FONT COLOR="#BC8F8F">&quot;%shtml%s&quot;</FONT></B>, path, file);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              intptr_t adr = 0;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;projpath&quot;</FONT></B>, &amp;adr)) {
+                sprintf(fsfile, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, (<B><FONT COLOR="#228B22">char</FONT></B> *) adr, file + 9);
+              }
+            }
+          }
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fsfile[0] &amp;&amp; strstr(file, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>) == NULL
+              &amp;&amp; (fp = fopen(fsfile, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>))) {
+            <B><FONT COLOR="#228B22">char</FONT></B> ok[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack-small-server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/html\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Cache-Control: no-cache, must-revalidate, private\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Pragma: no-cache\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> ok_img[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: image/gif\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> ok_js[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/javascript\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> ok_css[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/css\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> ok_text[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/plain\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> ok_unknown[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 OK\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: application/octet-stream\r\n&quot;</FONT></B>;
+
+            <I><FONT COLOR="#B22222">/* register current page */</FONT></I>
+            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;thisfile&quot;</FONT></B>, (intptr_t) strdup(file));
+
+            <I><FONT COLOR="#B22222">/* Force GET for the last request */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (meth == 2 &amp;&amp; willexit) {
+              meth = 1;
+            }
+
+            <I><FONT COLOR="#B22222">/* posted data are redirected to get protocol */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (meth == 2) {
+              <B><FONT COLOR="#228B22">char</FONT></B> redir[] =
+                <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 302 Redirect\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Connection: close\r\n&quot;</FONT></B>
+                <B><FONT COLOR="#BC8F8F">&quot;Server: httrack-small-server\r\n&quot;</FONT></B>;
+              intptr_t adr = 0;
+              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *newfile = file;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;redirect&quot;</FONT></B>, &amp;adr) &amp;&amp; adr != 0) {
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *newadr = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (*newadr) {
+                  newfile = newadr;
+                }
+              }
+              StringMemcat(headers, redir, strlen(redir));
+              {
+                <B><FONT COLOR="#228B22">char</FONT></B> tmp[256];
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(file) &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(tmp) - 32) {
+                  sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;Location: %s\r\n&quot;</FONT></B>, newfile);
+                  StringMemcat(headers, tmp, strlen(tmp));
+                }
+              }
+              coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;redirect&quot;</FONT></B>, (intptr_t) NULL);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (is_html(file)) {
+              <B><FONT COLOR="#228B22">int</FONT></B> outputmode = 0;
+
+              StringMemcat(headers, ok, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok) - 1);
+              <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+                <B><FONT COLOR="#228B22">char</FONT></B> *str = line;
+                <B><FONT COLOR="#228B22">int</FONT></B> prevlen = (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(output);
+                <B><FONT COLOR="#228B22">int</FONT></B> nocr = 0;
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!linput(fp, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2)) {
+                  *str = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                }
+                <B><FONT COLOR="#A020F0">if</FONT></B> (*str &amp;&amp; str[strlen(str) - 1] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>) {
+                  nocr = 1;
+                  str[strlen(str) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                }
+                <B><FONT COLOR="#A020F0">while</FONT></B>(*str) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+                  size_t n;
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (*str == <B><FONT COLOR="#BC8F8F">'$'</FONT></B> &amp;&amp; *++str == <B><FONT COLOR="#BC8F8F">'{'</FONT></B> &amp;&amp; (pos = strchr(++str, <B><FONT COLOR="#BC8F8F">'}'</FONT></B>))
+                      &amp;&amp; (n = (pos - str)) &amp;&amp; n &lt; 1024) {
+                    <B><FONT COLOR="#228B22">char</FONT></B> name_[1024 + 2];
+                    <B><FONT COLOR="#228B22">char</FONT></B> *name = name_;
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *langstr = NULL;
+                    <B><FONT COLOR="#228B22">int</FONT></B> p;
+                    <B><FONT COLOR="#228B22">int</FONT></B> format = 0;
+                    <B><FONT COLOR="#228B22">int</FONT></B> listDefault = 0;
+
+                    name[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                    strncatbuff(name, str, n);
+
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(name, <B><FONT COLOR="#BC8F8F">&quot;/*&quot;</FONT></B>, 2) == 0) {
+                      <I><FONT COLOR="#B22222">/* comments */</FONT></I>
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;html:&quot;</FONT></B>))) {
+                      name += p;
+                      format = 1;
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;list:&quot;</FONT></B>))) {
+                      name += p;
+                      format = 2;
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;liststr:&quot;</FONT></B>))) {
+                      name += p;
+                      format = -2;
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;file-exists:&quot;</FONT></B>))) {
+                      <B><FONT COLOR="#228B22">char</FONT></B> *pos2;
+
+                      name += p;
+                      format = 0;
+                      pos2 = strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+                      langstr = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (pos2 != NULL) {
+                        *pos2 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(name, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>) == NULL) {
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, name))) {
+                            langstr = pos2 + 1;
+                          }
+                        }
+                      }
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;do:&quot;</FONT></B>))) {
+                      <B><FONT COLOR="#228B22">char</FONT></B> *pos2;
+                      <B><FONT COLOR="#228B22">char</FONT></B> empty[2] = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+
+                      name += p;
+                      format = 1;
+                      pos2 = strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+                      langstr = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (pos2 != NULL) {
+                        *pos2 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                        pos2++;
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        pos2 = empty;
+                      }
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;output-mode&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(pos2, <B><FONT COLOR="#BC8F8F">&quot;html&quot;</FONT></B>) == 0) {
+                          outputmode = 1;
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(pos2, <B><FONT COLOR="#BC8F8F">&quot;inifile&quot;</FONT></B>) == 0) {
+                          outputmode = 2;
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(pos2, <B><FONT COLOR="#BC8F8F">&quot;html-urlescaped&quot;</FONT></B>) == 0) {
+                          outputmode = 3;
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                          outputmode = 0;
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;if-file-exists&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(pos2, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>) == NULL) {
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (!fexist(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, pos2))) {
+                            outputmode = -1;
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;if-project-file-exists&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(pos2, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>) == NULL) {
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (!fexist
+                              (fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), StringBuff(fspath), pos2))) {
+                            outputmode = -1;
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;if-file-do-not-exists&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(pos2, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>) == NULL) {
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, pos2))) {
+                            outputmode = -1;
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;if-not-empty&quot;</FONT></B>) == 0) {
+                        intptr_t adr = 0;
+
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_readptr(NewLangList, pos2, &amp;adr)
+                            || *((<B><FONT COLOR="#228B22">char</FONT></B> *) adr) == 0) {
+                          outputmode = -1;
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;if-empty&quot;</FONT></B>) == 0) {
+                        intptr_t adr = 0;
+
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, pos2, &amp;adr)
+                            &amp;&amp; *((<B><FONT COLOR="#228B22">char</FONT></B> *) adr) != 0) {
+                          outputmode = -1;
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;end-if&quot;</FONT></B>) == 0) {
+                        outputmode = 0;
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;loadhash&quot;</FONT></B>) == 0) {
+                        intptr_t adr = 0;
+
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;path&quot;</FONT></B>, &amp;adr)) {
+                          <B><FONT COLOR="#228B22">char</FONT></B> *rpath = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+                          <I><FONT COLOR="#B22222">//find_handle h;
+</FONT></I>                          <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[0]) {
+                            <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[strlen(rpath) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+                              rpath[strlen(rpath) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;  <I><FONT COLOR="#B22222">/* note: patching stored (inhash) value */</FONT></I>
+                            }
+                          }
+                          {
+                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *profiles = hts_getcategories(rpath, 0);
+                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *categ = hts_getcategories(rpath, 1);
+
+                            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;winprofile&quot;</FONT></B>,
+                                          (intptr_t) profiles);
+                            coucal_write(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;wincateg&quot;</FONT></B>,
+                                          (intptr_t) categ);
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;copy&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (*pos2) {
+                          <B><FONT COLOR="#228B22">char</FONT></B> *pos3 = strchr(pos2, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (pos3 &amp;&amp; *(pos3 + 1)) {
+                            intptr_t adr = 0;
+
+                            *pos3++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                            <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, pos2, &amp;adr)) {
+                              coucal_write(NewLangList, pos3,
+                                            (intptr_t) strdup((<B><FONT COLOR="#228B22">char</FONT></B> *) adr));
+                              coucal_write(NewLangList, pos2, (intptr_t) NULL);
+                            }
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(name, <B><FONT COLOR="#BC8F8F">&quot;set&quot;</FONT></B>) == 0) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (*pos2) {
+                          <B><FONT COLOR="#228B22">char</FONT></B> *pos3 = strchr(pos2, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (pos3) {
+                            *pos3++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                            coucal_write(NewLangList, pos2,
+                                          (intptr_t) strdup(pos3));
+                          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                            coucal_write(NewLangList, pos2, (intptr_t) NULL);
+                          }
+                        }
+                      }
+                    }
+                    <I><FONT COLOR="#B22222">/*
+                       test:&lt;if exist&gt;
+                       test:&lt;if ==0&gt;:&lt;if ==1&gt;:&lt;if == 2&gt;..
+                       ztest:&lt;if == 0 || !exist&gt;:&lt;if == 1&gt;:&lt;if == 2&gt;..
+                     */</FONT></I>
+                    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;test:&quot;</FONT></B>))
+                             || (p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;ztest:&quot;</FONT></B>))) {
+                      intptr_t adr = 0;
+                      <B><FONT COLOR="#228B22">char</FONT></B> *pos2;
+                      <B><FONT COLOR="#228B22">int</FONT></B> ztest = (name[0] == <B><FONT COLOR="#BC8F8F">'z'</FONT></B>);
+
+                      langstr = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                      name += p;
+                      pos2 = strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (pos2 != NULL) {
+                        *pos2 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, name, &amp;adr) || ztest) {
+                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *newadr = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (!newadr)
+                            newadr = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (*newadr || ztest) {
+                            <B><FONT COLOR="#228B22">int</FONT></B> npos = 0;
+
+                            name = pos2 + 1;
+                            format = 4;
+                            <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>) == NULL) {
+                              npos = 0; <I><FONT COLOR="#B22222">/* first is good if only one : */</FONT></I>
+                              format = 0;
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                              <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(newadr, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;npos) != 1) {
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(newadr, <B><FONT COLOR="#BC8F8F">&quot;on&quot;</FONT></B>)) {
+                                  npos = 1;
+                                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                                  npos = 0;     <I><FONT COLOR="#B22222">/* first one will be ok */</FONT></I>
+                                  format = 0;
+                                }
+                              }
+                            }
+                            <B><FONT COLOR="#A020F0">while</FONT></B>(*name &amp;&amp; *name != <B><FONT COLOR="#BC8F8F">'}'</FONT></B> &amp;&amp; npos &gt;= 0) {
+                              <B><FONT COLOR="#228B22">int</FONT></B> end = 0;
+                              <B><FONT COLOR="#228B22">char</FONT></B> *fpos = strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+                              <B><FONT COLOR="#228B22">int</FONT></B> n2;
+
+                              <B><FONT COLOR="#A020F0">if</FONT></B> (fpos == NULL) {
+                                fpos = name + strlen(name);
+                                end = 1;
+                              }
+                              n2 = (<B><FONT COLOR="#228B22">int</FONT></B>) (fpos - name);
+                              <B><FONT COLOR="#A020F0">if</FONT></B> (npos == 0) {
+                                langstr = name;
+                                *fpos = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (end) {
+                                npos = 0;
+                              }
+                              name += n2 + 1;
+                              npos--;
+                            }
+                          }
+                        }
+                      }
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;listid:&quot;</FONT></B>))) {
+                      <B><FONT COLOR="#228B22">char</FONT></B> *pos2;
+
+                      name += p;
+                      format = 2;
+                      pos2 = strchr(name, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (pos2) {
+                        <B><FONT COLOR="#228B22">char</FONT></B> dname[32];
+                        <B><FONT COLOR="#228B22">int</FONT></B> n2 = (<B><FONT COLOR="#228B22">int</FONT></B>) (pos2 - name);
+
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (n2 &gt; 0 &amp;&amp; n2 &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(dname) - 2) {
+                          intptr_t adr = 0;
+
+                          dname[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                          strncatbuff(dname, name, n2);
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, dname, &amp;adr)) {
+                            <B><FONT COLOR="#228B22">int</FONT></B> n = 0;
+
+                            <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf((<B><FONT COLOR="#228B22">char</FONT></B> *) adr, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n) == 1) {
+                              listDefault = n;
+                            }
+                          }
+                          name += n2 + 1;
+                        }
+                      }
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(name, <B><FONT COLOR="#BC8F8F">&quot;checked:&quot;</FONT></B>))) {
+                      name += p;
+                      format = 3;
+                    }
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (langstr == NULL) {
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (strfield2(name, <B><FONT COLOR="#BC8F8F">&quot;#iso&quot;</FONT></B>)) {
+                        langstr = line2;
+                        line2[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                        LANG_LIST(path, line2, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line2));
+                        assertf(strlen(langstr) &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line2) - 2);
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        langstr = LANGSEL(name);
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (langstr == NULL || *langstr == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                          intptr_t adr = 0;
+
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_readptr(NewLangList, name, &amp;adr)) {
+                            <B><FONT COLOR="#228B22">char</FONT></B> *newadr = (<B><FONT COLOR="#228B22">char</FONT></B> *) adr;
+
+                            langstr = newadr;
+                          }
+                        }
+                      }
+                    }
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (langstr &amp;&amp; outputmode != -1) {
+                      <B><FONT COLOR="#A020F0">switch</FONT></B> (format) {
+                      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+                        {
+                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = langstr;
+
+                          <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+                            <B><FONT COLOR="#A020F0">if</FONT></B> (a[0] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B> &amp;&amp; isxdigit(a[1])
+                                &amp;&amp; isxdigit(a[2])) {
+                              <B><FONT COLOR="#228B22">int</FONT></B> n;
+                              <B><FONT COLOR="#228B22">char</FONT></B> c;
+
+                              <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(a + 1, <B><FONT COLOR="#BC8F8F">&quot;%x&quot;</FONT></B>, &amp;n) == 1) {
+                                c = (<B><FONT COLOR="#228B22">char</FONT></B>) n;
+                                StringMemcat(output, &amp;c, 1);
+                              }
+                              a += 2;
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&amp;lt;&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&amp;gt;&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&amp;amp;&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&amp;#39;&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode == 3 &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;%20&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode &gt;= 2
+                                       &amp;&amp; ((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) a[0]) &lt; 32) {
+                              <B><FONT COLOR="#228B22">char</FONT></B> tmp[32];
+
+                              sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%%%02x&quot;</FONT></B>, (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) a[0]);
+                              StringCat(output, tmp);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode == 2 &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;%%&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode == 3 &amp;&amp; a[0] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+                              StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;%25&quot;</FONT></B>);
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                              StringMemcat(output, a, 1);
+                            }
+                            a++;
+                          }
+                        }
+                        <B><FONT COLOR="#A020F0">break</FONT></B>;
+                      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">3</FONT></B>:
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (*langstr) {
+                          StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;checked&quot;</FONT></B>);
+                        }
+                        <B><FONT COLOR="#A020F0">break</FONT></B>;
+                      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (*langstr) {
+                          <B><FONT COLOR="#228B22">int</FONT></B> id = 1;
+                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fstr = langstr;
+
+                          StringClear(tmpbuff);
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (format == 2) {
+                            StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;option value=1&gt;&quot;</FONT></B>);
+                          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (format == -2) {
+                            StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;option value=\&quot;&quot;</FONT></B>);
+                          }
+                          <B><FONT COLOR="#A020F0">while</FONT></B>(*fstr) {
+                            <B><FONT COLOR="#A020F0">switch</FONT></B> (*fstr) {
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>:
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>:
+                              <B><FONT COLOR="#A020F0">if</FONT></B> (format == 1) {
+                                StringCat(output, StringBuff(tmpbuff));
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;br&gt;\r\n&quot;</FONT></B>);
+                              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (format == -2) {
+                                StringCat(output, StringBuff(tmpbuff));
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;\&quot;&gt;&quot;</FONT></B>);
+                                StringCat(output, StringBuff(tmpbuff));
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;/option&gt;\r\n&quot;</FONT></B>);
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;option value=\&quot;&quot;</FONT></B>);
+                              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                                <B><FONT COLOR="#228B22">char</FONT></B> tmp[32];
+
+                                sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, ++id);
+                                StringCat(output, StringBuff(tmpbuff));
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;/option&gt;\r\n&quot;</FONT></B>);
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;option value=&quot;</FONT></B>);
+                                StringCat(output, tmp);
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (listDefault == id) {
+                                  StringCat(output, <B><FONT COLOR="#BC8F8F">&quot; selected&quot;</FONT></B>);
+                                }
+                                StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&gt;&quot;</FONT></B>);
+                              }
+                              StringClear(tmpbuff);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>:
+                              StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;&amp;lt;&quot;</FONT></B>);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>:
+                              StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;&amp;gt;&quot;</FONT></B>);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>:
+                              StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;&amp;amp;&quot;</FONT></B>);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\''</FONT></B>:
+                              StringCat(tmpbuff, <B><FONT COLOR="#BC8F8F">&quot;&amp;#39;&quot;</FONT></B>);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+                              StringMemcat(tmpbuff, fstr, 1);
+                              <B><FONT COLOR="#A020F0">break</FONT></B>;
+                            }
+                            fstr++;
+                          }
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (format == 2) {
+                            StringCat(output, StringBuff(tmpbuff));
+                            StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;/option&gt;&quot;</FONT></B>);
+                          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (format == -2) {
+                            StringCat(output, StringBuff(tmpbuff));
+                            StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;\&quot;&gt;&quot;</FONT></B>);
+                            StringCat(output, StringBuff(tmpbuff));
+                            StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;&lt;/option&gt;&quot;</FONT></B>);
+                          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                            StringCat(output, StringBuff(tmpbuff));
+                          }
+                          StringClear(tmpbuff);
+                        }
+                      }
+                    }
+                    str = pos;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (outputmode != -1) {
+                      StringMemcat(output, str, 1);
+                    }
+                  }
+                  str++;
+                }
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!nocr &amp;&amp; prevlen != StringLength(output)) {
+                  StringCat(output, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+                }
+              }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+              {
+                <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen((<B><FONT COLOR="#228B22">char</FONT></B> *) StringBuff(output));
+
+                assert(len == (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(output));
+              }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (is_text(file)) {
+                StringMemcat(headers, ok_text, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok_text) - 1);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (is_js(file)) {
+                StringMemcat(headers, ok_js, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok_js) - 1);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (is_css(file)) {
+                StringMemcat(headers, ok_css, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok_css) - 1);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (is_image(file)) {
+                StringMemcat(headers, ok_img, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok_img) - 1);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                StringMemcat(headers, ok_unknown, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ok_unknown) - 1);
+              }
+              <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+                <B><FONT COLOR="#228B22">int</FONT></B> n = (<B><FONT COLOR="#228B22">int</FONT></B>) fread(line, 1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2, fp);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (n &gt; 0) {
+                  StringMemcat(output, line, n);
+                }
+              }
+            }
+            fclose(fp);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(file, <B><FONT COLOR="#BC8F8F">&quot;/ping&quot;</FONT></B>) == 0
+                     || strncmp(file, <B><FONT COLOR="#BC8F8F">&quot;/ping?&quot;</FONT></B>, 6) == 0) {
+            <B><FONT COLOR="#228B22">char</FONT></B> error_hdr[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 200 Pong\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/html\r\n&quot;</FONT></B>;
+
+            StringCat(headers, error_hdr);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#228B22">char</FONT></B> error_hdr[] =
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 404 Not Found\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/html\r\n&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">char</FONT></B> error[] = <B><FONT COLOR="#BC8F8F">&quot;Page not found.\r\n&quot;</FONT></B>;
+
+            StringCat(headers, error_hdr);
+            StringCat(output, error);
+            <I><FONT COLOR="#B22222">//assert(file == NULL);
+</FONT></I>          }
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+        <B><FONT COLOR="#228B22">char</FONT></B> error_hdr[] =
+          <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 500 Server Error\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Server: httrack small server\r\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/html\r\n&quot;</FONT></B>;
+        <B><FONT COLOR="#228B22">char</FONT></B> error[] = <B><FONT COLOR="#BC8F8F">&quot;Server error.\r\n&quot;</FONT></B>;
+
+        StringCat(headers, error_hdr);
+        StringCat(output, error);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      }
+      {
+        <B><FONT COLOR="#228B22">char</FONT></B> tmp[256];
+
+        sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;Content-length: %d\r\n&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(output));
+        StringCat(headers, tmp);
+      }
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((send(soc_c, StringBuff(headers), (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(headers), 0) !=
+           StringLength(headers))
+          || ((meth == 1)
+              &amp;&amp; (send(soc_c, StringBuff(output), (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(output), 0)
+                  != StringLength(output)))
+        ) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+        <I><FONT COLOR="#B22222">//assert(FALSE);
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+      <I><FONT COLOR="#B22222">// assert(FALSE);
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+
+    <I><FONT COLOR="#B22222">/* Shutdown (FIN) and wait until confirmed */</FONT></I>
+    {
+      <B><FONT COLOR="#228B22">char</FONT></B> c;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      shutdown(soc_c, SD_SEND);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      shutdown(soc_c, 1);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <I><FONT COLOR="#B22222">/* This is necessary as IE sometimes (!) sends an additional CRLF after POST data */</FONT></I>
+      <B><FONT COLOR="#A020F0">while</FONT></B>(recv(soc_c, ((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;c), 1, 0) &gt; 0) ;
+    }
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc_c);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc_c);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+
+  StringFree(headers);
+  StringFree(output);
+  StringFree(tmpbuff);
+  StringFree(tmpbuff2);
+  StringFree(fspath);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buffer)
+    free(buffer);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (commandReturnMsg)
+    free(commandReturnMsg);
+  commandReturnMsg = NULL;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (commandReturnCmdl)
+    free(commandReturnCmdl);
+  commandReturnCmdl = NULL;
+
+  <I><FONT COLOR="#B22222">/* Unlock */</FONT></I>
+  webhttrack_release();
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> retour;
+}
+
+<I><FONT COLOR="#B22222">/* Language files */</FONT></I>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htslang_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (NewLangList == NULL) {
+    NewLangList = coucal_new(0);
+    coucal_set_name(NewLangList, <B><FONT COLOR="#BC8F8F">&quot;NewLangList&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (NewLangList == NULL) {
+      abortLog(<B><FONT COLOR="#BC8F8F">&quot;Error in lang.h: not enough memory&quot;</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      coucal_value_is_malloc(NewLangList, 1);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htslang_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (NewLangList != NULL) {
+    coucal_delete(&amp;NewLangList);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">smallserver_setpinghandler</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*fun)(<B><FONT COLOR="#228B22">void</FONT></B>*), <B><FONT COLOR="#228B22">void</FONT></B>*arg) {
+  pingFun = fun;
+  pingFunArg = arg;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">smallserver_setkey</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *key, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *value) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_write(NewLangList, key, (intptr_t) strdup(value));
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">smallserver_setkeyint</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *key, LLint value) {
+  <B><FONT COLOR="#228B22">char</FONT></B> tmp[256];
+
+  snprintf(tmp, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(tmp), LLintP, value);
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_write(NewLangList, key, (intptr_t) strdup(tmp));
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">smallserver_setkeyarr</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *key, <B><FONT COLOR="#228B22">int</FONT></B> id, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *key2, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *value) {
+  <B><FONT COLOR="#228B22">char</FONT></B> tmp[256];
+
+  snprintf(tmp, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(tmp), <B><FONT COLOR="#BC8F8F">&quot;%s%d%s&quot;</FONT></B>, key, id, key2);
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_write(NewLangList, tmp, (intptr_t) strdup(value));
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htslang_load</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *limit_to, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hashname;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> selected_lang = LANG_T(path, -1);
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (!limit_to) {
+    LANG_DELETE();
+    NewLangStr = coucal_new(0);
+    NewLangStrKeys = coucal_new(0);
+    coucal_set_name(NewLangStr, <B><FONT COLOR="#BC8F8F">&quot;NewLangStr&quot;</FONT></B>);
+    coucal_set_name(NewLangStrKeys, <B><FONT COLOR="#BC8F8F">&quot;NewLangStrKeys&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((NewLangStr == NULL) || (NewLangStrKeys == NULL)) {
+      abortLog(<B><FONT COLOR="#BC8F8F">&quot;Error in lang.h: not enough memory&quot;</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      coucal_value_is_malloc(NewLangStr, 1);
+      coucal_value_is_malloc(NewLangStrKeys, 1);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Load master file (list of keys and internal keys) */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!limit_to) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mname = <B><FONT COLOR="#BC8F8F">&quot;lang.def&quot;</FONT></B>;
+    FILE *fp = fopen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, mname), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      <B><FONT COLOR="#228B22">char</FONT></B> intkey[8192];
+      <B><FONT COLOR="#228B22">char</FONT></B> key[8192];
+
+      <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+        linput_cpp(fp, intkey, 8000);
+        linput_cpp(fp, key, 8000);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(intkey) &amp;&amp; strnotempty(key)) {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *test = LANGINTKEY(key);
+
+          <I><FONT COLOR="#B22222">/* Increment for multiple definitions */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(test)) {
+            <B><FONT COLOR="#228B22">int</FONT></B> increment = 0;
+            size_t pos = strlen(key);
+
+            <B><FONT COLOR="#A020F0">do</FONT></B> {
+              increment++;
+              sprintf(key + pos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, increment);
+              test = LANGINTKEY(key);
+            } <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(test));
+          }
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!strnotempty(test)) {     <I><FONT COLOR="#B22222">// éviter doublons
+</FONT></I>            <I><FONT COLOR="#B22222">// conv_printf(key,key);
+</FONT></I>            <B><FONT COLOR="#228B22">const</FONT></B> size_t len = strlen(intkey);
+            <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> buff = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(len + 1);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (buff) {
+              strcpybuff(buff, intkey);
+              coucal_add(NewLangStrKeys, key, (intptr_t) buff);
+            }
+          }
+        }                       <I><FONT COLOR="#B22222">// if
+</FONT></I>      }                         <I><FONT COLOR="#B22222">// while
+</FONT></I>      fclose(fp);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Language Name? */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">char</FONT></B> name[256];
+
+    sprintf(name, <B><FONT COLOR="#BC8F8F">&quot;LANGUAGE_%d&quot;</FONT></B>, selected_lang + 1);
+    hashname = LANGINTKEY(name);
+  }
+
+  <I><FONT COLOR="#B22222">/* Get only language name */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (limit_to) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashname)
+      strcpybuff(limit_to, hashname);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strcpybuff(limit_to, <B><FONT COLOR="#BC8F8F">&quot;???&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+
+  <I><FONT COLOR="#B22222">/* Error */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!hashname)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+  <I><FONT COLOR="#B22222">/* Load specific language file */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">int</FONT></B> loops;
+
+    <I><FONT COLOR="#B22222">// 2nd loop: load undefined strings
+</FONT></I>    <B><FONT COLOR="#A020F0">for</FONT></B>(loops = 0; loops &lt; 2; loops++) {
+      FILE *fp;
+      <B><FONT COLOR="#228B22">char</FONT></B> lbasename[1024];
+
+      {
+        <B><FONT COLOR="#228B22">char</FONT></B> name[256];
+
+        sprintf(name, <B><FONT COLOR="#BC8F8F">&quot;LANGUAGE_%d&quot;</FONT></B>, (loops == 0) ? (selected_lang + 1) : 1);
+        hashname = LANGINTKEY(name);
+      }
+      sprintf(lbasename, <B><FONT COLOR="#BC8F8F">&quot;lang/%s.txt&quot;</FONT></B>, hashname);
+      fp = fopen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, lbasename), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+        <B><FONT COLOR="#228B22">char</FONT></B> extkey[8192];
+        <B><FONT COLOR="#228B22">char</FONT></B> value[8192];
+
+        <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+          linput_cpp(fp, extkey, 8000);
+          linput_cpp(fp, value, 8000);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(extkey) &amp;&amp; strnotempty(value)) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *intkey;
+
+            intkey = LANGINTKEY(extkey);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(intkey)) {
+
+              <I><FONT COLOR="#B22222">/* Increment for multiple definitions */</FONT></I>
+              {
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *test = LANGSEL(intkey);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(test)) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (loops == 0) {
+                    <B><FONT COLOR="#228B22">int</FONT></B> increment = 0;
+                    size_t pos = strlen(extkey);
+
+                    <B><FONT COLOR="#A020F0">do</FONT></B> {
+                      increment++;
+                      sprintf(extkey + pos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, increment);
+                      intkey = LANGINTKEY(extkey);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(intkey))
+                        test = LANGSEL(intkey);
+                      <B><FONT COLOR="#A020F0">else</FONT></B>
+                        test = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                    } <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(test));
+                  } <B><FONT COLOR="#A020F0">else</FONT></B>
+                    intkey = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (loops &gt; 0) {
+                    <I><FONT COLOR="#B22222">//err_msg += intkey;
+</FONT></I>                    <I><FONT COLOR="#B22222">//err_msg += &quot; &quot;;
+</FONT></I>                  }
+                }
+              }
+
+              <I><FONT COLOR="#B22222">/* Add key */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(intkey)) {
+                <B><FONT COLOR="#228B22">const</FONT></B> size_t len = strlen(value);
+                <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> buff = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(len + 1);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (buff) {
+                  conv_printf(value, buff);
+                  coucal_add(NewLangStr, intkey, (intptr_t) buff);
+                }
+              }
+
+            }
+          }                     <I><FONT COLOR="#B22222">// if
+</FONT></I>        }                       <I><FONT COLOR="#B22222">// while
+</FONT></I>        fclose(fp);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// Control limit_to
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (limit_to)
+    limit_to[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<I><FONT COLOR="#B22222">/* NOTE : also contains the &quot;webhttrack&quot; hack */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">conv_printf</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *from, <B><FONT COLOR="#228B22">char</FONT></B> *to) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0, j = 0, len;
+
+  len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(from);
+  <B><FONT COLOR="#A020F0">while</FONT></B>(i &lt; len) {
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (from[i]) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>:
+      i++;
+      <B><FONT COLOR="#A020F0">switch</FONT></B> (from[i]) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'a'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\a'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'b'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\b'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'f'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\f'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'n'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'r'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\r'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'t'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'v'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\v'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\''</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\''</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'?'</FONT></B>:
+        to[j] = <B><FONT COLOR="#BC8F8F">'\?'</FONT></B>;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+        to[j] = from[i];
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+      to[j] = from[i];
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+    i++;
+    j++;
+  }
+  to[j++] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">/* Dirty hack */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a = to;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a = strstr(a, <B><FONT COLOR="#BC8F8F">&quot;WinHTTrack&quot;</FONT></B>))) {
+      a[0] = <B><FONT COLOR="#BC8F8F">'W'</FONT></B>;
+      a[1] = <B><FONT COLOR="#BC8F8F">'e'</FONT></B>;
+      a[2] = <B><FONT COLOR="#BC8F8F">'b'</FONT></B>;
+      a++;
+    }
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">LANG_DELETE</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  coucal_delete(&amp;NewLangStr);
+  coucal_delete(&amp;NewLangStrKeys);
+}
+
+<I><FONT COLOR="#B22222">// sélection de la langue
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">LANG_INIT</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <I><FONT COLOR="#B22222">//CWinApp* pApp = AfxGetApp();
+</FONT></I>  <I><FONT COLOR="#B22222">//if (pApp) {
+</FONT></I>  <I><FONT COLOR="#B22222">/* pApp-&gt;GetProfileInt(&quot;Language&quot;,&quot;IntId&quot;,0); */</FONT></I>
+  LANG_T(path, 0 <I><FONT COLOR="#B22222">/*pApp-&gt;GetProfileInt(&quot;Language&quot;,&quot;IntId&quot;,0) */</FONT></I> );
+  <I><FONT COLOR="#B22222">//}
+</FONT></I>}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_T</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">int</FONT></B> l) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (l &gt;= 0) {
+    QLANG_T(l);
+    htslang_load(NULL, path);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> QLANG_T(-1);           <I><FONT COLOR="#B22222">// 0=default (english)
+</FONT></I>}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_SEARCH</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iso) {
+  <B><FONT COLOR="#228B22">char</FONT></B> lang_str[1024];
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> curr_lng = LANG_T(path, -1);
+  <B><FONT COLOR="#228B22">int</FONT></B> found = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    QLANG_T(i);
+    strcpybuff(lang_str, <B><FONT COLOR="#BC8F8F">&quot;LANGUAGE_ISO&quot;</FONT></B>);
+    htslang_load(lang_str, path);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(iso, lang_str)) {
+      found = i;
+    }
+    i++;
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(strlen(lang_str) &gt; 0);
+  QLANG_T(curr_lng);
+  <B><FONT COLOR="#A020F0">return</FONT></B> found;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">LANG_LIST</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">char</FONT></B> *buffer, size_t buffer_size) {
+  <B><FONT COLOR="#228B22">char</FONT></B> lang_str[1024];
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> curr_lng = LANG_T(path, -1);
+
+  buffer[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    QLANG_T(i);
+    strlcpybuff(lang_str, <B><FONT COLOR="#BC8F8F">&quot;LANGUAGE_NAME&quot;</FONT></B>, buffer_size);
+    htslang_load(lang_str, path);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(lang_str) &gt; 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (buffer[0])
+        strcatbuff(buffer, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+      strlcatbuff(buffer, lang_str, buffer_size);
+    }
+    i++;
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(strlen(lang_str) &gt; 0);
+  QLANG_T(curr_lng);
+  <B><FONT COLOR="#A020F0">return</FONT></B> i;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">QLANG_T</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> l) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> lng = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (l &gt;= 0) {
+    lng = l;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> lng;                   <I><FONT COLOR="#B22222">// 0=default (english)
+</FONT></I>}
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">LANGSEL</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* name) {
+  coucal_value value;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (NewLangStr != NULL 
+      &amp;&amp; coucal_read_value(NewLangStr, name, &amp;value) != 0
+      &amp;&amp; value.ptr != NULL) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">char</FONT></B>*) value.ptr;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  }
+}
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">LANGINTKEY</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* name) {
+  coucal_value value;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (NewLangStrKeys != NULL
+      &amp;&amp; coucal_read_value(NewLangStrKeys, name, &amp;value) != 0
+      &amp;&amp; value.ptr != NULL) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">char</FONT></B>*) value.ptr;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  }
+}
+
+<I><FONT COLOR="#B22222">/* *** Various functions *** */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">recv_bl</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">void</FONT></B> *buffer, size_t len, <B><FONT COLOR="#228B22">int</FONT></B> timeout) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (check_readinput_t(soc, timeout)) {
+    <B><FONT COLOR="#228B22">int</FONT></B> n = 1;
+    size_t size = len;
+    size_t offs = 0;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(n &gt; 0 &amp;&amp; size &gt; 0) {
+      n = recv(soc, ((<B><FONT COLOR="#228B22">char</FONT></B> *) buffer) + offs, (<B><FONT COLOR="#228B22">int</FONT></B>) size, 0);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (n &gt; 0) {
+        offs += n;
+        size -= n;
+      }
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) offs;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">// check if data is available
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput</FONT></B>(htsblk * r) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;soc != INVALID_SOCKET) {
+    fd_set fds;                 <I><FONT COLOR="#B22222">// poll structures
+</FONT></I>    <B><FONT COLOR="#228B22">struct</FONT></B> timeval tv;          <I><FONT COLOR="#B22222">// structure for select
+</FONT></I>
+    FD_ZERO(&amp;fds);
+    FD_SET(r-&gt;soc, &amp;fds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    select((<B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;soc + 1, &amp;fds, NULL, NULL, &amp;tv);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(r-&gt;soc, &amp;fds))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/*int strfield(const char* f,const char* s) {
+  int r=0;
+  while (streql(*f,*s) &amp;&amp; ((*f)!=0) &amp;&amp; ((*s)!=0)) { f++; s++; r++; }
+  if (*s==0)
+    return r;
+  else
+    return 0;
+}*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* same, except + */</FONT></I>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsserver.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

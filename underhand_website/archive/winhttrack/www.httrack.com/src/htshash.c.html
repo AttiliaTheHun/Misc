@@ -1,0 +1,359 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htshash.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htshash.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htshash.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       hash table system (fast index)                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsopt.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htshash.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmd5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Specific macros */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">malloct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">malloct</FONT> malloc
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">freet</FONT> free
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">calloct</FONT> calloc
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">strcpybuff</FONT> strcpy
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// GESTION DES TABLES DE HACHAGE
+</FONT></I><I><FONT COLOR="#B22222">// Méthode à 2 clés (adr+fil), 2e cle facultative
+</FONT></I><I><FONT COLOR="#B22222">// hash[no_enregistrement][pos]-&gt;hash est un index dans le tableau général liens
+</FONT></I><I><FONT COLOR="#B22222">// type: numero enregistrement - 0 est case insensitive (sav) 1 (adr+fil) 2 (former_adr+former_fil)
+</FONT></I><I><FONT COLOR="#B22222">// recherche dans la table selon nom1,nom2 et le no d'enregistrement
+</FONT></I>
+<I><FONT COLOR="#B22222">/* Key free handler (NOOP) ; addresses are kept */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">key_freehandler</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_key value) {
+}
+
+<I><FONT COLOR="#B22222">/* Key strdup (pointer copy) */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_key <B><FONT COLOR="#0000FF">key_duphandler</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_key_const name) {
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    coucal_key_const roname;
+    coucal_key name;
+  } u;
+  u.roname = name;
+  <B><FONT COLOR="#A020F0">return</FONT></B> u.name;
+}
+
+<I><FONT COLOR="#B22222">/* Key sav hashes are using case-insensitive version */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_hashkeys <B><FONT COLOR="#0000FF">key_sav_hashes</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_key_const key) {
+  hash_struct *<B><FONT COLOR="#228B22">const</FONT></B> hash = (hash_struct*) arg;
+  convtolower(hash-&gt;catbuff, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) key);
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_hash_string(hash-&gt;catbuff);
+}
+
+<I><FONT COLOR="#B22222">/* Key sav comparison is case-insensitive */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">key_sav_equals</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                          coucal_key_const a_,
+                          coucal_key_const b_) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) a_;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> b = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) b_;
+  <B><FONT COLOR="#A020F0">return</FONT></B> strcasecmp(a, b) == 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">key_sav_debug_print</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                       coucal_key_const a) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) a;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">value_sav_debug_print</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_value_const a) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">char</FONT></B>*) a.ptr;
+}
+
+<I><FONT COLOR="#B22222">/* Pseudo-key (lien_url structure) hash function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_hashkeys <B><FONT COLOR="#0000FF">key_adrfil_hashes_generic</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                              coucal_key_const value, 
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> former) {
+  hash_struct *<B><FONT COLOR="#228B22">const</FONT></B> hash = (hash_struct*) arg;
+  <B><FONT COLOR="#228B22">const</FONT></B> lien_url*<B><FONT COLOR="#228B22">const</FONT></B> lien = (<B><FONT COLOR="#228B22">const</FONT></B> lien_url*) value;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> adr = !former ? lien-&gt;adr : lien-&gt;former_adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> fil = !former ? lien-&gt;fil : lien-&gt;former_fil;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> adr_norm = adr != NULL ? 
+    ( hash-&gt;normalized  ? jump_normalized_const(adr)
+                        : jump_identification_const(adr) )
+    : NULL;
+
+  <I><FONT COLOR="#B22222">// copy address
+</FONT></I>  assertf(adr_norm != NULL);
+  strcpy(hash-&gt;normfil, adr_norm);
+
+  <I><FONT COLOR="#B22222">// copy link
+</FONT></I>  assertf(fil != NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash-&gt;normalized) {
+    fil_normalized(fil, &amp;hash-&gt;normfil[strlen(hash-&gt;normfil)]);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    strcpy(&amp;hash-&gt;normfil[strlen(hash-&gt;normfil)], fil);
+  }
+
+  <I><FONT COLOR="#B22222">// hash
+</FONT></I>  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_hash_string(hash-&gt;normfil);
+}
+
+<I><FONT COLOR="#B22222">/* Pseudo-key (lien_url structure) comparison function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">key_adrfil_equals_generic</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                     coucal_key_const a_,
+                                     coucal_key_const b_, 
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> former) {
+  hash_struct *<B><FONT COLOR="#228B22">const</FONT></B> hash = (hash_struct*) arg;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> normalized = hash-&gt;normalized;
+  <B><FONT COLOR="#228B22">const</FONT></B> lien_url*<B><FONT COLOR="#228B22">const</FONT></B> a = (<B><FONT COLOR="#228B22">const</FONT></B> lien_url*) a_;
+  <B><FONT COLOR="#228B22">const</FONT></B> lien_url*<B><FONT COLOR="#228B22">const</FONT></B> b = (<B><FONT COLOR="#228B22">const</FONT></B> lien_url*) b_;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a_adr = !former ? a-&gt;adr : a-&gt;former_adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> b_adr = !former ? b-&gt;adr : b-&gt;former_adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a_fil = !former ? a-&gt;fil : a-&gt;former_fil;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> b_fil = !former ? b-&gt;fil : b-&gt;former_fil;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *ja;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *jb;
+
+  <I><FONT COLOR="#B22222">// safety
+</FONT></I>  assertf(a_adr != NULL);
+  assertf(b_adr != NULL);
+  assertf(a_fil != NULL);
+  assertf(b_fil != NULL);
+
+  <I><FONT COLOR="#B22222">// skip scheme and authentication to the domain (possibly without www.)
+</FONT></I>  ja = normalized
+    ? jump_normalized_const(a_adr) : jump_identification_const(a_adr);
+  jb = normalized
+    ? jump_normalized_const(b_adr) : jump_identification_const(b_adr);
+  assertf(ja != NULL);
+  assertf(jb != NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(ja, jb) != 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+
+  <I><FONT COLOR="#B22222">// now compare pathes
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (normalized) {
+    fil_normalized(a_fil, hash-&gt;normfil);
+    fil_normalized(b_fil, hash-&gt;normfil2);
+    <B><FONT COLOR="#A020F0">return</FONT></B> strcmp(hash-&gt;normfil, hash-&gt;normfil2) == 0;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> strcmp(a_fil, b_fil) == 0;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">key_adrfil_debug_print_</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                           coucal_key_const a_,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> former) {
+  hash_struct *<B><FONT COLOR="#228B22">const</FONT></B> hash = (hash_struct*) arg;
+  <B><FONT COLOR="#228B22">const</FONT></B> lien_url*<B><FONT COLOR="#228B22">const</FONT></B> a = (<B><FONT COLOR="#228B22">const</FONT></B> lien_url*) a_;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a_adr = !former ? a-&gt;adr : a-&gt;former_adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a_fil = !former ? a-&gt;fil : a-&gt;former_fil;
+  snprintf(hash-&gt;normfil, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hash-&gt;normfil), <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, a_adr, a_fil);
+  <B><FONT COLOR="#A020F0">return</FONT></B> hash-&gt;normfil;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">key_adrfil_debug_print</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                          coucal_key_const a_) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_debug_print_(arg, a_, 0);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">key_former_adrfil_debug_print</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                                 coucal_key_const a_) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_debug_print_(arg, a_, 1);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">value_adrfil_debug_print</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                            coucal_value_const value) {
+  hash_struct *<B><FONT COLOR="#228B22">const</FONT></B> hash = (hash_struct*) arg;
+  snprintf(hash-&gt;normfil2, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hash-&gt;normfil2), <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) value.intg);
+  <B><FONT COLOR="#A020F0">return</FONT></B> hash-&gt;normfil2;
+}
+
+<I><FONT COLOR="#B22222">/* &quot;adr&quot;/&quot;fil&quot; lien_url structure members hashing function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_hashkeys <B><FONT COLOR="#0000FF">key_adrfil_hashes</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_key_const value_) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_hashes_generic(arg, value_, 0);
+}
+
+<I><FONT COLOR="#B22222">/* &quot;adr&quot;/&quot;fil&quot; lien_url structure members comparison function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">key_adrfil_equals</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                             coucal_key_const a,
+                             coucal_key_const b) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_equals_generic(arg, a, b, 0);
+}
+
+<I><FONT COLOR="#B22222">/* &quot;former_adr&quot;/&quot;former_fil&quot; lien_url structure members hashing function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_hashkeys <B><FONT COLOR="#0000FF">key_former_adrfil_hashes</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, coucal_key_const value_) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_hashes_generic(arg, value_, 1);
+}
+
+<I><FONT COLOR="#B22222">/* &quot;former_adr&quot;/&quot;former_fil&quot; lien_url structure members comparison function */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">key_former_adrfil_equals</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg,
+                                    coucal_key_const a,
+                                    coucal_key_const b) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> key_adrfil_equals_generic(arg, a, b, 1);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hash_init</FONT></B>(httrackp *opt, hash_struct * hash, <B><FONT COLOR="#228B22">int</FONT></B> normalized) {
+  hash-&gt;sav = coucal_new(0);
+  hash-&gt;adrfil = coucal_new(0);
+  hash-&gt;former_adrfil = coucal_new(0);
+  hash-&gt;normalized = normalized;
+
+  hts_set_hash_handler(hash-&gt;sav, opt);
+  hts_set_hash_handler(hash-&gt;adrfil, opt);
+  hts_set_hash_handler(hash-&gt;former_adrfil, opt);
+
+  coucal_set_name(hash-&gt;sav, <B><FONT COLOR="#BC8F8F">&quot;hash-&gt;sav&quot;</FONT></B>);
+  coucal_set_name(hash-&gt;adrfil, <B><FONT COLOR="#BC8F8F">&quot;hash-&gt;adrfil&quot;</FONT></B>);
+  coucal_set_name(hash-&gt;former_adrfil, <B><FONT COLOR="#BC8F8F">&quot;hash-&gt;former_adrfil&quot;</FONT></B>);
+
+  <I><FONT COLOR="#B22222">/* Case-insensitive comparison ; keys are direct char* filenames */</FONT></I>
+  coucal_value_set_key_handler(hash-&gt;sav,
+                                key_duphandler,
+                                key_freehandler,
+                                key_sav_hashes,
+                                key_sav_equals,
+                                hash);
+
+  <I><FONT COLOR="#B22222">/* URL-style comparison ; keys are lien_url structure pointers casted 
+     to char* */</FONT></I>
+  coucal_value_set_key_handler(hash-&gt;adrfil,
+                                key_duphandler,
+                                key_freehandler,
+                                key_adrfil_hashes,
+                                key_adrfil_equals,
+                                hash);
+  coucal_value_set_key_handler(hash-&gt;former_adrfil,
+                                key_duphandler,
+                                key_freehandler,
+                                key_former_adrfil_hashes,
+                                key_former_adrfil_equals,
+                                hash);
+
+  <I><FONT COLOR="#B22222">/* pretty-printing */</FONT></I>
+  coucal_set_print_handler(hash-&gt;sav,
+                            key_sav_debug_print,
+                            value_sav_debug_print,
+                            NULL);
+  coucal_set_print_handler(hash-&gt;adrfil,
+                            key_adrfil_debug_print,
+                            value_adrfil_debug_print,
+                            hash);
+  coucal_set_print_handler(hash-&gt;former_adrfil,
+                            key_former_adrfil_debug_print,
+                            value_adrfil_debug_print,
+                            hash);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hash_free</FONT></B>(hash_struct *hash) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash != NULL) {
+    coucal_delete(&amp;hash-&gt;sav);
+    coucal_delete(&amp;hash-&gt;adrfil);
+    coucal_delete(&amp;hash-&gt;former_adrfil);
+  }
+}
+
+<I><FONT COLOR="#B22222">// retour: position ou -1 si non trouvé
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hash_read</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> hash_struct * hash, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *nom1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *nom2,
+              hash_struct_type type) {
+  intptr_t intvalue;
+  lien_url lien;
+
+  <I><FONT COLOR="#B22222">/* read */</FONT></I>
+  <B><FONT COLOR="#A020F0">switch</FONT></B>(type) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HASH_STRUCT_FILENAME</FONT></B>:
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(hash-&gt;sav, nom1, &amp;intvalue)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) intvalue;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HASH_STRUCT_ADR_PATH</FONT></B>:
+    memset(&amp;lien, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(lien));
+    lien.adr = key_duphandler(NULL, nom1);
+    lien.fil = key_duphandler(NULL, nom2);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(hash-&gt;adrfil, (<B><FONT COLOR="#228B22">char</FONT></B>*) &amp;lien, &amp;intvalue)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) intvalue;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HASH_STRUCT_ORIGINAL_ADR_PATH</FONT></B>:
+    memset(&amp;lien, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(lien));
+    lien.former_adr = key_duphandler(NULL, nom1);
+    lien.former_fil = key_duphandler(NULL, nom2);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(hash-&gt;former_adrfil, (<B><FONT COLOR="#228B22">char</FONT></B>*) &amp;lien, &amp;intvalue)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) intvalue;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    assertf(! <B><FONT COLOR="#BC8F8F">&quot;unexpected case&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+
+<I><FONT COLOR="#B22222">// enregistrement lien lpos dans les 3 tables hash1..3
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hash_write</FONT></B>(hash_struct * hash, size_t lpos) {
+  <I><FONT COLOR="#B22222">/* first entry: destination filename (lowercased) */</FONT></I>
+  coucal_write(hash-&gt;sav, (*hash-&gt;liens)[lpos]-&gt;sav, lpos);
+
+  <I><FONT COLOR="#B22222">/* second entry: URL address and path */</FONT></I>
+  coucal_write(hash-&gt;adrfil, (*hash-&gt;liens)[lpos], lpos);
+
+  <I><FONT COLOR="#B22222">/* third entry: URL address and path before redirect */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((*hash-&gt;liens)[lpos]-&gt;former_adr) {        <I><FONT COLOR="#B22222">// former_adr existe?
+</FONT></I>    coucal_write(hash-&gt;former_adrfil, (*hash-&gt;liens)[lpos], lpos);
+  }
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htshash.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

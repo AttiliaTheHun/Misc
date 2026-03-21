@@ -1,0 +1,9 @@
+ErrorDocument 404 /archive/404.php
+
+DirectoryIndex /archive/archive.php
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(winhttrack|site1|site2|site3|site4|site5|site6)($|/) - [L]
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
+RewriteRule ^([^\.]+)$ $1.html [NC,L]

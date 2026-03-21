@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/proxy/store.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:48 GMT -->
+<HEAD>
+<TITLE>./proxy/store.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./proxy/store.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Cache manager for ProxyTrack                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">WEBHTTRACK_PROXYTRACK_STORE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">WEBHTTRACK_PROXYTRACK_STORE</FONT>
+
+<I><FONT COLOR="#B22222">/* Includes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;pthread.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;windows.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Proxy */</FONT></I>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index _PT_Index;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Indexes _PT_Indexes;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index *PT_Index;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Indexes *PT_Indexes;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Cache _PT_Cache;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Cache *PT_Cache;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_CacheItem _PT_CacheItem;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_CacheItem *PT_CacheItem;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Element {
+  <B><FONT COLOR="#228B22">int</FONT></B> indexId;                  <I><FONT COLOR="#B22222">// index identifier, if suitable (!= -1)
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> statuscode;               <I><FONT COLOR="#B22222">// status-code, -1=erreur, 200=OK,201=..etc (cf RFC1945)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *adr;                    <I><FONT COLOR="#B22222">// adresse du bloc de mémoire, NULL=vide
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *headers;                <I><FONT COLOR="#B22222">// adresse des en têtes si présents (RFC822 format)
+</FONT></I>  size_t size;                  <I><FONT COLOR="#B22222">// taille fichier
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> msg[1024];               <I><FONT COLOR="#B22222">// error message (&quot;\0&quot;=undefined)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> contenttype[64];         <I><FONT COLOR="#B22222">// content-type (&quot;text/html&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> charset[64];             <I><FONT COLOR="#B22222">// charset (&quot;iso-8859-1&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *location;               <I><FONT COLOR="#B22222">// on copie dedans éventuellement la véritable 'location'
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> lastmodified[64];        <I><FONT COLOR="#B22222">// Last-Modified
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> etag[64];                <I><FONT COLOR="#B22222">// Etag
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> cdispo[256];             <I><FONT COLOR="#B22222">// Content-Disposition coupé
+</FONT></I>} _PT_Element;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Element *PT_Element;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> PT_Fetch_Flags {
+  FETCH_HEADERS,                <I><FONT COLOR="#B22222">// fetch headers
+</FONT></I>  FETCH_BODY                    <I><FONT COLOR="#B22222">// fetch body
+</FONT></I>} PT_Fetch_Flags;
+
+<I><FONT COLOR="#B22222">/* Locking */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *PT_Mutex;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> pthread_mutex_t PT_Mutex;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexInit</FONT></B>(PT_Mutex * pMutex);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexLock</FONT></B>(PT_Mutex * pMutex);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexUnlock</FONT></B>(PT_Mutex * pMutex);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexFree</FONT></B>(PT_Mutex * pMutex);
+
+<I><FONT COLOR="#B22222">/* Indexes */</FONT></I>
+PT_Indexes <B><FONT COLOR="#0000FF">PT_New</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Delete</FONT></B>(PT_Indexes index);
+PT_Element <B><FONT COLOR="#0000FF">PT_ReadIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_AddIndex</FONT></B>(PT_Indexes index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_RemoveIndex</FONT></B>(PT_Indexes index, <B><FONT COLOR="#228B22">int</FONT></B> indexId);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_IndexMerge</FONT></B>(PT_Indexes indexes, PT_Index * pindex);
+PT_Index <B><FONT COLOR="#0000FF">PT_GetIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">int</FONT></B> indexId);
+time_t <B><FONT COLOR="#0000FF">PT_GetTimeIndex</FONT></B>(PT_Indexes indexes);
+
+<I><FONT COLOR="#B22222">/* Indexes list */</FONT></I>
+PT_Element <B><FONT COLOR="#0000FF">PT_Index_HTML_BuildRootInfo</FONT></B>(PT_Indexes indexes);
+<B><FONT COLOR="#228B22">char</FONT></B> **<B><FONT COLOR="#0000FF">PT_Enumerate</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> subtree);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Enumerate_Delete</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> ***plist);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_EnumCache</FONT></B>(PT_Indexes indexes,
+                 <B><FONT COLOR="#228B22">int</FONT></B> (*callback) (<B><FONT COLOR="#228B22">void</FONT></B> *, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, PT_Element),
+                 <B><FONT COLOR="#228B22">void</FONT></B> *arg);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+
+<I><FONT COLOR="#B22222">/* Index */</FONT></I>
+PT_Index <B><FONT COLOR="#0000FF">PT_LoadCache</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete</FONT></B>(PT_Index * pindex);
+PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+time_t <B><FONT COLOR="#0000FF">PT_Index_Timestamp</FONT></B>(PT_Index index);
+
+<I><FONT COLOR="#B22222">/* Elements*/</FONT></I>
+PT_Element <B><FONT COLOR="#0000FF">PT_ElementNew</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Element_Delete</FONT></B>(PT_Element * pentry);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/proxy/store.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:48 GMT -->
+</HTML>

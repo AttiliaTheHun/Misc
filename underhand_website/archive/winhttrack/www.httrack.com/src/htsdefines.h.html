@@ -1,0 +1,275 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsdefines.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsdefines.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsdefines.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Some defines for httrack.c and others                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">// Fichier librairie .h
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEFINES_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEFINES_DEFH</FONT>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_back lien_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hts_stat_struct hts_stat_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStruct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStruct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsmoduleStruct htsmoduleStruct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callbackarg</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callbackarg</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_hts_callbackarg t_hts_callbackarg;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callbackarg</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callbackarg</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_hts_callbackarg t_hts_callbackarg;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* External callbacks */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">EXTERNAL_FUNCTION</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">EXTERNAL_FUNCTION</FONT> __declspec(dllexport)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">EXTERNAL_FUNCTION</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* --wrapper plug function prototype */</FONT></I>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_plug) (httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *argv);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_unplug) (httrackp * opt);
+
+<I><FONT COLOR="#B22222">/* htsopt function callbacks definitions */</FONT></I>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_hts_htmlcheck_init) (t_hts_callbackarg * carg);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_hts_htmlcheck_uninit) (t_hts_callbackarg * carg);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_start) (t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_end) (t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_chopt) (t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_process) (t_hts_callbackarg * carg,
+                                        httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **html, <B><FONT COLOR="#228B22">int</FONT></B> *len,
+                                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adresse,
+                                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fichier);
+<B><FONT COLOR="#228B22">typedef</FONT></B> t_hts_htmlcheck_process t_hts_htmlcheck_preprocess;
+<B><FONT COLOR="#228B22">typedef</FONT></B> t_hts_htmlcheck_process t_hts_htmlcheck_postprocess;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_check_html) (t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *html, <B><FONT COLOR="#228B22">int</FONT></B> len,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adresse,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fichier);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *(*t_hts_htmlcheck_query) (t_hts_callbackarg * carg,
+                                              httrackp * opt,
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *(*t_hts_htmlcheck_query2) (t_hts_callbackarg * carg,
+                                               httrackp * opt,
+                                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *(*t_hts_htmlcheck_query3) (t_hts_callbackarg * carg,
+                                               httrackp * opt,
+                                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_loop) (t_hts_callbackarg * carg, httrackp * opt,
+                                     lien_back * back, <B><FONT COLOR="#228B22">int</FONT></B> back_max,
+                                     <B><FONT COLOR="#228B22">int</FONT></B> back_index, <B><FONT COLOR="#228B22">int</FONT></B> lien_tot,
+                                     <B><FONT COLOR="#228B22">int</FONT></B> lien_ntot, <B><FONT COLOR="#228B22">int</FONT></B> stat_time,
+                                     hts_stat_struct * stats);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_check_link) (t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">int</FONT></B> status);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_check_mime) (t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> status);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_hts_htmlcheck_pause) (t_hts_callbackarg * carg, httrackp * opt,
+                                       <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lockfile);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_hts_htmlcheck_filesave) (t_hts_callbackarg * carg,
+                                          httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_hts_htmlcheck_filesave2) (t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hostname,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *localfile, <B><FONT COLOR="#228B22">int</FONT></B> is_new,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> is_modified, <B><FONT COLOR="#228B22">int</FONT></B> not_updated);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_linkdetected) (t_hts_callbackarg * carg,
+                                             httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_linkdetected2) (t_hts_callbackarg * carg,
+                                              httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link,
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag_start);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_xfrstatus) (t_hts_callbackarg * carg,
+                                          httrackp * opt, lien_back * back);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_savename) (t_hts_callbackarg * carg,
+                                         httrackp * opt,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr_complete,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil_complete,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil, <B><FONT COLOR="#228B22">char</FONT></B> *save);
+<B><FONT COLOR="#228B22">typedef</FONT></B> t_hts_htmlcheck_savename t_hts_htmlcheck_extsavename;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_sendhead) (t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *buff,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                         htsblk * outgoing);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_receivehead) (t_hts_callbackarg * carg,
+                                            httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *buff,
+                                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                            htsblk * incoming);
+
+<I><FONT COLOR="#B22222">/* External additional parsing module(s) */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_detect) (t_hts_callbackarg * carg, httrackp * opt,
+                                       htsmoduleStruct * str);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_hts_htmlcheck_parse) (t_hts_callbackarg * carg, httrackp * opt,
+                                      htsmoduleStruct * str);
+
+<I><FONT COLOR="#B22222">/* Callbacks */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_htmlcheck_callbacks</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_htmlcheck_callbacks</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_hts_htmlcheck_callbacks t_hts_htmlcheck_callbacks;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Callabck array */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">DEFCALLBACK</FONT></B>(NAME)         \
+  struct NAME {                   \
+    t_hts_htmlcheck_ ##NAME fun;  \
+    t_hts_callbackarg *carg;      \
+  } NAME
+
+<I><FONT COLOR="#B22222">/* Callback items */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *t_hts_htmlcheck_t_hts_htmlcheck_callbacks_item;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">DEFCALLBACK</FONT></B>(t_hts_htmlcheck_callbacks_item);
+
+<I><FONT COLOR="#B22222">/* Linked list, which should be used for the 'arg' user-defined argument */</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_hts_callbackarg {
+  <I><FONT COLOR="#B22222">/* User-defined agument for the called function */</FONT></I>
+  <B><FONT COLOR="#228B22">void</FONT></B> *userdef;
+
+  <I><FONT COLOR="#B22222">/* Previous function, if any (fun != NULL) */</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> prev {
+    <B><FONT COLOR="#228B22">void</FONT></B> *fun;
+    t_hts_callbackarg *carg;
+  } prev;
+};
+
+<I><FONT COLOR="#B22222">/* Callback structure */</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_hts_htmlcheck_callbacks {
+  <I><FONT COLOR="#B22222">/* v3.41 */</FONT></I>
+  DEFCALLBACK(init);
+  DEFCALLBACK(uninit);
+  DEFCALLBACK(start);
+  DEFCALLBACK(end);
+  DEFCALLBACK(chopt);
+  DEFCALLBACK(preprocess);
+  DEFCALLBACK(postprocess);
+  DEFCALLBACK(check_html);
+  DEFCALLBACK(query);
+  DEFCALLBACK(query2);
+  DEFCALLBACK(query3);
+  DEFCALLBACK(loop);
+  DEFCALLBACK(check_link);
+  DEFCALLBACK(check_mime);
+  DEFCALLBACK(pause);
+  DEFCALLBACK(filesave);
+  DEFCALLBACK(filesave2);
+  DEFCALLBACK(linkdetected);
+  DEFCALLBACK(linkdetected2);
+  DEFCALLBACK(xfrstatus);
+  DEFCALLBACK(savename);
+  DEFCALLBACK(sendhead);
+  DEFCALLBACK(receivehead);
+  DEFCALLBACK(detect);
+  DEFCALLBACK(parse);
+  <I><FONT COLOR="#B22222">/* &gt;3.41 */</FONT></I>
+  DEFCALLBACK(extsavename);
+};
+
+<I><FONT COLOR="#B22222">/* Library internal definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callback_ref</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_callback_ref</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_hts_callback_ref t_hts_callback_ref;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_hts_callback_ref {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name;
+  size_t offset;
+};
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> t_hts_htmlcheck_callbacks default_callbacks;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HT_PRINT</FONT></B>(A) strcatbuff(opt-&gt;state.HTbuff,A);
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HT_REQUEST_START</FONT> opt-&gt;state.HTbuff[0]=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HT_REQUEST_END</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTT_REQUEST_START</FONT> opt-&gt;state.HTbuff[0]=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTT_REQUEST_END</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_REQUEST_START</FONT> opt-&gt;state.HTbuff[0]=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_REQUEST_END</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_PANIC_PRINTF</FONT></B>(S) strcpybuff(opt-&gt;state._hts_errmsg,S);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsdefines.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

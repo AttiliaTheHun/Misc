@@ -1,0 +1,627 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsopt.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsopt.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsopt.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: HTTrack parameters block                               */</FONT></I>
+<I><FONT COLOR="#B22222">/*       Called by httrack.h and some other files               */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTTRACK_DEFOPT</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_DEFOPT</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_htmlcheck_callbacks</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_hts_htmlcheck_callbacks</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_hts_htmlcheck_callbacks t_hts_htmlcheck_callbacks;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_dnscache t_dnscache;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hash_struct hash_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_robots_wizard</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_robots_wizard</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> robots_wizard robots_wizard;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_cookie</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_cookie</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_cookie t_cookie;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Forward definitions **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_String</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_String</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> String String;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_STRUCT_String</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_STRUCT_String</FONT>
+<B><FONT COLOR="#228B22">struct</FONT></B> String {
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffer_;
+  size_t length_;
+  size_t capacity_;
+};
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Defines */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CATBUFF_SIZE</FONT> (STRING_SIZE*2*2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STRING_SIZE</FONT> 2048
+
+<I><FONT COLOR="#B22222">/* Proxy structure */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_proxy</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_proxy</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_proxy t_proxy;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_proxy {
+  <B><FONT COLOR="#228B22">int</FONT></B> active;
+  String name;
+  <B><FONT COLOR="#228B22">int</FONT></B> port;
+  String bindhost;              <I><FONT COLOR="#B22222">// bind this host
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">/* Structure utile pour copier en bloc les paramètres */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsfilters</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsfilters</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsfilters htsfilters;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsfilters {
+  <B><FONT COLOR="#228B22">char</FONT></B> ***filters;
+  <B><FONT COLOR="#228B22">int</FONT></B> *filptr;
+  <I><FONT COLOR="#B22222">//int*    filter_max;
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">/* User callbacks chain */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*htscallbacksfncptr) (<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htscallbacks htscallbacks;
+<B><FONT COLOR="#228B22">struct</FONT></B> htscallbacks {
+  <B><FONT COLOR="#228B22">void</FONT></B> *moduleHandle;
+  htscallbacksfncptr exitFnc;
+  htscallbacks *next;
+};
+
+<I><FONT COLOR="#B22222">/* filenote() internal file structure */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_filenote_strc</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_filenote_strc</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> filenote_strc filenote_strc;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> filenote_strc {
+  FILE *lst;
+  <B><FONT COLOR="#228B22">char</FONT></B> path[STRING_SIZE * 2];
+};
+
+<I><FONT COLOR="#B22222">/* concat() functions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_concat_strc</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_concat_strc</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> concat_strc concat_strc;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> concat_strc {
+  <B><FONT COLOR="#228B22">int</FONT></B> index;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[16][STRING_SIZE * 2 * 2];
+};
+
+<I><FONT COLOR="#B22222">/* int2 functions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_strc_int2bytes2</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_strc_int2bytes2</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> strc_int2bytes2 strc_int2bytes2;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> strc_int2bytes2 {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">char</FONT></B> buff1[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> buff2[32];
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffadr[2];
+};
+
+<I><FONT COLOR="#B22222">/* cmd callback */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_usercommand_strc</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_usercommand_strc</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> usercommand_strc usercommand_strc;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> usercommand_strc {
+  <B><FONT COLOR="#228B22">int</FONT></B> exe;
+  <B><FONT COLOR="#228B22">char</FONT></B> cmd[2048];
+};
+
+<I><FONT COLOR="#B22222">/* error logging */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_fspc_strc</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_fspc_strc</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> fspc_strc fspc_strc;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> fspc_strc {
+  <B><FONT COLOR="#228B22">int</FONT></B> error;
+  <B><FONT COLOR="#228B22">int</FONT></B> warning;
+  <B><FONT COLOR="#228B22">int</FONT></B> info;
+};
+
+<I><FONT COLOR="#B22222">/* lien_url */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_url lien_url;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_DEFSTRUCT_hts_log_type</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_DEFSTRUCT_hts_log_type</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> hts_log_type {
+  LOG_PANIC,
+  LOG_ERROR,
+  LOG_WARNING,
+  LOG_NOTICE,
+  LOG_INFO,
+  LOG_DEBUG,
+  LOG_TRACE,
+  LOG_ERRNO = 1 &lt;&lt; 8
+} hts_log_type;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Structure état du miroir */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsoptstatecancel</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsoptstatecancel</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsoptstatecancel htsoptstatecancel;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsoptstatecancel {
+  <B><FONT COLOR="#228B22">char</FONT></B> *url;
+  htsoptstatecancel *next;
+};
+
+<I><FONT COLOR="#B22222">/* Mutexes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmutex_s</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmutex_s</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsmutex_s htsmutex_s, *htsmutex;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Hashtables */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> struct_coucal struct_coucal, *coucal;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Structure état du miroir */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsoptstate</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsoptstate</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsoptstate htsoptstate;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsoptstate {
+  htsmutex lock;                <I><FONT COLOR="#B22222">/* 3.41 */</FONT></I>
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> stop;
+  <B><FONT COLOR="#228B22">int</FONT></B> exit_xh;
+  <B><FONT COLOR="#228B22">int</FONT></B> back_add_stats;
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> mimehtml_created;
+  String mimemid;
+  FILE *mimefp;
+  <B><FONT COLOR="#228B22">int</FONT></B> delayedId;
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  filenote_strc strc;
+  <I><FONT COLOR="#B22222">/* Functions context (avoir thread variables!) */</FONT></I>
+  htscallbacks callbacks;
+  concat_strc concat;
+  usercommand_strc usercmd;
+  fspc_strc fspc;
+  <B><FONT COLOR="#228B22">char</FONT></B> *userhttptype;
+  <B><FONT COLOR="#228B22">int</FONT></B> verif_backblue_done;
+  <B><FONT COLOR="#228B22">int</FONT></B> verif_external_status;
+  t_dnscache *dns_cache;
+  <B><FONT COLOR="#228B22">int</FONT></B> dns_cache_nthreads;
+  <I><FONT COLOR="#B22222">/* HTML parsing state */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> _hts_errmsg[HTS_CDLMAXSIZE + 256];
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_in_html_parsing;
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_in_html_done;
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_in_html_poll;
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_setpause;
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_in_mirror;
+  <B><FONT COLOR="#228B22">char</FONT></B> **_hts_addurl;
+  <B><FONT COLOR="#228B22">int</FONT></B> _hts_cancel;
+  htsoptstatecancel *cancel;    <I><FONT COLOR="#B22222">/* 3.41 */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> HTbuff[2048];
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> debug_state;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> tmpnameid;       <I><FONT COLOR="#B22222">/* 3.41 */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> is_ended;                 <I><FONT COLOR="#B22222">/* 3.48-14 */</FONT></I>
+};
+
+<I><FONT COLOR="#B22222">/* Library handles */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htslibhandles</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htslibhandles</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htslibhandles htslibhandles;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htslibhandle</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htslibhandle</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htslibhandle htslibhandle;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htslibhandle {
+  <B><FONT COLOR="#228B22">char</FONT></B> *moduleName;
+  <B><FONT COLOR="#228B22">void</FONT></B> *handle;
+};
+<B><FONT COLOR="#228B22">struct</FONT></B> htslibhandles {
+  <B><FONT COLOR="#228B22">int</FONT></B> count;
+  htslibhandle *handles;
+};
+
+<I><FONT COLOR="#B22222">/* Javascript parser flags */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> htsparsejava_flags {
+  HTSPARSE_NONE = 0,            <I><FONT COLOR="#B22222">// don't parse
+</FONT></I>  HTSPARSE_DEFAULT = 1,         <I><FONT COLOR="#B22222">// parse default (all)
+</FONT></I>  HTSPARSE_NO_CLASS = 2,        <I><FONT COLOR="#B22222">// don't parse .java
+</FONT></I>  HTSPARSE_NO_JAVASCRIPT = 4,   <I><FONT COLOR="#B22222">// don't parse .js
+</FONT></I>  HTSPARSE_NO_AGGRESSIVE = 8    <I><FONT COLOR="#B22222">// don't aggressively parse .js or .java
+</FONT></I>} htsparsejava_flags;
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_buffers</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_buffers</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_buffers lien_buffers;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// paramètres httrack (options)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> httrackp {
+  size_t size_httrackp;         <I><FONT COLOR="#B22222">// size of this structure
+</FONT></I>  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> wizard;                   <I><FONT COLOR="#B22222">// wizard aucun/grand/petit
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> flush;                    <I><FONT COLOR="#B22222">// fflush sur les fichiers log
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> travel;                   <I><FONT COLOR="#B22222">// type de déplacements (same domain etc)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> seeker;                   <I><FONT COLOR="#B22222">// up &amp; down
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> depth;                    <I><FONT COLOR="#B22222">// nombre de niveaux de récursion
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> extdepth;                 <I><FONT COLOR="#B22222">// nombre de niveaux de récursion à l'éxtérieur
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> urlmode;                  <I><FONT COLOR="#B22222">// liens relatifs etc   
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> no_type_change;           <I><FONT COLOR="#B22222">// do not change file type according to MIME
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> debug;                    <I><FONT COLOR="#B22222">// mode débug log
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> getmode;                  <I><FONT COLOR="#B22222">// sauver html, images..
+</FONT></I>  FILE *log;                    <I><FONT COLOR="#B22222">// fichier log
+</FONT></I>  FILE *errlog;                 <I><FONT COLOR="#B22222">// et erreur
+</FONT></I>  LLint maxsite;                <I><FONT COLOR="#B22222">// taille max site
+</FONT></I>  LLint maxfile_nonhtml;        <I><FONT COLOR="#B22222">// taille max non html
+</FONT></I>  LLint maxfile_html;           <I><FONT COLOR="#B22222">// taille max html
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxsoc;                   <I><FONT COLOR="#B22222">// nbre sockets
+</FONT></I>  LLint fragment;               <I><FONT COLOR="#B22222">// fragmentation d'un site
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> nearlink;                 <I><FONT COLOR="#B22222">// prendre les images/data proche d'une page mais à l'extérieur
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> makeindex;                <I><FONT COLOR="#B22222">// faire un index
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> kindex;                   <I><FONT COLOR="#B22222">// et un index 'keyword'
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> delete_old;               <I><FONT COLOR="#B22222">// effacer anciens fichiers
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> timeout;                  <I><FONT COLOR="#B22222">// nombre de secondes de timeout
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> rateout;                  <I><FONT COLOR="#B22222">// nombre d'octets minium pour le transfert
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxtime;                  <I><FONT COLOR="#B22222">// temps max en secondes
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxrate;                  <I><FONT COLOR="#B22222">// taux de transfert max
+</FONT></I>  <B><FONT COLOR="#228B22">float</FONT></B> maxconn;                <I><FONT COLOR="#B22222">// nombre max de connexions/s
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> waittime;                 <I><FONT COLOR="#B22222">// démarrage programmé
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> cache;                    <I><FONT COLOR="#B22222">// génération d'un cache
+</FONT></I>  <I><FONT COLOR="#B22222">//int aff_progress;     // barre de progression
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> shell;                    <I><FONT COLOR="#B22222">// gestion d'un shell par pipe stdin/stdout
+</FONT></I>  t_proxy proxy;                <I><FONT COLOR="#B22222">// configuration du proxy
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> savename_83;              <I><FONT COLOR="#B22222">// conversion 8-3 pour les noms de fichiers
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> savename_type;            <I><FONT COLOR="#B22222">// type de noms: structure originale/html-images en un seul niveau
+</FONT></I>  String savename_userdef;      <I><FONT COLOR="#B22222">// structure userdef (ex: %h%p/%n%q.%t)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> savename_delayed;         <I><FONT COLOR="#B22222">// delayed type check
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> delayed_cached;           <I><FONT COLOR="#B22222">// delayed type check can be cached to speedup updates
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> mimehtml;                 <I><FONT COLOR="#B22222">// MIME-html
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> user_agent_send;          <I><FONT COLOR="#B22222">// user agent (ex: httrack/1.0 [sun])
+</FONT></I>  String user_agent;            <I><FONT COLOR="#B22222">//
+</FONT></I>  String referer;               <I><FONT COLOR="#B22222">// referer 
+</FONT></I>  String from;                  <I><FONT COLOR="#B22222">// from
+</FONT></I>  String path_log;              <I><FONT COLOR="#B22222">// chemin pour cache et log
+</FONT></I>  String path_html;             <I><FONT COLOR="#B22222">// chemin pour miroir
+</FONT></I>  String path_html_utf8;        <I><FONT COLOR="#B22222">// chemin pour miroir, UTF-8
+</FONT></I>  String path_bin;              <I><FONT COLOR="#B22222">// chemin pour templates
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> retry;                    <I><FONT COLOR="#B22222">// nombre d'essais supplémentaires en cas d'échec
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> makestat;                 <I><FONT COLOR="#B22222">// mettre à jour un fichier log de statistiques de transfert
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maketrack;                <I><FONT COLOR="#B22222">// mettre à jour un fichier log de statistiques d'opérations
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> parsejava;                <I><FONT COLOR="#B22222">// parsing des classes java pour récupérer les class, gif &amp; cie ; see htsparsejava_flags
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> hostcontrol;              <I><FONT COLOR="#B22222">// abandon d'un host trop lent etc.
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> errpage;                  <I><FONT COLOR="#B22222">// générer une page d'erreur en cas de 404 etc.
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> check_type;               <I><FONT COLOR="#B22222">// si type inconnu (cgi,asp,/) alors tester lien (et gérer moved éventuellement)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> all_in_cache;             <I><FONT COLOR="#B22222">// tout mettre en cache!
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> robots;                   <I><FONT COLOR="#B22222">// traitement des robots
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> external;                 <I><FONT COLOR="#B22222">// pages externes-&gt;pages d'erreur
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> passprivacy;              <I><FONT COLOR="#B22222">// pas de mot de pass dans les liens externes?
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> includequery;             <I><FONT COLOR="#B22222">// include la query-string
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> mirror_first_page;        <I><FONT COLOR="#B22222">// miroir des liens
+</FONT></I>  String sys_com;               <I><FONT COLOR="#B22222">// commande système
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> sys_com_exec;             <I><FONT COLOR="#B22222">// executer commande 
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> accept_cookie;            <I><FONT COLOR="#B22222">// gestion des cookies
+</FONT></I>  t_cookie *cookie;
+  <B><FONT COLOR="#228B22">int</FONT></B> http10;                   <I><FONT COLOR="#B22222">// forcer http 1.0
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> nokeepalive;              <I><FONT COLOR="#B22222">// pas de keep-alive
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> nocompression;            <I><FONT COLOR="#B22222">// pas de compression
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> sizehack;                 <I><FONT COLOR="#B22222">// forcer réponse &quot;mis à jour&quot; si taille identique
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> urlhack;                  <I><FONT COLOR="#B22222">// force &quot;url normalization&quot; to avoid loops
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> tolerant;                 <I><FONT COLOR="#B22222">// accepter content-length incorrect
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> parseall;                 <I><FONT COLOR="#B22222">// essayer de tout parser (tags inconnus contenant des liens, par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> parsedebug;               <I><FONT COLOR="#B22222">// débugger parser (debug!)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> norecatch;                <I><FONT COLOR="#B22222">// ne pas reprendre les fichiers effacés localement par l'utilisateur
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> verbosedisplay;           <I><FONT COLOR="#B22222">// animation textuelle
+</FONT></I>  String footer;                <I><FONT COLOR="#B22222">// ligne d'infos
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxcache;                 <I><FONT COLOR="#B22222">// maximum en mémoire au niveau du cache (backing)
+</FONT></I>  <I><FONT COLOR="#B22222">//int maxcache_anticipate; // maximum de liens à anticiper (majorant)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> ftp_proxy;                <I><FONT COLOR="#B22222">// proxy http pour ftp
+</FONT></I>  String filelist;              <I><FONT COLOR="#B22222">// fichier liste URL à inclure
+</FONT></I>  String urllist;               <I><FONT COLOR="#B22222">// fichier liste de filtres à inclure
+</FONT></I>  htsfilters filters;           <I><FONT COLOR="#B22222">// contient les pointeurs pour les filtres
+</FONT></I>  hash_struct *hash;            <I><FONT COLOR="#B22222">// hash structure
+</FONT></I>  lien_url **liens;             <I><FONT COLOR="#B22222">// links
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> lien_tot;                 <I><FONT COLOR="#B22222">// top index of &quot;links&quot; heap (always out-of-range)
+</FONT></I>  lien_buffers *liensbuf;       <I><FONT COLOR="#B22222">// links buffers
+</FONT></I>  robots_wizard *robotsptr;     <I><FONT COLOR="#B22222">// robots ptr
+</FONT></I>  String lang_iso;              <I><FONT COLOR="#B22222">// en, fr ..
+</FONT></I>  String accept;                <I><FONT COLOR="#B22222">// Accept:
+</FONT></I>  String headers;               <I><FONT COLOR="#B22222">// Additional headers
+</FONT></I>  String mimedefs;              <I><FONT COLOR="#B22222">// ext1=mimetype1\next2=mimetype2..
+</FONT></I>  String mod_blacklist;         <I><FONT COLOR="#B22222">// (3.41)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> convert_utf8;             <I><FONT COLOR="#B22222">// filenames UTF-8 conversion (3.46)
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxlink;                  <I><FONT COLOR="#B22222">// nombre max de liens
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> maxfilter;                <I><FONT COLOR="#B22222">// nombre max de filtres
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *exec;             <I><FONT COLOR="#B22222">// adresse du nom de l'éxecutable
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> quiet;                    <I><FONT COLOR="#B22222">// poser des questions autres que wizard?
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> keyboard;                 <I><FONT COLOR="#B22222">// vérifier stdin
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> bypass_limits;            <I><FONT COLOR="#B22222">// bypass built-in limits
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> background_on_suspend;    <I><FONT COLOR="#B22222">// background process on suspend signal
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> is_update;                <I><FONT COLOR="#B22222">// c'est une update (afficher &quot;File updated...&quot;)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> dir_topindex;             <I><FONT COLOR="#B22222">// reconstruire top index par la suite
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// callbacks
+</FONT></I>  t_hts_htmlcheck_callbacks *callbacks_fun;
+  <I><FONT COLOR="#B22222">// store library handles
+</FONT></I>  htslibhandles libHandles;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  htsoptstate state;            <I><FONT COLOR="#B22222">// state
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">// stats for httrack
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hts_stat_struct hts_stat_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> hts_stat_struct {
+  LLint HTS_TOTAL_RECV;         <I><FONT COLOR="#B22222">// flux entrant reçu
+</FONT></I>  LLint stat_bytes;             <I><FONT COLOR="#B22222">// octets écrits sur disque
+</FONT></I>  <I><FONT COLOR="#B22222">// int HTS_TOTAL_RECV_STATE;  // status: 0 tout va bien 1: ralentir un peu 2: ralentir 3: beaucoup
+</FONT></I>  TStamp stat_timestart;        <I><FONT COLOR="#B22222">// départ
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  LLint total_packed;           <I><FONT COLOR="#B22222">// flux entrant compressé reçu
+</FONT></I>  LLint total_unpacked;         <I><FONT COLOR="#B22222">// flux entrant compressé reçu
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> total_packedfiles;        <I><FONT COLOR="#B22222">// fichiers compressés
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  TStamp istat_timestart[2];    <I><FONT COLOR="#B22222">// départ pour calcul instantanné
+</FONT></I>  LLint istat_bytes[2];         <I><FONT COLOR="#B22222">// calcul pour instantanné
+</FONT></I>  TStamp istat_reference01;     <I><FONT COLOR="#B22222">// top départ donné par #0 à #1
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> istat_idlasttimer;        <I><FONT COLOR="#B22222">// id du timer qui a récemment donné une stat
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_files;               <I><FONT COLOR="#B22222">// nombre de fichiers écrits
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_updated_files;       <I><FONT COLOR="#B22222">// nombre de fichiers mis à jour
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_background;          <I><FONT COLOR="#B22222">// nombre de fichiers écrits en arrière plan
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_nrequests;           <I><FONT COLOR="#B22222">// nombre de requêtes sur socket
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_sockid;              <I><FONT COLOR="#B22222">// nombre de sockets allouées au total
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_nsocket;             <I><FONT COLOR="#B22222">// nombre de sockets
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_errors;              <I><FONT COLOR="#B22222">// nombre d'erreurs
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_errors_front;        <I><FONT COLOR="#B22222">// idem, mais au tout premier niveau
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_warnings;            <I><FONT COLOR="#B22222">// '' warnings
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_infos;               <I><FONT COLOR="#B22222">// '' infos
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> nbk;                      <I><FONT COLOR="#B22222">// fichiers anticipés en arrière plan et terminés
+</FONT></I>  LLint nb;                     <I><FONT COLOR="#B22222">// données transférées actuellement (estimation)
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  LLint rate;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  TStamp last_connect;          <I><FONT COLOR="#B22222">// last connect() call
+</FONT></I>  TStamp last_request;          <I><FONT COLOR="#B22222">// last request issued
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">// structure pour paramètres supplémentaires lors de la requête
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest_proxy</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest_proxy</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsrequest_proxy htsrequest_proxy;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsrequest_proxy {
+  <B><FONT COLOR="#228B22">int</FONT></B> active;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* name;
+  <B><FONT COLOR="#228B22">int</FONT></B> port;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* bindhost;           <I><FONT COLOR="#B22222">// bind this host
+</FONT></I>};
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsrequest htsrequest;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsrequest {
+  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> user_agent_send;    <I><FONT COLOR="#B22222">// user agent (ex: httrack/1.0 [sun])
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> http11;             <I><FONT COLOR="#B22222">// l'en tête peut (doit) être signé HTTP/1.1 et non HTTP/1.0
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> nokeepalive;        <I><FONT COLOR="#B22222">// pas de keep-alive
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> range_used;         <I><FONT COLOR="#B22222">// Range utilisé
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> nocompression;      <I><FONT COLOR="#B22222">// Pas de compression
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> flush_garbage;      <I><FONT COLOR="#B22222">// recycled
+</FONT></I>  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* user_agent;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* referer;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* from;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* lang_iso;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* accept;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* headers;
+  htsrequest_proxy proxy;       <I><FONT COLOR="#B22222">// proxy
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">// structure pour retour d'une connexion/prise d'en tête
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsblk {
+  <B><FONT COLOR="#228B22">int</FONT></B> statuscode;               <I><FONT COLOR="#B22222">// status-code, -1=erreur, 200=OK,201=..etc (cf RFC1945)
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> notmodified;        <I><FONT COLOR="#B22222">// page ou fichier NON modifié (transféré)
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> is_write;           <I><FONT COLOR="#B22222">// sortie sur disque (out) ou en mémoire (adr)
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> is_chunk;           <I><FONT COLOR="#B22222">// mode chunk
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> compressed;         <I><FONT COLOR="#B22222">// compressé?
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> empty;              <I><FONT COLOR="#B22222">// vide?
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> keep_alive;         <I><FONT COLOR="#B22222">// Keep-Alive?
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> keep_alive_trailers;        <I><FONT COLOR="#B22222">// ..with trailers extension
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> keep_alive_t;             <I><FONT COLOR="#B22222">// KA timeout
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> keep_alive_max;           <I><FONT COLOR="#B22222">// KA number of requests
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *adr;                    <I><FONT COLOR="#B22222">// adresse du bloc de mémoire, NULL=vide
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *headers;                <I><FONT COLOR="#B22222">// adresse des en têtes si présents
+</FONT></I>  FILE *out;                    <I><FONT COLOR="#B22222">// écriture directe sur disque (si is_write=1)
+</FONT></I>  LLint size;                   <I><FONT COLOR="#B22222">// taille fichier
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> msg[80];                 <I><FONT COLOR="#B22222">// message éventuel si échec (&quot;\0&quot;=non précisé)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> contenttype[64];         <I><FONT COLOR="#B22222">// content-type (&quot;text/html&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> charset[64];             <I><FONT COLOR="#B22222">// charset (&quot;iso-8859-1&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> contentencoding[64];     <I><FONT COLOR="#B22222">// content-encoding (&quot;gzip&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *location;               <I><FONT COLOR="#B22222">// on copie dedans éventuellement la véritable 'location'
+</FONT></I>  LLint totalsize;              <I><FONT COLOR="#B22222">// taille totale à télécharger (-1=inconnue)
+</FONT></I>  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> is_file;            <I><FONT COLOR="#B22222">// ce n'est pas une socket mais un descripteur de fichier si 1
+</FONT></I>  T_SOC soc;                    <I><FONT COLOR="#B22222">// ID socket
+</FONT></I>  SOCaddr address;              <I><FONT COLOR="#B22222">// IP address
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> address_size;             <I><FONT COLOR="#B22222">// IP address structure length (unused internally)
+</FONT></I>  FILE *fp;                     <I><FONT COLOR="#B22222">// fichier pour file://
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_USEOPENSSL</FONT>
+  <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ssl;                <I><FONT COLOR="#B22222">// is this connection a SSL one? (https)
+</FONT></I>  <I><FONT COLOR="#B22222">// BIO* ssl_soc;          // SSL structure
+</FONT></I>  SSL *ssl_con;                 <I><FONT COLOR="#B22222">// connection structure
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> lastmodified[64];        <I><FONT COLOR="#B22222">// Last-Modified
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> etag[256];               <I><FONT COLOR="#B22222">// Etag
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> cdispo[256];             <I><FONT COLOR="#B22222">// Content-Disposition coupé
+</FONT></I>  LLint crange;                 <I><FONT COLOR="#B22222">// Content-Range
+</FONT></I>  LLint crange_start;           <I><FONT COLOR="#B22222">// Content-Range
+</FONT></I>  LLint crange_end;             <I><FONT COLOR="#B22222">// Content-Range
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> debugid;                  <I><FONT COLOR="#B22222">// debug connection
+</FONT></I>  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  htsrequest req;               <I><FONT COLOR="#B22222">// paramètres pour la requête
+</FONT></I>  <I><FONT COLOR="#B22222">/*char digest[32+2];   // digest md5 généré par le moteur (&quot;&quot; si non généré) */</FONT></I>
+};
+
+<I><FONT COLOR="#B22222">// structure d'un lien
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_url lien_url;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> lien_url {
+  <B><FONT COLOR="#228B22">char</FONT></B> *adr;                    <I><FONT COLOR="#B22222">// adresse
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *fil;                    <I><FONT COLOR="#B22222">// nom du fichier distant
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *sav;                    <I><FONT COLOR="#B22222">// nom à sauver sur disque (avec chemin éventuel)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *cod;                    <I><FONT COLOR="#B22222">// chemin codebase éventuel si classe java
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *former_adr;             <I><FONT COLOR="#B22222">// adresse initiale (avant éventuel moved), peut être nulle
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *former_fil;             <I><FONT COLOR="#B22222">// nom du fichier distant initial (avant éventuel moved), peut être nul
+</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> premier;                  <I><FONT COLOR="#B22222">// pointeur sur le premier lien qui a donné lieu aux autres liens du domaine
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> precedent;                <I><FONT COLOR="#B22222">// pointeur sur le lien qui a donné lieu à ce lien précis
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> depth;                    <I><FONT COLOR="#B22222">// profondeur autorisée lien ; &gt;0 forte 0=faible
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> pass2;                    <I><FONT COLOR="#B22222">// traiter après les autres, seconde passe. si == -1, lien traité en background
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> link_import;             <I><FONT COLOR="#B22222">// lien importé à la suite d'un moved - ne pas appliquer les règles classiques up/down
+</FONT></I>  <I><FONT COLOR="#B22222">//int moved;          // pointeur sur moved
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> retry;                    <I><FONT COLOR="#B22222">// nombre de retry restants
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> testmode;                 <I><FONT COLOR="#B22222">// mode test uniquement, envoyer juste un head!
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">// chargement de fichiers en 'arrière plan'
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_back lien_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> lien_back {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_CHECKINT</FONT>
+  <B><FONT COLOR="#228B22">char</FONT></B> magic;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> url_adr[HTS_URLMAXSIZE * 2];     <I><FONT COLOR="#B22222">// adresse
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> url_fil[HTS_URLMAXSIZE * 2];     <I><FONT COLOR="#B22222">// nom du fichier distant
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> url_sav[HTS_URLMAXSIZE * 2];     <I><FONT COLOR="#B22222">// nom à sauver sur disque (avec chemin éventuel)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> referer_adr[HTS_URLMAXSIZE * 2]; <I><FONT COLOR="#B22222">// adresse host page referer
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> referer_fil[HTS_URLMAXSIZE * 2]; <I><FONT COLOR="#B22222">// fichier page referer
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> location_buffer[HTS_URLMAXSIZE * 2];     <I><FONT COLOR="#B22222">// &quot;location&quot; en cas de &quot;moved&quot; (302,..)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *tmpfile;                <I><FONT COLOR="#B22222">// nom à sauver temporairement (compressé)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> tmpfile_buffer[HTS_URLMAXSIZE * 2];      <I><FONT COLOR="#B22222">// buffer pour le nom à sauver temporairement
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> send_too[1024];          <I><FONT COLOR="#B22222">// données à envoyer en même temps que le header
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> status;                   <I><FONT COLOR="#B22222">// status (-1=non utilisé, 0: prêt, &gt;0: opération en cours)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> locked;                   <I><FONT COLOR="#B22222">// locked (to be used soon)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> testmode;                 <I><FONT COLOR="#B22222">// mode de test
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> timeout;                  <I><FONT COLOR="#B22222">// gérer des timeouts? (!=0  : nombre de secondes)
+</FONT></I>  TStamp timeout_refresh;       <I><FONT COLOR="#B22222">// si oui, time refresh
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> rateout;                  <I><FONT COLOR="#B22222">// timeout refresh? (!=0 : taux minimum toléré en octets/s)
+</FONT></I>  TStamp rateout_time;          <I><FONT COLOR="#B22222">// si oui, date de départ
+</FONT></I>  LLint maxfile_nonhtml;        <I><FONT COLOR="#B22222">// taille max d'un fichier non html
+</FONT></I>  LLint maxfile_html;           <I><FONT COLOR="#B22222">// idem pour un ficheir html
+</FONT></I>  htsblk r;                     <I><FONT COLOR="#B22222">// structure htsblk de chaque objet en background 
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> is_update;                <I><FONT COLOR="#B22222">// mode update
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> head_request;             <I><FONT COLOR="#B22222">// requète HEAD?
+</FONT></I>  LLint range_req_size;         <I><FONT COLOR="#B22222">// range utilisé
+</FONT></I>  TStamp ka_time_start;         <I><FONT COLOR="#B22222">// refresh time for KA 
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> http11;                   <I><FONT COLOR="#B22222">// L'en tête doit être signé HTTP/1.1 et non HTTP/1.0
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> is_chunk;                 <I><FONT COLOR="#B22222">// chunk?
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *chunk_adr;              <I><FONT COLOR="#B22222">// adresse chunk en cours de chargement
+</FONT></I>  LLint chunk_size;             <I><FONT COLOR="#B22222">// taille chunk en cours de chargement
+</FONT></I>  LLint chunk_blocksize;        <I><FONT COLOR="#B22222">// taille data declaree par le chunk
+</FONT></I>  LLint compressed_size;        <I><FONT COLOR="#B22222">// taille compressés (stats uniquement)
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">//int links_index;        // to access liens[links_index]
+</FONT></I>  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> info[256];               <I><FONT COLOR="#B22222">// éventuel status pour le ftp
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stop_ftp;                 <I><FONT COLOR="#B22222">// flag stop pour ftp
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> finalized;                <I><FONT COLOR="#B22222">// finalized (optim memory)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> early_add;                <I><FONT COLOR="#B22222">// was added before link heap saw it
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_CHECKINT</FONT>
+  <B><FONT COLOR="#228B22">char</FONT></B> magic2;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+};
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsopt.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

@@ -1,0 +1,266 @@
+---
+title: Ancient egg found
+description: Who knows what is inside.
+layout: base.html
+# noindex: true
+# canonical: https://example.com/page.html
+# permalink: false
+---
+    <h1 id="h1">Ancient egg found</h1>
+    <div id="container">
+        <div id="option1" class="option" onclick="option1()">
+            <p id="top1">Turn back</p>
+            <img id="relicslot" src="">
+            <p id="bot1">Insert 'Underhand'</p>
+        </div>
+        <div id="option2" class="option" onclick="option2()">
+            <p id="top2">Attemp to hatch<br>the Bewilderbeast</p>
+            <p id="bot2">Insert 'The King of<br>Dragons'</p>
+        </div>
+        <div id="option3" class="option" onclick="option3()">
+            <p id="top3">Fry it on pan</p>
+            <p id="bot3">Insert 'Hiccup the<br> Horrendous<br> Haddock III'</p>
+        </div>
+        
+        <!-- The Modal -->
+<div id="myModal" class="modal">
+  <!-- The Close Button -->
+  <span class="close">&times;</span>
+  <!-- Modal Content (The Image) -->
+  <img src="/res/WinScreen.png" class="modal-content" id="img01" width="639px" height="1136px">
+</div>
+        
+    </div>
+    <script>
+ let modal = document.getElementById("myModal");
+// Get the image and insert it inside the modal - use its "alt" text as a caption
+let modalImg = document.getElementById("img01");
+// Get the <span> element that closes the modal
+let span = document.getElementsByClassName("close")[0];
+// When the user clicks on <span> (x), close the modal
+span.onclick = function() {
+  modal.style.display = "none";
+}
+    
+        function option1(){
+        if(x == 1){
+            document.getElementById("option1").style.backgroundImage="url('/res/OptionDown.png')";
+         setTimeout(function(){f1(1);}, 500);
+        }
+        }
+        function option2(){
+        if(x == 1){
+            document.getElementById("option2").style.backgroundImage="url('/res/OptionDown.png')";
+        setTimeout(function(){f2(1);}, 500);
+            
+        }else if(x == 2){
+            document.getElementById("option2").style.backgroundImage="url('/res/OptionDown.png')";
+        setTimeout(function(){f2(3);}, 500);
+        }
+        }
+        function option3(){
+        if(x == 1){
+            document.getElementById("option3").style.backgroundImage="url('/res/OptionDown.png')";
+        setTimeout(function(){f3(1);}, 500);
+        }else if(x == 3){
+            document.getElementById("option3").style.backgroundImage="url('/res/OptionDown.png')";
+        setTimeout(function(){f3(3);}, 500);
+        }
+        }
+        
+        function f1(z){
+            if(z == 1){
+            document.getElementById("option1").style.backgroundImage="url('/res/OptionReady.png')";
+            setTimeout(function(){f1(2);}, 500);
+            }else if(z == 2){
+       window.location.href = "http://underhand.clanweb.eu";
+            }
+        }
+        function f2(z){
+            if(z == 1){
+            document.getElementById("option2").style.backgroundImage="url('/res/OptionReady.png')";
+            setTimeout(function(){f2(2);}, 500)
+            }else if(z == 2){
+               document.getElementById("option1").style.backgroundImage="url('/res/OptionDormant.png')";
+               document.getElementById("option3").style.backgroundImage="url('/res/OptionDormant.png')";
+                document.getElementById("h1").innerHTML = "The King of Dragons";
+                document.getElementById("top1").innerHTML = "";
+                document.getElementById("bot1").innerHTML = "";
+                document.getElementById("top2").innerHTML = "\"The Alpha protects<br>them all.\"";
+                document.getElementById("bot2").innerHTML = "Summon Bewilderbeast";
+                document.getElementById("top3").innerHTML = "";
+                document.getElementById("bot3").innerHTML = "";
+                document.title = "The King of Dragons";
+                x = 2;
+            }else if(z == 3){
+                document.getElementById("option2").style.backgroundImage="url('/res/OptionReady.png')";
+             setTimeout(function(){f2(4);}, 600);
+            }else if(z == 4){
+  modalImg.src = "/res/WinScreen.png";
+  modal.style.display = "block";
+ /* modalImg.width = "639px";
+  modalImg.height= "1136px"; */
+
+        }
+        }
+        function f3(z){
+            if(z == 1){
+            document.getElementById("option3").style.backgroundImage="url('/res/OptionReady.png')";
+            setTimeout(function(){f3(2);}, 500)
+            }else if(z == 2){
+               document.getElementById("option1").style.backgroundImage="url('/res/OptionDormant.png')";
+               document.getElementById("option2").style.backgroundImage="url('/res/OptionDormant.png')";
+                document.getElementById("h1").innerHTML = "Hiccup the Horrendous Haddock III";
+                document.getElementById("top1").innerHTML = "Steal Hiccup\'s leg";
+                document.getElementById("bot1").innerHTML = "Insert \'Fury of the<br>Night Fury\'";
+                document.getElementById("bot1").style.marginTop = "45px";
+                document.getElementById("top2").innerHTML = "";
+                document.getElementById("bot2").innerHTML = "";
+                document.getElementById("top3").innerHTML = "This is Berk.";
+                document.getElementById("bot3").innerHTML = "You Lose";
+                document.getElementById("bot3").style.marginTop = "150px";
+                document.getElementById("relicslot").src = "/res/ExchangeRelic.png";
+                document.title = "Hiccup the Horrendous Haddock III";
+                x = 3;
+            }else if(z == 3){
+                document.getElementById("option3").style.backgroundImage ="url('/res/OptionReady.png')";
+            setTimeout(function(){f3(4);}, 500);
+            }else if(z == 4){
+              
+  modalImg.src = "/res/LoseScreen.png";
+  modal.style.display = "block";
+ /* modalImg.width = "639px";
+  modalImg.height= "1136px"; */
+            }
+        }
+    </script>
+    <style>
+        #container{
+           display: table;
+            overflow: auto;
+            text-align: center;
+            font-family: Ufont;
+            color: black;
+            margin: auto;
+        }
+      /*  #option1,
+        #option2,
+        #option3*/
+        .option{
+            background-image: url(/res/OptionReady.png);
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 220px;
+        height: 334px;
+            float: left;
+            margin: auto;
+        }
+        .option:hover{
+    cursor: pointer;
+    }
+        /*
+        #option2{
+            background-image: url(/res/OptionReady.png);
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 220px;
+        height: 334px;
+            float: left;
+            margin: auto;
+        }
+        #option3{
+            background-image: url(/res/OptionReady.png);
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 220px;
+        height: 334px;
+            float: left;
+            margin: auto;
+        }*/
+        #top1{
+            margin-top: 75px;
+        }
+        #bot1{
+            margin-top: 80px;
+        }
+      #top2{
+            margin-top: 70px;
+        }
+        #bot2{
+            margin-top: 130px;
+        }
+        #top3{
+            margin-top: 75px;
+        }
+        #bot3{
+            
+            margin-top: 135px;
+        }
+        #h1{
+            text-align: center;
+        }
+        #relicslot{
+            margin-top: 45px;
+        }
+        @font-face {
+  font-family: Ufont;
+  src: url(/res/AmericanTypewriter.ttf);
+}
+#img01 {
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+#img01x:hover {opacity: 0.7;}
+/* The Modal (background) */
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  padding-top: 100px; /* Location of the box */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.9); /* Black w/ opacity */
+}
+/* Modal Content (Image) */
+.modal-content {
+  margin: auto;
+  display: block;
+  width: 80%;
+  max-width: 700px;
+  padding: 0;
+}
+/* Add Animation - Zoom in the Modal */
+.modal-content, #caption {
+  animation-name: zoom;
+  animation-duration: 0.6s;
+}
+@keyframes zoom {
+  from {transform:scale(0)}
+  to {transform:scale(1)}
+}
+.modal-content, #caption {
+  animation-name: zoom;
+  animation-duration: 0.6s;
+}
+/* The Close Button */
+.close {
+  position: absolute;
+  top: 15px;
+  right: 35px;
+  color: #f1f1f1;
+  font-size: 40px;
+  font-weight: bold;
+  transition: 0.3s;
+}
+.close:hover,
+.close:focus {
+  color: #bbb;
+  text-decoration: none;
+  cursor: pointer;
+}
+    </style>

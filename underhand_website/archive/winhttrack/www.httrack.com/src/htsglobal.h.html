@@ -1,0 +1,480 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsglobal.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsglobal.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsglobal.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Global #define file                                    */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">// Fichier réunissant l'ensemble des defines
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTTRACK_GLOBAL_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_GLOBAL_DEFH</FONT>
+
+<I><FONT COLOR="#B22222">// Version (also check external version information)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_VERSION</FONT>      <B><FONT COLOR="#BC8F8F">&quot;3.48-21&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_VERSIONID</FONT>    <B><FONT COLOR="#BC8F8F">&quot;3.48.21&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_AFF_VERSION</FONT>  <B><FONT COLOR="#BC8F8F">&quot;3.x&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_LIB_VERSION</FONT>  <B><FONT COLOR="#BC8F8F">&quot;2.0&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_NOINCLUDES</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// Définition plate-forme
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsconfig.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">// WIN32 types
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">SIZEOF_LONG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">SIZEOF_LONG</FONT> 4
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">SIZEOF_LONG_LONG</FONT> 8
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* GCC extension */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__GNUC__</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT> __attribute__ ((unused))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STATIC</FONT> static __attribute__ ((unused))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_PRINTF_FUN</FONT></B>(fmt, arg) __attribute__ ((format (printf, fmt, arg)))
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STATIC</FONT> static
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_PRINTF_FUN</FONT></B>(fmt, arg)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// config.h
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+
+<I><FONT COLOR="#B22222">/*
+#define HAVE_SYS_STAT_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_SYS_STAT_H 1
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">DLLIB</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DLLIB</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">S_ISREG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">S_ISREG</FONT></B>(m) ((m) &amp; _S_IFREG)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">S_ISDIR</FONT></B>(m) ((m) &amp; _S_IFDIR)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;config.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">FTIME</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_USE_FTIME</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">SETUID</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_USE_UID</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIZEOF_LONG_LONG</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">SIZEOF_LONG_LONG</FONT>==8
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__sun</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 0
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__osf__</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 0
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__linux</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DLLIB</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DLOPEN</FONT> 1
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DLOPEN</FONT> 0
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">BIGSTK</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BIGSTK</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// compatibilité DOS
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DOSNAME</FONT> 1
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DOSNAME</FONT> 0
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// utiliser zlib?
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_USEZLIB</FONT>
+<I><FONT COLOR="#B22222">// autoload
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_USEZLIB</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> 0
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// utiliser openssl?
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_USEOPENSSL</FONT>
+<I><FONT COLOR="#B22222">// autoload
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_USEOPENSSL</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DLOPEN</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DLOPEN</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_USESWF</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_USESWF</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">__cdecl</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* rc file */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HTTRACKRC</FONT> <B><FONT COLOR="#BC8F8F">&quot;httrackrc&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_ETCPATH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ETCPATH</FONT> <B><FONT COLOR="#BC8F8F">&quot;/etc&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_BINPATH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_BINPATH</FONT> <B><FONT COLOR="#BC8F8F">&quot;/usr/bin&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_LIBPATH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LIBPATH</FONT> <B><FONT COLOR="#BC8F8F">&quot;/usr/lib&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_PREFIX</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_PREFIX</FONT> <B><FONT COLOR="#BC8F8F">&quot;/usr&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HTTRACKRC</FONT> <B><FONT COLOR="#BC8F8F">&quot;.httrackrc&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HTTRACKCNF</FONT> HTS_ETCPATH<B><FONT COLOR="#BC8F8F">&quot;/httrack.conf&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DATADIR</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HTTRACKDIR</FONT> DATADIR<B><FONT COLOR="#BC8F8F">&quot;/httrack/&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HTTRACKDIR</FONT> HTS_PREFIX<B><FONT COLOR="#BC8F8F">&quot;/share/httrack/&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Taille max d'une URL */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_URLMAXSIZE</FONT> 1024
+<I><FONT COLOR="#B22222">/* Taille max ligne de commande (&gt;=HTS_URLMAXSIZE*2) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_CDLMAXSIZE</FONT> 1024
+
+<I><FONT COLOR="#B22222">/* Copyright (C) 1998-2015 Xavier Roche and other contributors */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_AFF_AUTHORS</FONT> <B><FONT COLOR="#BC8F8F">&quot;[XR&amp;CO'2014]&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEFAULT_FOOTER</FONT> <B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Mirrored from %s%s by HTTrack Website Copier/&quot;</FONT></B>HTTRACK_AFF_VERSION<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>HTTRACK_AFF_AUTHORS<B><FONT COLOR="#BC8F8F">&quot;, %s --&gt;&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_WEB</FONT> <B><FONT COLOR="#BC8F8F">&quot;http://www.httrack.com&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UPDATE_WEBSITE</FONT> <B><FONT COLOR="#BC8F8F">&quot;http://www.httrack.com/update.php3?Product=HTTrack&amp;Version=&quot;</FONT></B>HTTRACK_VERSIONID<B><FONT COLOR="#BC8F8F">&quot;&amp;VersionStr=&quot;</FONT></B>HTTRACK_VERSION<B><FONT COLOR="#BC8F8F">&quot;&amp;Platform=%d&amp;Language=%s&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">H_CRLF</FONT> <B><FONT COLOR="#BC8F8F">&quot;\x0d\x0a&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CRLF</FONT>   <B><FONT COLOR="#BC8F8F">&quot;\x0d\x0a&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LF</FONT> <B><FONT COLOR="#BC8F8F">&quot;\x0d\x0a&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LF</FONT> <B><FONT COLOR="#BC8F8F">&quot;\x0a&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* équivaut à &quot;paramètre vide&quot;, par exemple -F (none) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_NOPARAM</FONT> <B><FONT COLOR="#BC8F8F">&quot;(none)&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_NOPARAM2</FONT> <B><FONT COLOR="#BC8F8F">&quot;\&quot;(none)\&quot;&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* maximum et minimum */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">maximum</FONT></B>(A,B) ( (A) &gt; (B) ? (A) : (B) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">minimum</FONT></B>(A,B) ( (A) &lt; (B) ? (A) : (B) )
+
+<I><FONT COLOR="#B22222">/* chaine no empty ? (and not null) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strnotempty</FONT></B>(A) (((A) != NULL &amp;&amp; (A)[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>))
+
+<I><FONT COLOR="#B22222">/* optimisation inline si possible */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INLINE</FONT> inline
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INLINE</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">LIBHTTRACK_EXPORTS</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSEXT_API</FONT> __declspec(dllexport)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSEXT_API</FONT> __declspec(dllimport)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<I><FONT COLOR="#B22222">/* See &lt;http://gcc.gnu.org/wiki/Visibility&gt; */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> ( ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__GNUC__</FONT>) &amp;&amp; ( <FONT COLOR="#B8860B">__GNUC__</FONT> &gt;= 4 ) ) \
+      || ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_VISIBILITY</FONT>) &amp;&amp; <FONT COLOR="#B8860B">HAVE_VISIBILITY</FONT> ) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSEXT_API</FONT> __attribute__ ((visibility (<B><FONT COLOR="#BC8F8F">&quot;default&quot;</FONT></B>)))
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSEXT_API</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_NO_64_BIT</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 0
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// long long int? (or int)
+</FONT></I><I><FONT COLOR="#B22222">// (and int cast for system functions like malloc() )
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_LONGLONG</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">LLINT_FORMAT</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> LLINT_TYPE LLint;
+<B><FONT COLOR="#228B22">typedef</FONT></B> LLINT_TYPE TStamp;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LLintP</FONT> LLINT_FORMAT
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> __int64 LLint;
+<B><FONT COLOR="#228B22">typedef</FONT></B> __int64 TStamp;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LLintP</FONT> <B><FONT COLOR="#BC8F8F">&quot;%I64d&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_LP64</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__x86_64__</FONT>) \
+       || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__powerpc64__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__64BIT__</FONT>))
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> LLint;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> TStamp;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LLintP</FONT> <B><FONT COLOR="#BC8F8F">&quot;%ld&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> LLint;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> TStamp;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LLintP</FONT> <B><FONT COLOR="#BC8F8F">&quot;%lld&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B> <I><FONT COLOR="#B22222">/* HTS_LONGLONG */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> LLint;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LLintP</FONT> <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">double</FONT></B> TStamp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">LFS_FLAG</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> LLint INTsys;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTsysP</FONT> LLintP
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__linux</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_FSEEKO</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> INTsys;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTsysP</FONT> <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN64</FONT>)
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int64 T_SOC;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int32 T_SOC;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> T_SOC;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* IPV4, IPV6 and various unified structures */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_MAXADDRLEN</FONT> 64
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">__cdecl</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* mode pour mkdir ET chmod (accès aux fichiers) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_PROTECT_FOLDER</FONT> (S_IRUSR|S_IWUSR|S_IXUSR)
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS_FILE</FONT> (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS_FOLDER</FONT> (S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS_FILE</FONT> (S_IRUSR|S_IWUSR)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS_FOLDER</FONT> (S_IRUSR|S_IWUSR|S_IXUSR)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* vérifier la déclaration des variables préprocesseur */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DOSNAME</FONT>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> | <FONT COLOR="#B8860B">HTS_DOSNAME</FONT> <FONT COLOR="#B8860B">Has</FONT> <FONT COLOR="#B8860B">not</FONT> <FONT COLOR="#B8860B">been</FONT> <FONT COLOR="#B8860B">defined</FONT>.
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> | <FONT COLOR="#B8860B">Set</FONT> <FONT COLOR="#B8860B">it</FONT> <FONT COLOR="#B8860B">to</FONT> 1 <FONT COLOR="#B8860B">if</FONT> <FONT COLOR="#B8860B">you</FONT> <FONT COLOR="#B8860B">are</FONT> <FONT COLOR="#B8860B">under</FONT> <FONT COLOR="#B8860B">DOS</FONT>, 0 <FONT COLOR="#B8860B">under</FONT> <FONT COLOR="#B8860B">Unix</FONT>.
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> | <FONT COLOR="#B8860B">Example</FONT>: <FONT COLOR="#B8860B">place</FONT> <FONT COLOR="#B8860B">this</FONT> <FONT COLOR="#B8860B">line</FONT> <FONT COLOR="#B8860B">in</FONT> <FONT COLOR="#B8860B">you</FONT> <FONT COLOR="#B8860B">source</FONT>, <FONT COLOR="#B8860B">before</FONT> <FONT COLOR="#B8860B">includes</FONT>:
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> | #<FONT COLOR="#B8860B">define</FONT> <FONT COLOR="#B8860B">HTS_DOSNAME</FONT> 0
+#<B><FONT COLOR="#5F9EA0">error</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS</FONT>
+<I><FONT COLOR="#B22222">/* Par défaut, accès à tous les utilisateurs */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ACCESS</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* fflush sur stdout */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">io_flush</FONT> { fflush(stdout); fflush(stdin); }
+
+<I><FONT COLOR="#B22222">/* HTSLib */</FONT></I>
+
+<I><FONT COLOR="#B22222">// Cache DNS, accélère les résolution d'adresses
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DNSCACHE</FONT> 1
+
+<I><FONT COLOR="#B22222">// ID d'une pseudo-socket locale pour les file://
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LOCAL_SOCKET_ID</FONT> -2
+
+<I><FONT COLOR="#B22222">// taille de chaque buffer (10 sockets 650 ko)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">TAILLE_BUFFER</FONT> 65536
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_USE_PTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <FONT COLOR="#B8860B">needs</FONT> <FONT COLOR="#B8860B">threads</FONT> <FONT COLOR="#B8860B">support</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT> 1
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+<I><FONT COLOR="#B22222">// trace mallocs
+</FONT></I><I><FONT COLOR="#B22222">//#define HTS_TRACE_MALLOC
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_TRACE_MALLOC</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> t_htsboundary;
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_mlink</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_mlink</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> mlink mlink;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> mlink {
+  <B><FONT COLOR="#228B22">char</FONT></B> *adr;
+  <B><FONT COLOR="#228B22">int</FONT></B> len;
+  <B><FONT COLOR="#228B22">int</FONT></B> id;
+  <B><FONT COLOR="#228B22">struct</FONT></B> mlink *next;
+};
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> t_htsboundary htsboundary = 0xDEADBEEF;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* strxxx debugging */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOSTRDEBUG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STRDEBUG</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* Debugging                                                    */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">// débuggage types
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_SHOWTYPES</FONT> 0
+<I><FONT COLOR="#B22222">// backing debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BDEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// chunk receive
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CHUNKDEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// realloc links debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MDEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// cache debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT> 0
+<I><FONT COLOR="#B22222">// DNS debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUGDNS</FONT> 0
+<I><FONT COLOR="#B22222">// savename debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_SAVENAME</FONT> 0
+<I><FONT COLOR="#B22222">// debug robots
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_ROBOTS</FONT> 0
+<I><FONT COLOR="#B22222">// debug hash
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_HASH</FONT> 0
+<I><FONT COLOR="#B22222">// Vérification d'intégrité
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_CHECKINT</FONT> 0
+<I><FONT COLOR="#B22222">// nbr sockets debug
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">NSDEBUG</FONT> 0
+
+<I><FONT COLOR="#B22222">// débuggage HTSLib
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HDEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// surveillance de la connexion
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CNXDEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// debuggage cookies
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_COOK</FONT> 0
+<I><FONT COLOR="#B22222">// débuggage hard..
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_WIDE_DEBUG</FONT> 0
+<I><FONT COLOR="#B22222">// debuggage deletehttp et cie
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEBUG_CLOSESOCK</FONT> 0
+<I><FONT COLOR="#B22222">// debug tracage mémoire
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MEMDEBUG</FONT> 0
+
+<I><FONT COLOR="#B22222">// htsmain
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG_STEPS</FONT> 0
+
+<I><FONT COLOR="#B22222">// Débuggage de contrôle
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DEBUG_CLOSESOCK</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_HTS_WIDE</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_WIDE_DEBUG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_HTS_WIDE</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">_HTS_WIDE</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> FILE *DEBUG_fp;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">DEBUG_W</FONT></B>(A)  { if (DEBUG_fp==NULL) DEBUG_fp=fopen(<B><FONT COLOR="#BC8F8F">&quot;bug.out&quot;</FONT></B>,<B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>); fprintf(DEBUG_fp,<B><FONT COLOR="#BC8F8F">&quot;:&gt;&quot;</FONT></B>A); fflush(DEBUG_fp); }
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_</FONT> ,
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsglobal.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

@@ -1,0 +1,103 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsbauth.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsbauth.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsbauth.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       basic authentication: password storage                 */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTSBAUTH_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSBAUTH_DEFH</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/types.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">// robots wizard
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_bauth_chain</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_bauth_chain</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> bauth_chain bauth_chain;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> bauth_chain {
+  <B><FONT COLOR="#228B22">char</FONT></B> prefix[1024];            <I><FONT COLOR="#B22222">/* www.foo.com/secure/ */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> auth[1024];              <I><FONT COLOR="#B22222">/* base-64 encoded user:pass */</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> bauth_chain *next;     <I><FONT COLOR="#B22222">/* next element */</FONT></I>
+};
+
+<I><FONT COLOR="#B22222">// buffer pour les cookies et authentification
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_cookie</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_cookie</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_cookie t_cookie;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_cookie {
+  <B><FONT COLOR="#228B22">int</FONT></B> max_len;
+  <B><FONT COLOR="#228B22">char</FONT></B> data[32768];
+  bauth_chain auth;
+};
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// cookies
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_add</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B>  <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B>  <B><FONT COLOR="#228B22">char</FONT></B> *cook_value,
+               <B><FONT COLOR="#228B22">const</FONT></B>  <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B>  <B><FONT COLOR="#228B22">char</FONT></B> *path);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_del</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_load</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_save</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cookie_insert</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *ins);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cookie_delete</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, size_t pos);
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_get</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cookie_base, <B><FONT COLOR="#228B22">int</FONT></B> param);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_find</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_nextfield</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *a);
+
+<I><FONT COLOR="#B22222">// basic auth
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">bauth_add</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *auth);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">bauth_check</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">bauth_prefix</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsbauth.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

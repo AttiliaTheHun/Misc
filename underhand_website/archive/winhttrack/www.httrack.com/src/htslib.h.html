@@ -1,0 +1,591 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htslib.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htslib.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htslib.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Subroutines .h                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">// Fichier librairie .h
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEFH</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsrequest</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsrequest htsrequest;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_dnscache t_dnscache;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_adrfil</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_adrfil</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_adrfil lien_adrfil;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_adrfilsave</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_adrfilsave</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_adrfilsave lien_adrfilsave;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* définitions globales */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* basic net definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbasenet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsdefines.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* readdir() */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/types.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;dirent.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* cookies et auth */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbauth.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">// Attention, définition existante également dans le shell
+</FONT></I><I><FONT COLOR="#B22222">// (à modifier avec celle-ci)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">POSTTOK</FONT> <B><FONT COLOR="#BC8F8F">&quot;?&gt;post&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsopt.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">READ_ERROR</FONT> (-1)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">READ_EOF</FONT> (-2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">READ_TIMEOUT</FONT> (-3)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">READ_INTERNAL_ERROR</FONT> (-4)
+
+<I><FONT COLOR="#B22222">/* concat */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN32</FONT>) &amp;&amp; <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_MSC_VER</FONT>) &amp;&amp; ( <FONT COLOR="#B8860B">_MSC_VER</FONT> &gt;= 1300 ) &amp;&amp; (<FONT COLOR="#B8860B">_MSC_VER</FONT> &lt;= 1310 ) )
+<I><FONT COLOR="#B22222">/* NOTE: VC2003 inlining bug in optim mode not respecting function call sequence point */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MSVC2003INLINEBUG</FONT> __declspec(noinline)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MSVC2003INLINEBUG</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+MSVC2003INLINEBUG HTS_STATIC <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">getHtsOptBuff_</FONT></B>(httrackp * opt) {
+  opt-&gt;state.concat.index = (opt-&gt;state.concat.index + 1) % 16;
+  <B><FONT COLOR="#A020F0">return</FONT></B> opt-&gt;state.concat.buff[opt-&gt;state.concat.index];
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">MSVC2003INLINEBUG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">OPT_GET_BUFF</FONT></B>(OPT)      ( getHtsOptBuff_(OPT) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">OPT_GET_BUFF_SIZE</FONT></B>(OPT) ( sizeof(opt-&gt;state.concat.buff[0]) )
+
+<I><FONT COLOR="#B22222">/* ANCIENNE STURCTURE pour cache 1.0 */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_OLD_t_proxy</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_OLD_t_proxy</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> OLD_t_proxy OLD_t_proxy;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> OLD_t_proxy {
+  <B><FONT COLOR="#228B22">int</FONT></B> active;
+  <B><FONT COLOR="#228B22">char</FONT></B> name[1024];
+  <B><FONT COLOR="#228B22">int</FONT></B> port;
+};
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_OLD_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_OLD_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> OLD_htsblk OLD_htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> OLD_htsblk {
+  <B><FONT COLOR="#228B22">int</FONT></B> statuscode;               <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - status-code, -1=erreur, 200=OK,201=..etc (cf RFC1945)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> notmodified;              <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - page ou fichier NON modifié (transféré)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> is_write;                 <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - sortie sur disque (out) ou en mémoire (adr)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *adr;                    <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - adresse du bloc de mémoire, NULL=vide
+</FONT></I>  FILE *out;                    <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - écriture directe sur disque (si is_write=1)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> size;                     <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - taille fichier
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> msg[80];                 <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - message éventuel si échec (&quot;\0&quot;=non précisé)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> contenttype[64];         <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - content-type (&quot;text/html&quot; par exemple)
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *location;               <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - on copie dedans éventuellement la véritable 'location'
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> totalsize;                <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - taille totale à télécharger (-1=inconnue)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> is_file;                  <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - ce n'est pas une socket mais un descripteur de fichier si 1
+</FONT></I>  T_SOC soc;                    <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - ID socket
+</FONT></I>  FILE *fp;                     <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - fichier pour file://
+</FONT></I>  OLD_t_proxy proxy;            <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - proxy
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> user_agent_send;          <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - user agent (ex: httrack/1.0 [sun])
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> user_agent[64];
+  <B><FONT COLOR="#228B22">int</FONT></B> http11;                   <I><FONT COLOR="#B22222">// ANCIENNE STURCTURE - l'en tête doit être signé HTTP/1.1 et non HTTP/1.0
+</FONT></I>};
+
+<I><FONT COLOR="#B22222">/* fin ANCIENNE STURCTURE pour cache 1.0 */</FONT></I>
+
+<I><FONT COLOR="#B22222">// cache pour le dns, pour éviter de faire des gethostbyname sans arrêt
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_dnscache</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_dnscache t_dnscache;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_dnscache {
+  <B><FONT COLOR="#228B22">struct</FONT></B> t_dnscache *next;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iadr;
+  size_t host_length;                   <I><FONT COLOR="#B22222">// length ; (4 or 16) ; 0 for error
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> host_addr[HTS_MAXADDRLEN];
+};
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// initialize an htsblk structure
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_init_htsblk</FONT></B>(htsblk * r);
+
+<I><FONT COLOR="#B22222">// attach specific project log to hachtable logger
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_set_hash_handler</FONT></B>(coucal hashtable, httrackp *opt);
+
+<I><FONT COLOR="#B22222">// version
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">hts_version</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">// fonctions unix/winsock
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_read</FONT></B>(htsblk * r, <B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">int</FONT></B> size);
+
+<I><FONT COLOR="#B22222">//int HTS_TOTAL_RECV_CHECK(int var);
+</FONT></I>LLint <B><FONT COLOR="#0000FF">check_downloadable_bytes</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> rate);
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_uninit_module</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">// fonctions principales
+</FONT></I>T_SOC <B><FONT COLOR="#0000FF">http_fopen</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, htsblk * retour);
+T_SOC <B><FONT COLOR="#0000FF">http_xfopen</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> mode, <B><FONT COLOR="#228B22">int</FONT></B> treat, <B><FONT COLOR="#228B22">int</FONT></B> waitconnect,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *xsend, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, htsblk * retour);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">http_sendhead</FONT></B>(httrackp * opt, t_cookie * cookie, <B><FONT COLOR="#228B22">int</FONT></B> mode, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *xsend,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                  htsblk * retour);
+
+<I><FONT COLOR="#B22222">//int newhttp(char* iadr,char* err=NULL);
+</FONT></I>T_SOC <B><FONT COLOR="#0000FF">newhttp</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iadr, htsblk * retour, <B><FONT COLOR="#228B22">int</FONT></B> port,
+              <B><FONT COLOR="#228B22">int</FONT></B> waitconnect);
+HTS_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">deletehttp</FONT></B>(htsblk * r);
+HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">deleteaddr</FONT></B>(htsblk * r);
+HTS_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">deletesoc</FONT></B>(T_SOC soc);
+HTS_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">deletesoc_r</FONT></B>(htsblk * r);
+htsblk <B><FONT COLOR="#0000FF">http_test</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">char</FONT></B> *loc);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput</FONT></B>(htsblk * r);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">int</FONT></B> timeout);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">treathead</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, htsblk * retour,
+               <B><FONT COLOR="#228B22">char</FONT></B> *rcvd);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">treatfirstline</FONT></B>(htsblk * retour, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *rcvd);
+
+<I><FONT COLOR="#B22222">// sous-fonctions
+</FONT></I>LLint <B><FONT COLOR="#0000FF">http_xfread1</FONT></B>(htsblk * r, <B><FONT COLOR="#228B22">int</FONT></B> bufl);
+HTS_INLINE SOCaddr* <B><FONT COLOR="#0000FF">hts_dns_resolve2</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iadr,
+                                     SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> addr, 
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> **error);
+HTS_INLINE SOCaddr* <B><FONT COLOR="#0000FF">hts_dns_resolve</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *iadr,
+                                    SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> addr);
+HTSEXT_API SOCaddr* <B><FONT COLOR="#0000FF">hts_dns_resolve_nocache2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> hostname, 
+                                              SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> addr,
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> **error);
+HTSEXT_API SOCaddr* <B><FONT COLOR="#0000FF">hts_dns_resolve_nocache</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> hostname, 
+                                             SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> addr);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_hostname_dns</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> hostname);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ftp_available</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DNSCACHE</FONT>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_cache_free</FONT></B>(t_dnscache *<B><FONT COLOR="#228B22">const</FONT></B> cache);
+t_dnscache *<B><FONT COLOR="#0000FF">hts_cache</FONT></B>(httrackp * opt);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// outils divers
+</FONT></I>HTS_INLINE TStamp <B><FONT COLOR="#0000FF">time_local</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sec2str</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, TStamp t);
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">time_gmt_rfc822</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">time_local_rfc822</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">struct</FONT></B> tm *<B><FONT COLOR="#0000FF">convert_time_rfc822</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> tm *buffer, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">set_filetime</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm_time);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">set_filetime_rfc822</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *date);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">get_filetime_rfc822</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">char</FONT></B> *date);
+HTS_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">time_rfc822</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">struct</FONT></B> tm *A);
+HTS_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">time_rfc822_local</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">struct</FONT></B> tm *A);
+
+HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">sendc</FONT></B>(htsblk * r, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">finput</FONT></B>(T_SOC fd, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">binput</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max, <B><FONT COLOR="#228B22">int</FONT></B> timeout);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput_trim</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput_cpp</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">rawlinput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strstrcase</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *o);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ident_url_absolute</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, lien_adrfil *adrfil);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fil_simplifie</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *f);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_unicode_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">map_characters</FONT></B>(<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> size,
+                    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> *map);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ishtml</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *urlfil);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ishtml_ext</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ishttperror</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> err);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">get_userhttptype</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">give_mimext</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *st);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">may_bogus_multiple</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">may_unknown2</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strrchr_limit</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">char</FONT></B> c, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *limit);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_protocol</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *source);
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_protocol_const</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *source);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">code64</FONT></B>(<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">int</FONT></B> size_a, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b, <B><FONT COLOR="#228B22">int</FONT></B> crlf);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">copychar</FONT></B>(catbuff,a) concat(catbuff,(a),NULL)
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">convtolower</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_lowcase</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_replace</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">char</FONT></B> from, <B><FONT COLOR="#228B22">char</FONT></B> to);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">multipleStringMatch</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *match);
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fprintfio</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *prefix);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">sig_ignore_flag</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> setflag);  <I><FONT COLOR="#B22222">// flag ignore
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cut_path</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *fullpath, <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">char</FONT></B> *pname);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fexist</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fexist_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+
+<I><FONT COLOR="#B22222">/*LLint fsize(const char* s);    */</FONT></I>
+off_t <B><FONT COLOR="#0000FF">fpsize</FONT></B>(FILE * fp);
+off_t <B><FONT COLOR="#0000FF">fsize</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+off_t <B><FONT COLOR="#0000FF">fsize_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+
+<I><FONT COLOR="#B22222">// Threads
+</FONT></I><B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *(*beginthread_type) (<B><FONT COLOR="#228B22">void</FONT></B> *);
+
+<I><FONT COLOR="#B22222">/*unsigned long _beginthread( beginthread_type start_address, unsigned stack_size, void *arglist );*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* variables globales */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> HTSEXT_API hts_stat_struct HTS_STAT;
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> _DEBUG_HEAD;
+<B><FONT COLOR="#228B22">extern</FONT></B> FILE *ioinfo;
+
+<I><FONT COLOR="#B22222">/* constantes */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_mime_keep[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_mime[][2];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_main_mime[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_detect[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_detectbeg[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_nodetect[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_detectURL[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_detectandleave[];
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_detect_js[];
+
+<I><FONT COLOR="#B22222">// htsmodule.c definitions
+</FONT></I><B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">openFunctionLib</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file_);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">getFunctionPtr</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *handle, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fncname);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">closeFunctionLib</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *handle);
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">clearCallbacks</FONT></B>(htscallbacks * chain);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_set_callback</FONT></B>(t_hts_htmlcheck_callbacks * callbacks,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name, <B><FONT COLOR="#228B22">void</FONT></B> *function);
+<B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">hts_get_callback</FONT></B>(t_hts_htmlcheck_callbacks * callbacks,
+                       <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CBSTRUCT</FONT></B>(OPT) ((t_hts_htmlcheck_callbacks*) ((OPT)-&gt;callbacks_fun))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">GET_USERCALLBACK</FONT></B>(OPT, NAME) ( CBSTRUCT(OPT)-&gt; NAME .fun )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">GET_USERARG</FONT></B>(OPT, NAME) ( CBSTRUCT(OPT)-&gt; NAME .carg )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">GET_USERDEF</FONT></B>(OPT, NAME) ( \
+  (CBSTRUCT(OPT) != NULL &amp;&amp; CBSTRUCT(OPT)-&gt; NAME .fun != NULL) \
+	? ( GET_USERARG(OPT, NAME) ) \
+	: ( default_callbacks. NAME .carg ) \
+)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">GET_CALLBACK</FONT></B>(OPT, NAME) ( \
+  (CBSTRUCT(OPT) != NULL &amp;&amp; CBSTRUCT(OPT)-&gt; NAME .fun != NULL) \
+	? ( GET_USERCALLBACK(OPT, NAME ) ) \
+  : ( default_callbacks. NAME .fun ) \
+)
+
+<I><FONT COLOR="#B22222">/* Predefined macros */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK_NOARG</FONT></B>(OPT, NAME) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK0</FONT></B>(OPT, NAME) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK1</FONT></B>(OPT, NAME, ARG1) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK2</FONT></B>(OPT, NAME, ARG1, ARG2) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK3</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK4</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3, ARG4) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3, ARG4)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK5</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3, ARG4, ARG5) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3, ARG4, ARG5)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK6</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK7</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUN_CALLBACK8</FONT></B>(OPT, NAME, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8) GET_CALLBACK(OPT, NAME)(GET_USERARG(OPT, NAME), OPT, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8)
+
+<I><FONT COLOR="#B22222">/*
+#define GET_CALLBACK(OPT, NAME, ARG) ( \
+  ( \
+    ( ARG ) = GET_USERDEF(OPT, NAME), \
+    ( \
+ 	    (CBSTRUCT(OPT) != NULL &amp;&amp; CBSTRUCT(OPT)-&gt; NAME .fun != NULL) \
+	    ? ( GET_USERCALLBACK(OPT, NAME ) ) \
+      : ( default_callbacks. NAME .fun ) \
+    ) \
+  ) \
+)
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* UTF-8 aware FILE API */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FILEAPI</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FOPEN</FONT> hts_fopen_utf8
+     HTSEXT_API FILE *hts_fopen_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mode);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STAT</FONT> hts_stat_utf8
+     <B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _stat STRUCT_STAT;
+     HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> hts_stat_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, STRUCT_STAT * buf);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNLINK</FONT> hts_unlink_utf8
+     HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> hts_unlink_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pathname);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RENAME</FONT> hts_rename_utf8
+     HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> hts_rename_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *oldpath, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *newpath);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">MKDIR</FONT></B>(F) hts_mkdir_utf8(F)
+     HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> hts_mkdir_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pathname);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UTIME</FONT></B>(A,B) hts_utime_utf8(A,B)
+     <B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _utimbuf STRUCT_UTIMBUF;
+     HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> hts_utime_utf8(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename,
+                                   <B><FONT COLOR="#228B22">const</FONT></B> STRUCT_UTIMBUF * times);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<I><FONT COLOR="#B22222">/* The underlying filesystem charset is supposed to be UTF-8 */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FOPEN</FONT> fopen
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STAT</FONT> stat
+     <B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> stat STRUCT_STAT;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNLINK</FONT> unlink
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RENAME</FONT> rename
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">MKDIR</FONT></B>(F) mkdir(F, HTS_ACCESS_FOLDER)
+     <B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> utimbuf STRUCT_UTIMBUF;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UTIME</FONT></B>(A,B) utime(A,B)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FILEAPI</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B> // <FONT COLOR="#B8860B">internals</FONT>
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">PATH_SEPARATOR</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PATH_SEPARATOR</FONT> <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PATH_SEPARATOR</FONT> <B><FONT COLOR="#BC8F8F">'/'</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Spaces: CR,LF,TAB,FF */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_space</FONT></B>(c)      ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>) || ((c)==<B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>) || ((c)==10) || ((c)==13) || ((c)==9) || ((c)==12) || ((c)==11) || ((c)==<B><FONT COLOR="#BC8F8F">'\''</FONT></B>) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_realspace</FONT></B>(c)  ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>)                || ((c)==10) || ((c)==13) || ((c)==9) || ((c)==12) || ((c)==11)                )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_taborspace</FONT></B>(c) ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>)                                          || ((c)==9)                             )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_quote</FONT></B>(c)      (               ((c)==<B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>)                                                    || ((c)==<B><FONT COLOR="#BC8F8F">'\''</FONT></B>) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_retorsep</FONT></B>(c)   (                              ((c)==10) || ((c)==13) || ((c)==9)                                          )
+<I><FONT COLOR="#B22222">//HTS_INLINE int is_space(char);
+</FONT></I><I><FONT COLOR="#B22222">//HTS_INLINE int is_realspace(char);
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_IS_REDIRECT</FONT></B>(code) ( \
+     (code) == 301               \
+  || (code) == 302               \
+  || (code) == 303               \
+  || (code) == 307               \
+  || (code) == 308               \
+  )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_IS_NOTMODIFIED</FONT></B>(code) ( \
+     (code) == 304               \
+  )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_IS_OK</FONT></B>(code) ( ( (code) / 100 ) == 2 )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_IS_ERROR</FONT></B>(code) ( !HTTP_IS_OK(code) &amp;&amp; !HTTP_IS_REDIRECT(code) &amp;&amp; !HTTP_IS_NOTMODIFIED(code) )
+
+<I><FONT COLOR="#B22222">// compare le début de f avec s et retourne la position de la fin
+</FONT></I><I><FONT COLOR="#B22222">// 'A=a' (case insensitive)
+</FONT></I>HTS_STATIC <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">strfield</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *f, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> r = 0;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(streql(*f, *s) &amp;&amp; ((*f) != 0) &amp;&amp; ((*s) != 0)) {
+    f++;
+    s++;
+    r++;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*s == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> r;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTS_STATIC <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">strcmpnocase</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b) {
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+    <B><FONT COLOR="#228B22">int</FONT></B> cmp = hichar(*a) - hichar(*b);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cmp != 0)
+      <B><FONT COLOR="#A020F0">return</FONT></B> cmp;
+    a++;
+    b++;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strcasecmp</FONT></B>(a,b) stricmp(a,b)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strncasecmp</FONT></B>(a,b,n) strnicmp(a,b,n)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">snprintf</FONT> _snprintf
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strfield2</FONT></B>(f,s) ( (strlen(f)!=strlen(s)) ? 0 : (strfield(f,s)) )
+
+<I><FONT COLOR="#B22222">// is this MIME an hypertext MIME (text/html), html/js-style or other script/text type?
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_HYPERTEXT_DEFAULT_MIME</FONT> <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">is_html_mime_type</FONT></B>(a) \
+  ( (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>)!=0)\
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;application/xhtml+xml&quot;</FONT></B>)!=0) \
+  )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">is_hypertext_mime__</FONT></B>(a) \
+  ( \
+  is_html_mime_type(a)\
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;application/x-javascript&quot;</FONT></B>)!=0) \
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;text/css&quot;</FONT></B>)!=0) \
+  <I><FONT COLOR="#B22222">/*|| (strfield2((a),&quot;text/vnd.wap.wml&quot;)!=0)*/</FONT></I> \
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;image/svg+xml&quot;</FONT></B>)!=0) \
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;image/svg-xml&quot;</FONT></B>)!=0) \
+  <I><FONT COLOR="#B22222">/*|| (strfield2((a),&quot;audio/x-pn-realaudio&quot;)!=0) */</FONT></I>\
+  || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;application/x-authorware-map&quot;</FONT></B>)!=0) \
+  )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">may_be_hypertext_mime__</FONT></B>(a) \
+   (\
+     (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;audio/x-pn-realaudio&quot;</FONT></B>)!=0) \
+     || (strfield2((a),<B><FONT COLOR="#BC8F8F">&quot;audio/x-mpegurl&quot;</FONT></B>)!=0) \
+     <I><FONT COLOR="#B22222">/*|| (strfield2((a),&quot;text/xml&quot;)!=0) || (strfield2((a),&quot;application/xml&quot;)!=0) : TODO: content check */</FONT></I> \
+  )
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// check if (mime, file) is hypertext
+</FONT></I>HTS_STATIC <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_hypertext_mime</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (is_hypertext_mime__(mime))
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (may_unknown(opt, mime)) {
+    <B><FONT COLOR="#228B22">char</FONT></B> guessed[256];
+
+    guessed[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    guess_httptype(opt, guessed, file);
+    <B><FONT COLOR="#A020F0">return</FONT></B> is_hypertext_mime__(guessed);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// check if (mime, file) might be &quot;false&quot; hypertext
+</FONT></I>HTS_STATIC <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">may_be_hypertext_mime</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (may_be_hypertext_mime__(mime))
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (file != NULL &amp;&amp; file[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; may_unknown(opt, mime)) {
+    <B><FONT COLOR="#228B22">char</FONT></B> guessed[256];
+
+    guessed[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    guess_httptype(opt, guessed, file);
+    <B><FONT COLOR="#A020F0">return</FONT></B> may_be_hypertext_mime__(guessed);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// compare (mime, file) with reference
+</FONT></I>HTS_STATIC <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">compare_mime</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file,
+                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *reference) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (is_hypertext_mime__(mime) || may_be_hypertext_mime__(mime))
+    <B><FONT COLOR="#A020F0">return</FONT></B> strfield2(mime, reference);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (file != NULL &amp;&amp; file[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; may_unknown(opt, mime)) {
+    <B><FONT COLOR="#228B22">char</FONT></B> guessed[256];
+
+    guessed[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    guess_httptype(opt, guessed, file);
+    <B><FONT COLOR="#A020F0">return</FONT></B> strfield2(guessed, reference);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// returns (size_t) -1 upon error
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> HTS_UNUSED size_t <B><FONT COLOR="#0000FF">off_t_to_size_t</FONT></B>(off_t o) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t so = (size_t) o;
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((off_t) so == o) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> so;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> (size_t) -1;
+  }
+}
+
+<I><FONT COLOR="#B22222">/* dirent() compatibility */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DIRENT_SIZE</FONT> 256
+<B><FONT COLOR="#228B22">struct</FONT></B> dirent {
+  ino_t d_ino;                  <I><FONT COLOR="#B22222">/* ignored */</FONT></I>
+  off_t d_off;                  <I><FONT COLOR="#B22222">/* ignored */</FONT></I>
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> d_reclen;      <I><FONT COLOR="#B22222">/* ignored */</FONT></I>
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> d_type;         <I><FONT COLOR="#B22222">/* ignored */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> d_name[HTS_DIRENT_SIZE]; <I><FONT COLOR="#B22222">/* filename */</FONT></I>
+};
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> DIR DIR;
+<B><FONT COLOR="#228B22">struct</FONT></B> DIR {
+  HANDLE h;
+  <B><FONT COLOR="#228B22">struct</FONT></B> dirent entry;
+  <B><FONT COLOR="#228B22">char</FONT></B> *name;
+};
+DIR *<B><FONT COLOR="#0000FF">opendir</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+<B><FONT COLOR="#228B22">struct</FONT></B> dirent *<B><FONT COLOR="#0000FF">readdir</FONT></B>(DIR * dir);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">closedir</FONT></B>(DIR * dir);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htslib.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

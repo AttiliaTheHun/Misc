@@ -1,0 +1,198 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htscharset.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htscharset.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htscharset.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Charset conversion functions                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_CHARSET_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_CHARSET_DEFH</FONT>
+
+<I><FONT COLOR="#B22222">/** Standard includes. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;windows.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** UCS4 type. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> hts_UCS4;
+
+<I><FONT COLOR="#B22222">/** Leading character (ASCII or leading UTF-8 sequence) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_IS_LEADING_UTF8</FONT></B>(C) ((unsigned char)(C) &lt; 0x80 || (unsigned char)(C) &gt;= 0xc0)
+
+<I><FONT COLOR="#B22222">/**
+ * Convert the string &quot;s&quot; from charset &quot;charset&quot; to UTF-8.
+ * Return NULL upon error.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert the string &quot;s&quot; from UTF-8 to charset &quot;charset&quot;.
+ * Return NULL upon error.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringFromUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size,
+                                       <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert an UTF-8 string to an IDNA (RFC 3492) string.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringUTF8ToIDNA</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert an IDNA (RFC 3492) string to an UTF-8 string.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringIDNAToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Has the given string any IDNA segments ?
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringIDNA</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Extract the charset from the HTML buffer &quot;html&quot;
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getCharsetFromMeta</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *html, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Is the given string an ASCII string ?
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringAscii</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Is the given string an UTF-8 string ?
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Is the given charset the UTF-8 charset ?
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isCharsetUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset);
+
+<I><FONT COLOR="#B22222">/**
+ * Get an UTF-8 string length in characters.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_stringLengthUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+
+<I><FONT COLOR="#B22222">/**
+ * Copy at most 'nBytes' bytes from src to dest, not truncating UTF-8
+ * sequences.
+ * Returns the number of bytes copied, not including the terminating \0.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_copyStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, 
+                                 size_t nBytes);
+
+<I><FONT COLOR="#B22222">/**
+ * Append at most 'nBytes' bytes from src to dest, not truncating UTF-8
+ * sequences.
+ * Returns the number of bytes appended, not including the terminating \0.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_appendStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, 
+                                   size_t nBytes);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert an UTF-8 string into an Unicode string (0-terminated).
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> hts_UCS4* <B><FONT COLOR="#0000FF">hts_convertUTF8StringToUCS4</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, 
+                                             size_t *nChars);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert an Unicode string into an UTF-8 string.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertUCS4StringToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 *s, size_t nChars);
+
+<I><FONT COLOR="#B22222">/**
+ * Return the length (in characters) of an UCS4 string terminated by 0.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_stringLengthUCS4</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 *s);
+
+<I><FONT COLOR="#B22222">/**
+ * Write the Unicode character 'uc' in 'dest' of maximum size 'size'.
+ * Return the number of bytes written, or 0 upon error.
+ * Note: does not \0-terminate the destination buffer.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_writeUTF8</FONT></B>(hts_UCS4 uc, <B><FONT COLOR="#228B22">char</FONT></B> *dest, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Read the next Unicode character within 'src' of size 'size' and, upon
+ * successful reading, return the number of bytes read and place the
+ * character is 'puc'.
+ * Return 0 upon error.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_readUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, size_t size, hts_UCS4 *puc);
+
+<I><FONT COLOR="#B22222">/**
+ * Given the first UTF-8 sequence character, get the total number of
+ * characters in the sequence (1 for ASCII). 
+ * Return 0 upon error (not a leading character).
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> size_t <B><FONT COLOR="#0000FF">hts_getUTF8SequenceLength</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> lead);
+
+<I><FONT COLOR="#B22222">/** WIN32 specific functions. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<I><FONT COLOR="#B22222">/**
+ * Convert UTF-8 to WCHAR.
+ * This function is WIN32 specific.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> LPWSTR <B><FONT COLOR="#0000FF">hts_convertUTF8StringToUCS2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> size, <B><FONT COLOR="#228B22">int</FONT></B> *pwsize);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert from WCHAR.
+ * This function is WIN32 specific.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertUCS2StringToUTF8</FONT></B>(LPWSTR woutput, <B><FONT COLOR="#228B22">int</FONT></B> wsize);
+
+<I><FONT COLOR="#B22222">/**
+ * Convert current system codepage to UTF-8.
+ * This function is WIN32 specific.
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringSystemToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htscharset.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

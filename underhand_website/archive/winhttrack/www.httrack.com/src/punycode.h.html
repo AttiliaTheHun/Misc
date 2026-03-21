@@ -1,0 +1,108 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/punycode.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:34 GMT -->
+<HEAD>
+<TITLE>./punycode.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./punycode.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/*
+punycode.c from RFC 3492
+http://www.nicemice.net/idn/
+Adam M. Costello
+http://www.nicemice.net/amc/
+
+This is ANSI C code (C89) implementing Punycode (RFC 3492).
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">PUNYCODE_COSTELLO_RFC3492_H</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PUNYCODE_COSTELLO_RFC3492_H</FONT>
+
+<I><FONT COLOR="#B22222">/********************/</FONT></I>
+<I><FONT COLOR="#B22222">/* Public interface */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;limits.h&gt;</FONT></B>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> punycode_status {
+  punycode_success,
+  punycode_bad_input,           <I><FONT COLOR="#B22222">/* Input is invalid.                       */</FONT></I>
+  punycode_big_output,          <I><FONT COLOR="#B22222">/* Output would exceed the space provided. */</FONT></I>
+  punycode_overflow             <I><FONT COLOR="#B22222">/* Input needs wider integers to process.  */</FONT></I>
+} punycode_status;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">UINT_MAX</FONT> &gt;= (1 &lt;&lt; 26) - 1
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> punycode_uint;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> punycode_uint;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* punycode_encode() converts Unicode to Punycode.  The input     */</FONT></I>
+<I><FONT COLOR="#B22222">/* is represented as an array of Unicode code points (not code    */</FONT></I>
+<I><FONT COLOR="#B22222">/* units; surrogate pairs are not allowed), and the output        */</FONT></I>
+<I><FONT COLOR="#B22222">/* will be represented as an array of ASCII code points.  The     */</FONT></I>
+<I><FONT COLOR="#B22222">/* output string is *not* null-terminated; it will contain        */</FONT></I>
+<I><FONT COLOR="#B22222">/* zeros if and only if the input contains zeros.  (Of course     */</FONT></I>
+<I><FONT COLOR="#B22222">/* the caller can leave room for a terminator and add one if      */</FONT></I>
+<I><FONT COLOR="#B22222">/* needed.)  The input_length is the number of code points in     */</FONT></I>
+<I><FONT COLOR="#B22222">/* the input.  The output_length is an in/out argument: the       */</FONT></I>
+<I><FONT COLOR="#B22222">/* caller passes in the maximum number of code points that it     */</FONT></I>
+<I><FONT COLOR="#B22222">/* can receive, and on successful return it will contain the      */</FONT></I>
+<I><FONT COLOR="#B22222">/* number of code points actually output.  The case_flags array   */</FONT></I>
+<I><FONT COLOR="#B22222">/* holds input_length boolean values, where nonzero suggests that */</FONT></I>
+<I><FONT COLOR="#B22222">/* the corresponding Unicode character be forced to uppercase     */</FONT></I>
+<I><FONT COLOR="#B22222">/* after being decoded (if possible), and zero suggests that      */</FONT></I>
+<I><FONT COLOR="#B22222">/* it be forced to lowercase (if possible).  ASCII code points    */</FONT></I>
+<I><FONT COLOR="#B22222">/* are encoded literally, except that ASCII letters are forced    */</FONT></I>
+<I><FONT COLOR="#B22222">/* to uppercase or lowercase according to the corresponding       */</FONT></I>
+<I><FONT COLOR="#B22222">/* uppercase flags.  If case_flags is a null pointer then ASCII   */</FONT></I>
+<I><FONT COLOR="#B22222">/* letters are left as they are, and other code points are        */</FONT></I>
+<I><FONT COLOR="#B22222">/* treated as if their uppercase flags were zero.  The return     */</FONT></I>
+<I><FONT COLOR="#B22222">/* value can be any of the punycode_status values defined above   */</FONT></I>
+<I><FONT COLOR="#B22222">/* except punycode_bad_input; if not punycode_success, then       */</FONT></I>
+<I><FONT COLOR="#B22222">/* output_size and output might contain garbage.                  */</FONT></I>
+<B><FONT COLOR="#228B22">enum</FONT></B> punycode_status <B><FONT COLOR="#0000FF">punycode_encode</FONT></B>(punycode_uint input_length,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> punycode_uint input[],
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> case_flags[],
+                                     punycode_uint * output_length,
+                                     <B><FONT COLOR="#228B22">char</FONT></B> output[]);
+
+<I><FONT COLOR="#B22222">/* punycode_decode() converts Punycode to Unicode.  The input is  */</FONT></I>
+<I><FONT COLOR="#B22222">/* represented as an array of ASCII code points, and the output   */</FONT></I>
+<I><FONT COLOR="#B22222">/* will be represented as an array of Unicode code points.  The   */</FONT></I>
+<I><FONT COLOR="#B22222">/* input_length is the number of code points in the input.  The   */</FONT></I>
+<I><FONT COLOR="#B22222">/* output_length is an in/out argument: the caller passes in      */</FONT></I>
+<I><FONT COLOR="#B22222">/* the maximum number of code points that it can receive, and     */</FONT></I>
+<I><FONT COLOR="#B22222">/* on successful return it will contain the actual number of      */</FONT></I>
+<I><FONT COLOR="#B22222">/* code points output.  The case_flags array needs room for at    */</FONT></I>
+<I><FONT COLOR="#B22222">/* least output_length values, or it can be a null pointer if the */</FONT></I>
+<I><FONT COLOR="#B22222">/* case information is not needed.  A nonzero flag suggests that  */</FONT></I>
+<I><FONT COLOR="#B22222">/* the corresponding Unicode character be forced to uppercase     */</FONT></I>
+<I><FONT COLOR="#B22222">/* by the caller (if possible), while zero suggests that it be    */</FONT></I>
+<I><FONT COLOR="#B22222">/* forced to lowercase (if possible).  ASCII code points are      */</FONT></I>
+<I><FONT COLOR="#B22222">/* output already in the proper case, but their flags will be set */</FONT></I>
+<I><FONT COLOR="#B22222">/* appropriately so that applying the flags would be harmless.    */</FONT></I>
+<I><FONT COLOR="#B22222">/* The return value can be any of the punycode_status values      */</FONT></I>
+<I><FONT COLOR="#B22222">/* defined above; if not punycode_success, then output_length,    */</FONT></I>
+<I><FONT COLOR="#B22222">/* output, and case_flags might contain garbage.  On success, the */</FONT></I>
+<I><FONT COLOR="#B22222">/* decoder will never need to write an output_length greater than */</FONT></I>
+<I><FONT COLOR="#B22222">/* input_length, because of how the encoding is defined.          */</FONT></I>
+<B><FONT COLOR="#228B22">enum</FONT></B> punycode_status <B><FONT COLOR="#0000FF">punycode_decode</FONT></B>(punycode_uint input_length,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> input[],
+                                     punycode_uint * output_length,
+                                     punycode_uint output[],
+                                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> case_flags[]);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/punycode.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:34 GMT -->
+</HTML>

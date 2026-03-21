@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsthread.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsthread.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsthread.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Threads                                                */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEFTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEFTHREAD</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;pthread.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;windows.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <FONT COLOR="#B8860B">needs</FONT> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definition */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmutex_s</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmutex_s</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsmutex_s htsmutex_s, *htsmutex;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSMUTEX_INIT</FONT> NULL
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsmutex_s {
+  HANDLE handle;
+};
+#<B><FONT COLOR="#5F9EA0">else</FONT></B> <I><FONT COLOR="#B22222">/* #ifdef _WIN32 */</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsmutex_s {
+  pthread_mutex_t handle;
+};
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B> <I><FONT COLOR="#B22222">/* #ifdef _WIN32 */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_newthread</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*fun) (<B><FONT COLOR="#228B22">void</FONT></B> *arg), <B><FONT COLOR="#228B22">void</FONT></B> *arg);
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_wait_n</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> n_wait);
+
+<I><FONT COLOR="#B22222">/* Locking functions */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexinit</FONT></B>(htsmutex * mutex);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexfree</FONT></B>(htsmutex * mutex);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexlock</FONT></B>(htsmutex * mutex);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexrelease</FONT></B>(htsmutex * mutex);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+<I><FONT COLOR="#B22222">/* Thread initialization */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsthread.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

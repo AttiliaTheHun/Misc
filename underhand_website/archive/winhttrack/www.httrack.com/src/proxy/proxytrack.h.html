@@ -1,0 +1,432 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/proxy/proxytrack.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+<HEAD>
+<TITLE>./proxy/proxytrack.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./proxy/proxytrack.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: ProxyTrack, httrack cache-based proxy                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">WEBHTTRACK_PROXYTRACK</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">WEBHTTRACK_PROXYTRACK</FONT>
+
+<I><FONT COLOR="#B22222">/* Version */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PROXYTRACK_VERSION</FONT> <B><FONT COLOR="#BC8F8F">&quot;0.5&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Store manager */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;../minizip/mztools.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;store.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/stat.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_USE_FTIME</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/utime.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;utime.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/timeb.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;utime.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;pthread.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdarg.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* generic */</FONT></I>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_main</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *proxyAddr, <B><FONT COLOR="#228B22">int</FONT></B> proxyPort, <B><FONT COLOR="#228B22">char</FONT></B> *icpAddr, <B><FONT COLOR="#228B22">int</FONT></B> icpPort,
+                    PT_Indexes index);
+
+<I><FONT COLOR="#B22222">/* Spaces: CR,LF,TAB,FF */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_space</FONT></B>(c)      ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>) || ((c)==<B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>) || ((c)==10) || ((c)==13) || ((c)==9) || ((c)==12) || ((c)==11) || ((c)==<B><FONT COLOR="#BC8F8F">'\''</FONT></B>) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_realspace</FONT></B>(c)  ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>)                || ((c)==10) || ((c)==13) || ((c)==9) || ((c)==12) || ((c)==11)                )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_taborspace</FONT></B>(c) ( ((c)==<B><FONT COLOR="#BC8F8F">' '</FONT></B>)                                          || ((c)==9)                             )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_quote</FONT></B>(c)      (               ((c)==<B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>)                                                    || ((c)==<B><FONT COLOR="#BC8F8F">'\''</FONT></B>) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B>  <B><FONT COLOR="#0000FF">is_retorsep</FONT></B>(c)   (                              ((c)==10) || ((c)==13) || ((c)==9)                                          )
+
+<I><FONT COLOR="#B22222">/* Static definitions */</FONT></I>
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_print_log</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *severity, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, ...) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (severity != NULL) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> error = errno;
+    FILE *<B><FONT COLOR="#228B22">const</FONT></B> fp = stderr;
+    va_list args;
+
+    fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot; * %s: &quot;</FONT></B>, severity);
+    va_start(args, format);
+    (<B><FONT COLOR="#228B22">void</FONT></B>) vfprintf(fp, format, args);
+    va_end(args);
+    fputs(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>, fp);
+    fflush(fp);
+    errno = error;
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CRITICAL</FONT> <B><FONT COLOR="#BC8F8F">&quot;critical&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">WARNING</FONT> <B><FONT COLOR="#BC8F8F">&quot;warning&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">LOG</FONT> <B><FONT COLOR="#BC8F8F">&quot;log&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_DEBUG</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">DEBUG</FONT>)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG</FONT> <B><FONT COLOR="#BC8F8F">&quot;debug&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DEBUG</FONT> NULL
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Header for generated pages */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PROXYTRACK_COMMENT_HEADER</FONT> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Generated by ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- This is an add-on for HTTrack &quot;</FONT></B> HTTRACK_VERSIONID <B><FONT COLOR="#BC8F8F">&quot; --&gt;\r\n&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* See IE &quot;feature&quot; (MSKB Q294807) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES</FONT>											\
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Start Disable IE Friendly HTTP Error Messages --&gt;\r\n&quot;</FONT></B>			\
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- _-._.--._._-._.--._._-._.--._._-._.--._._-._.--._. --&gt;\r\n&quot;</FONT></B> \
+	<B><FONT COLOR="#BC8F8F">&quot;&lt;!-- End Disable IE Friendly HTTP Error Messages --&gt;\r\n&quot;</FONT></B>
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">gethomedir</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *home = getenv(<B><FONT COLOR="#BC8F8F">&quot;HOME&quot;</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (home)
+    <B><FONT COLOR="#A020F0">return</FONT></B> home;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>;
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> c;
+  <B><FONT COLOR="#228B22">int</FONT></B> j = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    c = fgetc(fp);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c != EOF) {
+      <B><FONT COLOR="#A020F0">switch</FONT></B> (c) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter CR
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>:
+        c = -1;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">9</FONT></B>:
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">12</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter ces caractères
+</FONT></I>      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+        s[j++] = (<B><FONT COLOR="#228B22">char</FONT></B>) c;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((c != -1) &amp;&amp; (c != EOF) &amp;&amp; (j &lt; (max - 1)));
+  s[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> j;
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">link_has_authority</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lien) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = lien;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (isalpha((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a)) {
+    <I><FONT COLOR="#B22222">// Skip scheme?
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>(isalpha((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a))
+      a++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">':'</FONT></B>)
+      a++;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(a, <B><FONT COLOR="#BC8F8F">&quot;//&quot;</FONT></B>, 2) == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_protocol</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *source) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+  <I><FONT COLOR="#B22222">// scheme
+</FONT></I>  <I><FONT COLOR="#B22222">// &quot;Comparisons of scheme names MUST be case-insensitive&quot; (RFC2616)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(source, <B><FONT COLOR="#BC8F8F">&quot;http:&quot;</FONT></B>)))
+    source += p;
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(source, <B><FONT COLOR="#BC8F8F">&quot;ftp:&quot;</FONT></B>)))
+    source += p;
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(source, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>)))
+    source += p;
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(source, <B><FONT COLOR="#BC8F8F">&quot;file:&quot;</FONT></B>)))
+    source += p;
+  <I><FONT COLOR="#B22222">// net_path
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(source, <B><FONT COLOR="#BC8F8F">&quot;//&quot;</FONT></B>, 2) == 0)
+    source += 2;
+  <B><FONT COLOR="#A020F0">return</FONT></B> source;
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strrchr_limit</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">char</FONT></B> c, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *limit) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (limit == NULL) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *p = strrchr(s, c);
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> p ? (p + 1) : NULL;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a = NULL, *p;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(;;) {
+      p = strchr((a) ? a : s, c);
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((p &gt;= limit) || (p == NULL))
+        <B><FONT COLOR="#A020F0">return</FONT></B> a;
+      a = p + 1;
+    }
+  }
+}
+
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_protocol_and_auth</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *source) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, *trytofind;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(source, <B><FONT COLOR="#BC8F8F">&quot;file://&quot;</FONT></B>) == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> source;
+  a = jump_protocol(source);
+  trytofind = strrchr_limit(a, <B><FONT COLOR="#BC8F8F">'@'</FONT></B>, strchr(a, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>));
+  <B><FONT COLOR="#A020F0">return</FONT></B> (trytofind != NULL) ? trytofind : a;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">min</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">min</FONT></B>(a,b) ((a)&gt;(b)?(b):(a))
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">max</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">max</FONT></B>(a,b) ((a)&gt;(b)?(a):(b))
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput_trim</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> rlen = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> ls = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(max + 1);
+
+  s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ls) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+    <I><FONT COLOR="#B22222">// lire ligne
+</FONT></I>    rlen = linput(fp, ls, max);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (rlen) {
+      <I><FONT COLOR="#B22222">// sauter espaces et tabs en fin
+</FONT></I>      <B><FONT COLOR="#A020F0">while</FONT></B>((rlen &gt; 0) &amp;&amp; is_realspace(ls[max(rlen - 1, 0)]))
+        ls[--rlen] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <I><FONT COLOR="#B22222">// sauter espaces en début
+</FONT></I>      a = ls;
+      <B><FONT COLOR="#A020F0">while</FONT></B>((rlen &gt; 0) &amp;&amp; ((*a == <B><FONT COLOR="#BC8F8F">' '</FONT></B>) || (*a == <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>))) {
+        a++;
+        rlen--;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (rlen &gt; 0) {
+        memcpy(s, a, rlen);     <I><FONT COLOR="#B22222">// can copy \0 chars
+</FONT></I>        s[rlen] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      }
+    }
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    free(ls);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> rlen;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">S_ISREG</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">S_ISREG</FONT></B>(m) ((m) &amp; _S_IFREG)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fexist</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> stat st;
+
+  memset(&amp;st, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(st));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat(s, &amp;st) == 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (S_ISREG(st.st_mode)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* convertir une chaine en temps */</FONT></I>
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">set_lowcase</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(s); i++)
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((s[i] &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B>) &amp;&amp; (s[i] &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>))
+      s[i] += (<B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>);
+}
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> tm *<B><FONT COLOR="#0000FF">convert_time_rfc822</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> tm *result, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">char</FONT></B> months[] = <B><FONT COLOR="#BC8F8F">&quot;jan feb mar apr may jun jul aug sep oct nov dec&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> str[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> result_mm = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_dd = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n1 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n2 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n3 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n4 = -1;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(s) &gt; 200)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  strcpy(str, s);
+  set_lowcase(str);
+  <I><FONT COLOR="#B22222">/* éliminer :,- */</FONT></I>
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">':'</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">','</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <I><FONT COLOR="#B22222">/* tokeniser */</FONT></I>
+  a = str;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *first, *last;
+    <B><FONT COLOR="#228B22">char</FONT></B> tok[256];
+
+    <I><FONT COLOR="#B22222">/* découper mot */</FONT></I>
+    <B><FONT COLOR="#A020F0">while</FONT></B>(*a == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+      a++;                      <I><FONT COLOR="#B22222">/* sauter espaces */</FONT></I>
+    first = a;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((*a) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">' '</FONT></B>))
+      a++;
+    last = a;
+    tok[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (first != last) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+      strncat(tok, first, (<B><FONT COLOR="#228B22">int</FONT></B>) (last - first));
+      <I><FONT COLOR="#B22222">/* analyser */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = strstr(months, tok))) {        <I><FONT COLOR="#B22222">/* month always in letters */</FONT></I>
+        result_mm = ((<B><FONT COLOR="#228B22">int</FONT></B>) (pos - months)) / 4;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#228B22">int</FONT></B> number;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(tok, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;number) == 1) {  <I><FONT COLOR="#B22222">/* number token */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (result_dd &lt; 0)    <I><FONT COLOR="#B22222">/* day always first number */</FONT></I>
+            result_dd = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt; 0)
+            result_n1 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n2 &lt; 0)
+            result_n2 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n3 &lt; 0)
+            result_n3 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n4 &lt; 0)
+            result_n4 = number;
+        }                       <I><FONT COLOR="#B22222">/* sinon, bruit de fond(+1GMT for exampel) */</FONT></I>
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((result_n1 &gt;= 0) &amp;&amp; (result_mm &gt;= 0) &amp;&amp; (result_dd &gt;= 0)
+      &amp;&amp; (result_n2 &gt;= 0) &amp;&amp; (result_n3 &gt;= 0) &amp;&amp; (result_n4 &gt;= 0)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (result_n4 &gt;= 1000) {    <I><FONT COLOR="#B22222">/* Sun Nov  6 08:49:37 1994 */</FONT></I>
+      result-&gt;tm_year = result_n4 - 1900;
+      result-&gt;tm_hour = result_n1;
+      result-&gt;tm_min = result_n2;
+      result-&gt;tm_sec = max(result_n3, 0);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {                    <I><FONT COLOR="#B22222">/* Sun, 06 Nov 1994 08:49:37 GMT or Sunday, 06-Nov-94 08:49:37 GMT */</FONT></I>
+      result-&gt;tm_hour = result_n2;
+      result-&gt;tm_min = result_n3;
+      result-&gt;tm_sec = max(result_n4, 0);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt;= 50)      <I><FONT COLOR="#B22222">/* 00 means 2000 */</FONT></I>
+        result-&gt;tm_year = result_n1 + 100;
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt; 1000)        <I><FONT COLOR="#B22222">/* 99 means 1999 */</FONT></I>
+        result-&gt;tm_year = result_n1;
+      <B><FONT COLOR="#A020F0">else</FONT></B>                      <I><FONT COLOR="#B22222">/* 2000 */</FONT></I>
+        result-&gt;tm_year = result_n1 - 1900;
+    }
+    result-&gt;tm_isdst = 0;       <I><FONT COLOR="#B22222">/* assume GMT */</FONT></I>
+    result-&gt;tm_yday = -1;       <I><FONT COLOR="#B22222">/* don't know */</FONT></I>
+    result-&gt;tm_wday = -1;       <I><FONT COLOR="#B22222">/* don't know */</FONT></I>
+    result-&gt;tm_mon = result_mm;
+    result-&gt;tm_mday = result_dd;
+    <B><FONT COLOR="#A020F0">return</FONT></B> result;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> tm <B><FONT COLOR="#0000FF">PT_GetTime</FONT></B>(time_t t) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm tmbuf;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm = gmtime(&amp;t);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm = gmtime_r(&amp;t, &amp;tmbuf);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (tm != NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> *tm;
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    memset(&amp;tmbuf, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(tmbuf));
+    <B><FONT COLOR="#A020F0">return</FONT></B> tmbuf;
+  }
+}
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">set_filetime</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm_time) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> utimbuf tim;
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_USE_FTIME</FONT>
+  <B><FONT COLOR="#228B22">struct</FONT></B> timeb B;
+
+  memset(&amp;B, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(B));
+  B.timezone = 0;
+  ftime(&amp;B);
+  tim.actime = tim.modtime = mktime(tm_time) - B.timezone * 60;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <I><FONT COLOR="#B22222">// bogus time (GMT/local)..
+</FONT></I>  tim.actime = tim.modtime = mktime(tm_time);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> utime(file, &amp;tim);
+}
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">set_filetime_time_t</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, time_t t) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (t != (time_t) 0 &amp;&amp; t != (time_t) - 1) {
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm tm = PT_GetTime(t);
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> set_filetime(file, &amp;tm);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+HTS_UNUSED <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">set_filetime_rfc822</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *date) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm buffer;
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm_s = convert_time_rfc822(&amp;buffer, date);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (tm_s) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> set_filetime(file, tm_s);
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/proxy/proxytrack.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+</HTML>

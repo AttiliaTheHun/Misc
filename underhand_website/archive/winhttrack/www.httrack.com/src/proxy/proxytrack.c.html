@@ -1,0 +1,1747 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/proxy/proxytrack.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+<HEAD>
+<TITLE>./proxy/proxytrack.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./proxy/proxytrack.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: ProxyTrack, httrack cache-based proxy                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+
+/\/\/\/\/\/\/\/\/\/\/\/\/\ PENDING WORK /\/\/\/\/\/\/\/\/\/\/\/\/\
+- Etag update handling
+- Other cache archive handling (.arc)
+- Live plug/unplug of archives
+- Listing
+\/\/\/\/\/\/\/\/\/\/\/\/\/ PENDING WORK \/\/\/\/\/\/\/\/\/\/\/\/\/
+
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+Architecture rough draft
+Xavier Roche 2005
+
+Aim: Building a sub-proxy to be linked with other top level proxies (such as Squid)
+Basic design: Classical HTTP/1.0 proxy server, with ICP server support
+Internal data design: HTTrack cache indexing in fast hashtables, with 'pluggable' design (add/removal of caches on-the-fly)
+
+Index structure organization:
+-----------------------------
+
+foo/hts-cache/new.zip	-----&gt; Index[0]   \
+bar/hts-cache/new.zip   -----&gt; Index[1]  &gt;  Central Index Lookup (CIL)
+baz/hts-cache/new.zip   -----&gt; Index[2] /
+..			-----&gt; ..
+
+Indexes are hashtables with URL (STRING) -&gt; INTEGER lookup.
+
+URL -----&gt; CIL			Ask for index ID
+URL -----&gt; Index[ID]		Ask for index properties (ZIP cache index)
+
+Lookup of an entry:
+-------------------
+
+ID = CIL[URL]
+If ID is valid Then
+	return SUCCESS
+Else
+	return FAILURE
+EndIf
+
+Fetching of an entry:
+---------------------
+
+RESOURCE = null
+ID = CIL[URL]
+If ID is valid Then
+	OFFSET = Index[ID][URL]
+	If OFFSET is valid Then
+		RESOURCE = Fetch(ID, OFFSET)
+	EndIf
+EndIf
+
+Removal of index N:
+-------------------
+
+For all entries in Index[N]
+	URL(key) -----&gt; Lookup all other caches
+		Found: Replace in CIL
+		Not Found: Delete entry in CIL
+Done
+Delete Index[N]
+
+Adding of index N:
+------------------
+
+Build Index[N]
+For all entries in Index[N]
+	URL(key) -----&gt; Lookup in CIL
+		Found: Do nothing if corresponding Cache is newer than this one
+		Not Found: Add/Replace entry in CIL
+Done
+
+Remark: If no cache newer than the added one is found, all entries can be added without any lookup (optim)
+
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* HTTrack definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTSSAFE_ABORT_FUNCTION</FONT></B>(A,B,C)
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;time.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;fcntl.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;arpa/inet.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* String */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;proxystrings.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Network base */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbasenet.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* définitions globales */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* htsweb */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* ProxyTrack */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;proxytrack.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Store manager */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;../minizip/mztools.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;store.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* threads */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;process.h&gt;</FONT></B>            <I><FONT COLOR="#B22222">/* _beginthread, _endthread */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;pthread.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* External references */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">abortLog__fnc</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *msg, <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">int</FONT></B> line);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">abortLog__fnc</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *msg, <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  FILE *fp = fopen(<B><FONT COLOR="#BC8F8F">&quot;CRASH.TXT&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!fp)
+    fp = fopen(<B><FONT COLOR="#BC8F8F">&quot;/tmp/CRASH.TXT&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!fp)
+    fp = fopen(<B><FONT COLOR="#BC8F8F">&quot;C:\\CRASH.TXT&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!fp)
+    fp = fopen(<B><FONT COLOR="#BC8F8F">&quot;CRASH.TXT&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+    fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;HTTrack &quot;</FONT></B> HTTRACK_VERSIONID <B><FONT COLOR="#BC8F8F">&quot; closed at '%s', line %d\r\n&quot;</FONT></B>,
+            file, line);
+    fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;Reason:\r\n%s\r\n&quot;</FONT></B>, msg);
+    fflush(fp);
+    fclose(fp);
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">webhttrack_lock</FONT></B>(A) do{}while(0)
+
+<I><FONT COLOR="#B22222">/* Static definitions */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> c;
+  <B><FONT COLOR="#228B22">int</FONT></B> j = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> ch;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (recv(soc, &amp;ch, 1, 0) == 1) {
+      c = ch;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      c = EOF;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c != EOF) {
+      <B><FONT COLOR="#A020F0">switch</FONT></B> (c) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter CR
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>:
+        c = -1;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">9</FONT></B>:
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">12</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter ces caractères
+</FONT></I>      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+        s[j++] = (<B><FONT COLOR="#228B22">char</FONT></B>) c;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((c != -1) &amp;&amp; (c != EOF) &amp;&amp; (j &lt; (max - 1)));
+  s[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> j;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_readinput_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">int</FONT></B> timeout) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+    fd_set fds;                 <I><FONT COLOR="#B22222">// poll structures
+</FONT></I>    <B><FONT COLOR="#228B22">struct</FONT></B> timeval tv;          <I><FONT COLOR="#B22222">// structure for select
+</FONT></I>
+    FD_ZERO(&amp;fds);
+    FD_SET(soc, &amp;fds);
+    tv.tv_sec = timeout;
+    tv.tv_usec = 0;
+    select((<B><FONT COLOR="#228B22">int</FONT></B>) (soc + 1), &amp;fds, NULL, NULL, &amp;tv);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(soc, &amp;fds))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linputsoc_t</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max, <B><FONT COLOR="#228B22">int</FONT></B> timeout) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (check_readinput_t(soc, timeout)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> linputsoc(soc, s, max);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">gethost</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hostname, SOCaddr * server) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hostname != NULL &amp;&amp; *hostname != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>==0
+    <I><FONT COLOR="#B22222">/*
+       ipV4 resolver
+     */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> hostent *hp = gethostbyname(hostname);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hp != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hp-&gt;h_length) {
+        SOCaddr_copyaddr2(*server, hp-&gt;h_addr_list[0], hp-&gt;h_length);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <I><FONT COLOR="#B22222">/*
+       ipV6 resolver
+     */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> addrinfo *res = NULL;
+    <B><FONT COLOR="#228B22">struct</FONT></B> addrinfo hints;
+
+    memset(&amp;hints, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hints));
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+    <B><FONT COLOR="#A020F0">if</FONT></B> (IPV6_resolver == 1)     <I><FONT COLOR="#B22222">// V4 only (for bogus V6 entries)
+</FONT></I>      hints.ai_family = PF_INET;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (IPV6_resolver == 2)        <I><FONT COLOR="#B22222">// V6 only (for testing V6 only)
+</FONT></I>      hints.ai_family = PF_INET6;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (getaddrinfo(hostname, NULL, &amp;hints, &amp;res) == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (res) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((res-&gt;ai_addr) &amp;&amp; (res-&gt;ai_addrlen)) {
+          SOCaddr_copyaddr2(*server, res-&gt;ai_addr, res-&gt;ai_addrlen);
+          freeaddrinfo(res);
+          <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+        }
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (res) {
+      freeaddrinfo(res);
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> String <B><FONT COLOR="#0000FF">getip</FONT></B>(SOCaddr * server) {
+  String s = STRING_EMPTY;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>==0
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> sizeMax = <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;999.999.999.999:65535&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> sizeMax = <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;ffff:ffff:ffff:ffff:ffff:ffff:ffff:65535&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> *dotted = malloc(sizeMax + 1);
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> port = ntohs(SOCaddr_sinport(*server));
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dotted == NULL) {
+    proxytrack_print_log(CRITICAL, <B><FONT COLOR="#BC8F8F">&quot;memory exhausted&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> s;
+  }
+  SOCaddr_inetntoa(dotted, sizeMax, *server);
+  sprintf(dotted + strlen(dotted), <B><FONT COLOR="#BC8F8F">&quot;:%d&quot;</FONT></B>, port);
+  StringAttach(&amp;s, &amp;dotted);
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> T_SOC <B><FONT COLOR="#0000FF">smallserver_init</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">int</FONT></B> port, <B><FONT COLOR="#228B22">int</FONT></B> family) {
+  SOCaddr server;
+  SOCaddr_initany(server);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethost(adr, &amp;server)) {     <I><FONT COLOR="#B22222">// host name
+</FONT></I>    T_SOC soc = INVALID_SOCKET;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((soc =
+         (T_SOC) socket(SOCaddr_sinfamily(server), family,
+                        0)) != INVALID_SOCKET) {
+      SOCaddr_initport(server, port);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (bind(soc, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (family != SOCK_STREAM || listen(soc, 10) &gt;= 0) {
+          <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          soc = INVALID_SOCKET;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+        closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        soc = INVALID_SOCKET;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> INVALID_SOCKET;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_start</FONT></B>(PT_Indexes indexes, T_SOC soc, T_SOC socICP);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_main</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *proxyAddr, <B><FONT COLOR="#228B22">int</FONT></B> proxyPort, <B><FONT COLOR="#228B22">char</FONT></B> *icpAddr, <B><FONT COLOR="#228B22">int</FONT></B> icpPort,
+                    PT_Indexes index) {
+  <B><FONT COLOR="#228B22">int</FONT></B> returncode = 0;
+  T_SOC soc = smallserver_init(proxyAddr, proxyPort, SOCK_STREAM);
+  T_SOC socICP = smallserver_init(proxyAddr, icpPort, SOCK_DGRAM);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET &amp;&amp; socICP != INVALID_SOCKET) {
+    <I><FONT COLOR="#B22222">//char url[HTS_URLMAXSIZE * 2];
+</FONT></I>    <I><FONT COLOR="#B22222">//char method[32];
+</FONT></I>    <I><FONT COLOR="#B22222">//char data[32768];
+</FONT></I>
+    <I><FONT COLOR="#B22222">//url[0] = method[0] = data[0] = '\0';
+</FONT></I>    <I><FONT COLOR="#B22222">//
+</FONT></I>    printf(<B><FONT COLOR="#BC8F8F">&quot;HTTP Proxy installed on %s:%d/\n&quot;</FONT></B>, proxyAddr, proxyPort);
+    printf(<B><FONT COLOR="#BC8F8F">&quot;ICP Proxy installed on %s:%d/\n&quot;</FONT></B>, icpAddr, icpPort);
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    {
+      pid_t pid = getpid();
+
+      printf(<B><FONT COLOR="#BC8F8F">&quot;PID=%d\n&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) pid);
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    fflush(stdout);
+    fflush(stderr);
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (!proxytrack_start(index, soc, socICP)) {
+      <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Unable to create the server: %s\n&quot;</FONT></B>,
+              strerror(last_errno));
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Done\n&quot;</FONT></B>);
+      returncode = 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      returncode = 0;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Unable to initialize a temporary server : %s\n&quot;</FONT></B>,
+            strerror(last_errno));
+    returncode = 1;
+  }
+  printf(<B><FONT COLOR="#BC8F8F">&quot;EXITED\n&quot;</FONT></B>);
+  fflush(stdout);
+  fflush(stderr);
+  <B><FONT COLOR="#A020F0">return</FONT></B> returncode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">GetHttpMessage</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> statuscode) {
+  <I><FONT COLOR="#B22222">// Erreurs HTTP, selon RFC
+</FONT></I>  <B><FONT COLOR="#A020F0">switch</FONT></B> (statuscode) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">100</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Continue&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">101</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Switching Protocols&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">200</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;OK&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">201</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Created&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">202</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Accepted&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">203</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Non-Authoritative Information&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">204</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;No Content&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">205</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Reset Content&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">206</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Partial Content&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">207</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Multi-Status&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">300</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Multiple Choices&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">301</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Moved Permanently&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">302</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Moved Temporarily&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">303</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;See Other&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">304</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Not Modified&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">305</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Use Proxy&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">306</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Undefined 306 error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">307</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Temporary Redirect&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">400</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Bad Request&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">401</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Unauthorized&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">402</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Payment Required&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">403</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Forbidden&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">404</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Not Found&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">405</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Method Not Allowed&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">406</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Not Acceptable&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">407</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Proxy Authentication Required&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">408</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Request Time-out&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">409</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Conflict&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">410</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Gone&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">411</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Length Required&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">412</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Precondition Failed&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">413</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Request Entity Too Large&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">414</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Request-URI Too Large&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">415</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Unsupported Media Type&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">416</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Requested Range Not Satisfiable&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">417</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Expectation Failed&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">500</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Internal Server Error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">501</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Not Implemented&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">502</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Bad Gateway&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">503</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Service Unavailable&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">504</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Gateway Time-out&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">505</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;HTTP Version Not Supported&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Unknown HTTP Error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_add_DAV_Item</FONT></B>(String * item, String * buff,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename, size_t size,
+                                    time_t timestamp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime,
+                                    <B><FONT COLOR="#228B22">int</FONT></B> isDir, <B><FONT COLOR="#228B22">int</FONT></B> isRoot, <B><FONT COLOR="#228B22">int</FONT></B> isDefault) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm *timetm;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (timestamp == (time_t) 0 || timestamp == (time_t) - 1) {
+    timestamp = time(NULL);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((timetm = gmtime(&amp;timestamp)) != NULL) {
+    <B><FONT COLOR="#228B22">char</FONT></B> tms[256 + 1];
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name;
+
+    strftime(tms, 256, <B><FONT COLOR="#BC8F8F">&quot;%a, %d %b %Y %H:%M:%S GMT&quot;</FONT></B>, timetm);    <I><FONT COLOR="#B22222">/* Sun, 18 Sep 2005 11:45:45 GMT */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (mime == NULL || *mime == 0)
+      mime = <B><FONT COLOR="#BC8F8F">&quot;application/octet-stream&quot;</FONT></B>;
+
+    StringLength(*buff) = 0;
+    escapexml(filename, buff);
+
+    name = strrchr(StringBuff(*buff), <B><FONT COLOR="#BC8F8F">'/'</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (name != NULL)
+      name++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (name == NULL || *name == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(mime, <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>) == 0)
+        name = <B><FONT COLOR="#BC8F8F">&quot;Default Document for the Folder.html&quot;</FONT></B>;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        name = <B><FONT COLOR="#BC8F8F">&quot;Default Document for the Folder&quot;</FONT></B>;
+    }
+
+    StringRoom(*item, 1024);
+    sprintf(StringBuffRW(*item),
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;response xmlns=\&quot;DAV:\&quot;&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;href&gt;/webdav%s%s&lt;/href&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;propstat&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;prop&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;displayname&gt;%s&lt;/displayname&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;iscollection&gt;%d&lt;/iscollection&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;haschildren&gt;%d&lt;/haschildren&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;isfolder&gt;%d&lt;/isfolder&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;resourcetype&gt;%s&lt;/resourcetype&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;creationdate&gt;%d-%02d-%02dT%02d:%02d:%02dZ&lt;/creationdate&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;getlastmodified&gt;%s&lt;/getlastmodified&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;supportedlock&gt;&lt;/supportedlock&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;lockdiscovery/&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;getcontenttype&gt;%s&lt;/getcontenttype&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;getcontentlength&gt;%d&lt;/getcontentlength&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;isroot&gt;%d&lt;/isroot&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/prop&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;status&gt;HTTP/1.1 200 OK&lt;/status&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/propstat&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;/response&gt;\r\n&quot;</FONT></B>,
+            <I><FONT COLOR="#B22222">/* */</FONT></I>
+            (StringBuff(*buff)[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>, StringBuff(*buff), name,
+            isDir ? 1 : 0, isDir ? 1 : 0, isDir ? 1 : 0,
+            isDir ? <B><FONT COLOR="#BC8F8F">&quot;&lt;collection/&gt;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, timetm-&gt;tm_year + 1900,
+            timetm-&gt;tm_mon + 1, timetm-&gt;tm_mday, timetm-&gt;tm_hour,
+            timetm-&gt;tm_min, timetm-&gt;tm_sec, tms,
+            isDir ? <B><FONT COLOR="#BC8F8F">&quot;httpd/unix-directory&quot;</FONT></B> : mime, (<B><FONT COLOR="#228B22">int</FONT></B>) size, isRoot ? 1 : 0);
+    StringLength(*item) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(*item));
+  }
+}
+
+<I><FONT COLOR="#B22222">/* Convert a RFC822 time to time_t */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> time_t <B><FONT COLOR="#0000FF">get_time_rfc822</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm result;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> months[] = <B><FONT COLOR="#BC8F8F">&quot;jan feb mar apr may jun jul aug sep oct nov dec&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> str[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> result_mm = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_dd = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n1 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n2 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n3 = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> result_n4 = -1;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(s) &gt; 200)
+    <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) 0;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; s[i] != 0; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; s[i] &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>)
+      str[i] = s[i] + (<B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      str[i] = s[i];
+  }
+  str[i] = 0;
+  <I><FONT COLOR="#B22222">/* éliminer :,- */</FONT></I>
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">':'</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">','</FONT></B>)))
+    *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+  <I><FONT COLOR="#B22222">/* tokeniser */</FONT></I>
+  a = str;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *first, *last;
+    <B><FONT COLOR="#228B22">char</FONT></B> tok[256];
+
+    <I><FONT COLOR="#B22222">/* découper mot */</FONT></I>
+    <B><FONT COLOR="#A020F0">while</FONT></B>(*a == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+      a++;                      <I><FONT COLOR="#B22222">/* sauter espaces */</FONT></I>
+    first = a;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((*a) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">' '</FONT></B>))
+      a++;
+    last = a;
+    tok[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (first != last) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+      strncat(tok, first, (<B><FONT COLOR="#228B22">int</FONT></B>) (last - first));
+      <I><FONT COLOR="#B22222">/* analyser */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = strstr(months, tok))) {        <I><FONT COLOR="#B22222">/* month always in letters */</FONT></I>
+        result_mm = ((<B><FONT COLOR="#228B22">int</FONT></B>) (pos - months)) / 4;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#228B22">int</FONT></B> number;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(tok, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;number) == 1) {  <I><FONT COLOR="#B22222">/* number token */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (result_dd &lt; 0)    <I><FONT COLOR="#B22222">/* day always first number */</FONT></I>
+            result_dd = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt; 0)
+            result_n1 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n2 &lt; 0)
+            result_n2 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n3 &lt; 0)
+            result_n3 = number;
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n4 &lt; 0)
+            result_n4 = number;
+        }                       <I><FONT COLOR="#B22222">/* sinon, bruit de fond(+1GMT for exampel) */</FONT></I>
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((result_n1 &gt;= 0) &amp;&amp; (result_mm &gt;= 0) &amp;&amp; (result_dd &gt;= 0)
+      &amp;&amp; (result_n2 &gt;= 0) &amp;&amp; (result_n3 &gt;= 0) &amp;&amp; (result_n4 &gt;= 0)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (result_n4 &gt;= 1000) {    <I><FONT COLOR="#B22222">/* Sun Nov  6 08:49:37 1994 */</FONT></I>
+      result.tm_year = result_n4 - 1900;
+      result.tm_hour = result_n1;
+      result.tm_min = result_n2;
+      result.tm_sec = max(result_n3, 0);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {                    <I><FONT COLOR="#B22222">/* Sun, 06 Nov 1994 08:49:37 GMT or Sunday, 06-Nov-94 08:49:37 GMT */</FONT></I>
+      result.tm_hour = result_n2;
+      result.tm_min = result_n3;
+      result.tm_sec = max(result_n4, 0);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt;= 50)      <I><FONT COLOR="#B22222">/* 00 means 2000 */</FONT></I>
+        result.tm_year = result_n1 + 100;
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (result_n1 &lt; 1000)        <I><FONT COLOR="#B22222">/* 99 means 1999 */</FONT></I>
+        result.tm_year = result_n1;
+      <B><FONT COLOR="#A020F0">else</FONT></B>                      <I><FONT COLOR="#B22222">/* 2000 */</FONT></I>
+        result.tm_year = result_n1 - 1900;
+    }
+    result.tm_isdst = 0;        <I><FONT COLOR="#B22222">/* assume GMT */</FONT></I>
+    result.tm_yday = -1;        <I><FONT COLOR="#B22222">/* don't know */</FONT></I>
+    result.tm_wday = -1;        <I><FONT COLOR="#B22222">/* don't know */</FONT></I>
+    result.tm_mon = result_mm;
+    result.tm_mday = result_dd;
+    <B><FONT COLOR="#A020F0">return</FONT></B> mktime(&amp;result);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">proxytrack_process_DAV_Request</FONT></B>(PT_Indexes indexes,
+                                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *urlFull,
+                                                 <B><FONT COLOR="#228B22">int</FONT></B> depth) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file = jump_protocol_and_auth(urlFull);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((file = strchr(file, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)) == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(file, <B><FONT COLOR="#BC8F8F">&quot;/webdav&quot;</FONT></B>, 7) != 0) {
+    PT_Element elt = PT_ElementNew();
+
+    elt-&gt;statuscode = 405;
+    strcpy(elt-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Method Not Allowed&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> elt;
+  }
+
+  <I><FONT COLOR="#B22222">/* Skip /webdav */</FONT></I>
+  file += 7;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  {
+    PT_Element elt = PT_ElementNew();
+    <B><FONT COLOR="#228B22">int</FONT></B> i, isDir;
+    String url = STRING_EMPTY;
+    String response = STRING_EMPTY;
+    String item = STRING_EMPTY;
+    String itemUrl = STRING_EMPTY;
+    String buff = STRING_EMPTY;
+
+    StringClear(response);
+    StringClear(item);
+    StringClear(itemUrl);
+    StringClear(buff);
+
+    <I><FONT COLOR="#B22222">/* Canonize URL */</FONT></I>
+    StringCopy(url, file + ((file[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0));
+    <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(url) &gt; 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (StringBuff(url)[StringLength(url) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+        StringBuffRW(url)[StringLength(url) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        StringLength(url)--;
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* Form response */</FONT></I>
+    StringRoom(response, 1024);
+    sprintf(StringBuffRW(response),
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;utf-8\&quot;?&gt;\r\n&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;&lt;multistatus xmlns=\&quot;DAV:\&quot;&gt;\r\n&quot;</FONT></B>);
+    StringLength(response) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(response));
+    <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+    <I><FONT COLOR="#B22222">/* Root */</FONT></I>
+    StringLength(item) = 0;
+    proxytrack_add_DAV_Item(&amp;item, &amp;buff, StringBuff(url), <I><FONT COLOR="#B22222">/*size */</FONT></I> 0,
+      <I><FONT COLOR="#B22222">/*timestamp */</FONT></I> (time_t) 0, <I><FONT COLOR="#B22222">/*mime */</FONT></I> NULL, <I><FONT COLOR="#B22222">/*isDir */</FONT></I> 1, <I><FONT COLOR="#B22222">/*isRoot */</FONT></I> 1,
+<I><FONT COLOR="#B22222">/*isDefault */</FONT></I> 0);
+    StringMemcat(response, StringBuff(item), StringLength(item));
+
+    <I><FONT COLOR="#B22222">/* Childrens (Depth &gt; 0) */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (depth &gt; 0) {
+      time_t timestampRep = (time_t) - 1;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *prefix = StringBuff(url);
+      <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> prefixLen = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen(prefix);
+      <B><FONT COLOR="#228B22">char</FONT></B> **list = PT_Enumerate(indexes, prefix, 0);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (list != NULL) {
+        <B><FONT COLOR="#A020F0">for</FONT></B>(isDir = 1; isDir &gt;= 0; isDir--) {
+          <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; list[i] != NULL; i++) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *thisUrl = list[i];
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mimeType = <B><FONT COLOR="#BC8F8F">&quot;application/octet-stream&quot;</FONT></B>;
+            <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> thisUrlLen = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen(thisUrl);
+            <B><FONT COLOR="#228B22">int</FONT></B> thisIsDir = (thisUrl[thisUrlLen - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0;
+
+            <I><FONT COLOR="#B22222">/* Item URL */</FONT></I>
+            StringRoom(itemUrl,
+                       thisUrlLen + prefixLen + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;/webdav/&quot;</FONT></B>) + 1);
+            StringClear(itemUrl);
+            sprintf(StringBuffRW(itemUrl), <B><FONT COLOR="#BC8F8F">&quot;/%s/%s&quot;</FONT></B>, prefix, thisUrl);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!thisIsDir)
+              StringLength(itemUrl) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(itemUrl));
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              StringLength(itemUrl) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(itemUrl)) - 1;
+            StringBuffRW(itemUrl)[StringLength(itemUrl)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (thisIsDir == isDir) {
+              size_t size = 0;
+              time_t timestamp = (time_t) 0;
+              PT_Element file = NULL;
+
+              <I><FONT COLOR="#B22222">/* Item stats */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!isDir) {
+                file =
+                  PT_ReadIndex(indexes, StringBuff(itemUrl) + 1, FETCH_HEADERS);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (file != NULL &amp;&amp; file-&gt;statuscode == HTTP_OK) {
+                  size = file-&gt;size;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (file-&gt;lastmodified) {
+                    timestamp = get_time_rfc822(file-&gt;lastmodified);
+                  }
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (timestamp == (time_t) 0) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (timestampRep == (time_t) - 1) {
+                      timestampRep = 0;
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (file-&gt;indexId != -1) {
+                        timestampRep =
+                          PT_Index_Timestamp(PT_GetIndex
+                                             (indexes, file-&gt;indexId));
+                      }
+                    }
+                    timestamp = timestampRep;
+                  }
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (file-&gt;contenttype) {
+                    mimeType = file-&gt;contenttype;
+                  }
+                }
+              }
+
+              <I><FONT COLOR="#B22222">/* Add item */</FONT></I>
+              StringLength(item) = 0;
+              proxytrack_add_DAV_Item(&amp;item, &amp;buff, StringBuff(itemUrl), size,
+                                      timestamp, mimeType, isDir, <I><FONT COLOR="#B22222">/*isRoot */</FONT></I> 0,
+                <I><FONT COLOR="#B22222">/*isDefault */</FONT></I> (thisUrlLen == 0));
+              StringMemcat(response, StringBuff(item), StringLength(item));
+
+              <I><FONT COLOR="#B22222">/* Wipe element */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (file != NULL)
+                PT_Element_Delete(&amp;file);
+            }
+          }
+        }
+        PT_Enumerate_Delete(&amp;list);
+      }                         <I><FONT COLOR="#B22222">/* items != NULL */</FONT></I>
+    }
+
+    <I><FONT COLOR="#B22222">/* Depth &gt; 0 */</FONT></I>
+    <I><FONT COLOR="#B22222">/* End of responses */</FONT></I>
+    StringCat(response, <B><FONT COLOR="#BC8F8F">&quot;&lt;/multistatus&gt;\r\n&quot;</FONT></B>);
+
+    StringFree(item);
+    StringFree(itemUrl);
+    StringFree(url);
+    StringFree(buff);
+
+    elt-&gt;size = StringLength(response);
+    elt-&gt;adr = StringAcquire(&amp;response);
+    elt-&gt;statuscode = 207;      <I><FONT COLOR="#B22222">/* Multi-Status */</FONT></I>
+    strcpy(elt-&gt;charset, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>);
+    strcpy(elt-&gt;contenttype, <B><FONT COLOR="#BC8F8F">&quot;text/xml&quot;</FONT></B>);
+    strcpy(elt-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Multi-Status&quot;</FONT></B>);
+    StringFree(response);
+
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;RESPONSE:\n%s\n&quot;</FONT></B>, elt-&gt;adr);
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> elt;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">proxytrack_process_HTTP_List</FONT></B>(PT_Indexes indexes,
+                                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#228B22">char</FONT></B> **list = PT_Enumerate(indexes, url, 0);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (list != NULL) {
+    PT_Element elt = PT_ElementNew();
+    <B><FONT COLOR="#228B22">int</FONT></B> i, isDir;
+    String html = STRING_EMPTY;
+
+    StringClear(html);
+    StringCat(html,
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;html&gt;&quot;</FONT></B> PROXYTRACK_COMMENT_HEADER
+              DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES <B><FONT COLOR="#BC8F8F">&quot;&lt;head&gt;\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;title&gt;ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; Catalog&lt;/title&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;/head&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;body&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;h3&gt;Directory index:&lt;/h3&gt;&lt;br /&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;hr&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;tt&gt;[DIR] &lt;a href=\&quot;..\&quot;&gt;..&lt;/a&gt;&lt;/tt&gt;&lt;br /&gt;&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(isDir = 1; isDir &gt;= 0; isDir--) {
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; list[i] != NULL; i++) {
+        <B><FONT COLOR="#228B22">char</FONT></B> *thisUrl = list[i];
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> thisUrlLen = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen(thisUrl);
+        <B><FONT COLOR="#228B22">int</FONT></B> thisIsDir = (thisUrl[thisUrlLen - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (thisIsDir == isDir) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (isDir)
+            StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;tt&gt;[DIR] &quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">else</FONT></B>
+            StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;tt&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&quot;</FONT></B>);
+          StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;a href=\&quot;&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (isDir) {
+            StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;http://proxytrack/&quot;</FONT></B>);
+          }
+          StringCat(html, url);
+          StringCat(html, list[i]);
+          StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;\&quot;&gt;&quot;</FONT></B>);
+          StringCat(html, list[i]);
+          StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/a&gt;&lt;/tt&gt;&lt;br /&gt;&quot;</FONT></B>);
+        }
+      }
+    }
+    StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/body&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/html&gt;&quot;</FONT></B>);
+    PT_Enumerate_Delete(&amp;list);
+    elt-&gt;size = StringLength(html);
+    elt-&gt;adr = StringAcquire(&amp;html);
+    elt-&gt;statuscode = HTTP_OK;
+    strcpy(elt-&gt;charset, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-1&quot;</FONT></B>);
+    strcpy(elt-&gt;contenttype, <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>);
+    strcpy(elt-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;OK&quot;</FONT></B>);
+    StringFree(html);
+    <B><FONT COLOR="#A020F0">return</FONT></B> elt;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_process_HTTP</FONT></B>(PT_Indexes indexes, T_SOC soc_c) {
+  <B><FONT COLOR="#228B22">int</FONT></B> timeout = 30;
+  <B><FONT COLOR="#228B22">int</FONT></B> buffer_size = 32768;
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffer = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(buffer_size);
+  <B><FONT COLOR="#228B22">int</FONT></B> line1Size = 1024;
+  <B><FONT COLOR="#228B22">char</FONT></B> *line1 = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(line1Size);
+  <B><FONT COLOR="#228B22">int</FONT></B> lineSize = 8192;
+  <B><FONT COLOR="#228B22">char</FONT></B> *line = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(lineSize);
+  <B><FONT COLOR="#228B22">int</FONT></B> length = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> keepAlive = 1;
+
+  String url = STRING_EMPTY;
+  String urlRedirect = STRING_EMPTY;
+  String headers = STRING_EMPTY;
+  String output = STRING_EMPTY;
+  String host = STRING_EMPTY;
+  String localhost = STRING_EMPTY;
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+  String davHeaders = STRING_EMPTY;
+  String davRequest = STRING_EMPTY;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  StringRoom(localhost, 256);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethostname(StringBuffRW(localhost), (<B><FONT COLOR="#228B22">int</FONT></B>) StringCapacity(localhost) - 1)
+      == 0) {
+    StringLength(localhost) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(localhost));
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    StringCopy(localhost, <B><FONT COLOR="#BC8F8F">&quot;localhost&quot;</FONT></B>);
+  }
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_DEBUG</FONT>
+  Sleep(1000);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buffer == NULL || line == NULL || line1 == NULL) {
+    proxytrack_print_log(CRITICAL, <B><FONT COLOR="#BC8F8F">&quot;proxytrack_process_HTTP:memory exhausted&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc_c);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc_c);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B>;
+  }
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msgError = NULL;
+    <B><FONT COLOR="#228B22">int</FONT></B> msgCode = 0;
+    PT_Element element = NULL;
+    <B><FONT COLOR="#228B22">char</FONT></B> *command;
+    <B><FONT COLOR="#228B22">char</FONT></B> *proto;
+    <B><FONT COLOR="#228B22">char</FONT></B> *surl;
+    <I><FONT COLOR="#B22222">//int directHit = 0;
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> headRequest = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> listRequest = 0;
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+    <B><FONT COLOR="#228B22">int</FONT></B> davDepth = 0;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <I><FONT COLOR="#B22222">/* Clear context */</FONT></I>
+    line[0] = line1[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    buffer[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    command = line1;
+    StringClear(url);
+    StringClear(urlRedirect);
+    StringClear(headers);
+    StringClear(output);
+    StringClear(host);
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+    StringClear(davHeaders);
+    StringClear(davRequest);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <I><FONT COLOR="#B22222">/* line1: &quot;GET http://www.example.com/ HTTP/1.0&quot; */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (linputsoc_t(soc_c, line1, line1Size - 2, timeout) &gt; 0
+        &amp;&amp; (surl = strchr(line1, <B><FONT COLOR="#BC8F8F">' '</FONT></B>))
+        &amp;&amp; !(*surl = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>)
+        &amp;&amp; ++surl &amp;&amp; (proto = strchr(surl, <B><FONT COLOR="#BC8F8F">' '</FONT></B>)) &amp;&amp; !(*proto = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) &amp;&amp; ++proto) {
+      <I><FONT COLOR="#B22222">/* Flush headers */</FONT></I>
+      <B><FONT COLOR="#A020F0">while</FONT></B>(linputsoc_t(soc_c, line, lineSize - 2, timeout) &gt; 0 &amp;&amp; line[0] != 0) {
+        <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(line, <B><FONT COLOR="#BC8F8F">&quot;Content-length:&quot;</FONT></B>)) != 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(line + p, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;length) != 1) {
+            msgCode = 500;
+            msgError = <B><FONT COLOR="#BC8F8F">&quot;Bad HTTP Content-Length Field&quot;</FONT></B>;
+            keepAlive = 0;
+            length = 0;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(line, <B><FONT COLOR="#BC8F8F">&quot;Connection: close&quot;</FONT></B>) == 0) {
+          keepAlive = 0;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(line, <B><FONT COLOR="#BC8F8F">&quot;Connection: keep-alive&quot;</FONT></B>) == 0) {
+          keepAlive = 1;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(line, <B><FONT COLOR="#BC8F8F">&quot;Host:&quot;</FONT></B>))) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *chost = line + p;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*chost == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+            chost++;
+          StringCopy(host, chost);
+        }
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((p = strfield(line, <B><FONT COLOR="#BC8F8F">&quot;Depth: &quot;</FONT></B>))) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *depth = line + p;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(depth, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;davDepth) != 1) {
+            davDepth = 0;
+          }
+        }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      }
+
+      <I><FONT COLOR="#B22222">/* Flush body */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (length &gt; 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (length &lt; 32768) {
+          StringRoom(davRequest, length + 1);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (recv(soc_c, StringBuffRW(davRequest), length, 0) == length) {
+            StringBuffRW(davRequest)[length] = 0;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            msgCode = 500;
+            msgError = <B><FONT COLOR="#BC8F8F">&quot;Posted Data Read Error&quot;</FONT></B>;
+            keepAlive = 0;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          msgCode = 500;
+          msgError = <B><FONT COLOR="#BC8F8F">&quot;Posted Data Too Large&quot;</FONT></B>;
+          keepAlive = 0;
+        }
+      }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+      <I><FONT COLOR="#B22222">/* Switch protocol ID */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;post&quot;</FONT></B>) == 0) {
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+        msgCode = 404;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        msgCode = 501;
+        keepAlive = 0;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        msgError = <B><FONT COLOR="#BC8F8F">&quot;Proxy Error (POST Request Forbidden)&quot;</FONT></B>;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;get&quot;</FONT></B>) == 0) {
+        headRequest = 0;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;head&quot;</FONT></B>) == 0) {
+        headRequest = 1;
+      }
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;options&quot;</FONT></B>) == 0) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *options = <B><FONT COLOR="#BC8F8F">&quot;GET, HEAD, OPTIONS, POST, PROPFIND, TRACE&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;, MKCOL, DELETE, PUT&quot;</FONT></B>;       <I><FONT COLOR="#B22222">/* Not supported */</FONT></I>
+
+        msgCode = HTTP_OK;
+        StringRoom(headers, 8192);
+        sprintf(StringBuffRW(headers),
+                <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.1 %d %s\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;DAV: 1, 2\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;MS-Author-Via: DAV\r\n&quot;</FONT></B>
+                <B><FONT COLOR="#BC8F8F">&quot;Cache-Control: private\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Allow: %s\r\n&quot;</FONT></B>, msgCode,
+                GetHttpMessage(msgCode), options);
+        StringLength(headers) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(headers));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;propfind&quot;</FONT></B>) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (davDepth &gt; 1) {
+          msgCode = 403;
+          msgError = <B><FONT COLOR="#BC8F8F">&quot;DAV Depth Limit Forbidden&quot;</FONT></B>;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;DEBUG: DAV-DATA=&lt;%s&gt;\n&quot;</FONT></B>, StringBuff(davRequest));
+          listRequest = 2;      <I><FONT COLOR="#B22222">/* propfind */</FONT></I>
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;mkcol&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;delete&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;put&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;proppatch&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;lock&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;unlock&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;copy&quot;</FONT></B>) == 0
+                 || strcasecmp(command, <B><FONT COLOR="#BC8F8F">&quot;trace&quot;</FONT></B>) == 0) {
+        msgCode = 403;
+        msgError = <B><FONT COLOR="#BC8F8F">&quot;Method Forbidden&quot;</FONT></B>;
+      }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <B><FONT COLOR="#A020F0">else</FONT></B> {
+        msgCode = 501;
+        msgError = <B><FONT COLOR="#BC8F8F">&quot;Proxy Error (Unsupported or Unknown HTTP Command Request)&quot;</FONT></B>;
+        keepAlive = 0;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(proto, <B><FONT COLOR="#BC8F8F">&quot;http/1.1&quot;</FONT></B>) == 0) {
+        keepAlive = 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(proto, <B><FONT COLOR="#BC8F8F">&quot;http/1.0&quot;</FONT></B>) == 0) {
+        keepAlive = 0;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        msgCode = 505;
+        msgError = <B><FONT COLOR="#BC8F8F">&quot;Proxy Error (Unknown HTTP Version)&quot;</FONT></B>;
+        keepAlive = 0;
+      }
+
+      <I><FONT COLOR="#B22222">/* Post-process request */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (link_has_authority(surl)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp
+            (surl, <B><FONT COLOR="#BC8F8F">&quot;http://proxytrack/&quot;</FONT></B>,
+             <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;http://proxytrack/&quot;</FONT></B>) - 1) == 0) {
+          <I><FONT COLOR="#B22222">//directHit = 1;        /* Another direct hit hack */
+</FONT></I>        }
+        StringCopy(url, surl);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(host) &gt; 0) {
+          <I><FONT COLOR="#B22222">/* Direct hit */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+               listRequest != 2 &amp;&amp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+               strncasecmp(StringBuff(host), StringBuff(localhost),
+                           StringLength(localhost)) == 0
+               &amp;&amp; (StringBuff(host)[StringLength(localhost)] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>
+                   || StringBuff(host)[StringLength(localhost)] == <B><FONT COLOR="#BC8F8F">':'</FONT></B>)
+               &amp;&amp; surl[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *toHit = surl + 1;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(toHit, <B><FONT COLOR="#BC8F8F">&quot;webdav/&quot;</FONT></B>, 7) == 0) {
+              toHit += 7;
+            }
+            <I><FONT COLOR="#B22222">/* Direct hit */</FONT></I>
+            <I><FONT COLOR="#B22222">//directHit = 1;
+</FONT></I>            StringCopy(url, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(toHit))
+              StringCat(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+            StringCat(url, toHit);
+          } <B><FONT COLOR="#A020F0">else</FONT></B>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(surl, <B><FONT COLOR="#BC8F8F">&quot;/proxytrack/&quot;</FONT></B>, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;/proxytrack/&quot;</FONT></B>) - 1) ==
+                0) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *toHit = surl + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;/proxytrack/&quot;</FONT></B>) - 1;
+
+            <I><FONT COLOR="#B22222">/* Direct hit */</FONT></I>
+            <I><FONT COLOR="#B22222">//directHit = 1;
+</FONT></I>            StringCopy(url, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(toHit))
+              StringCat(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+            StringCat(url, toHit);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">/* Transparent proxy */</FONT></I>
+            StringCopy(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+            StringCat(url, StringBuff(host));
+            StringCat(url, surl);
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          msgCode = 500;
+          msgError =
+            <B><FONT COLOR="#BC8F8F">&quot;Transparent Proxy Error ('Host' HTTP Request Header Field Missing)&quot;</FONT></B>;
+          keepAlive = 0;
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Response */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (msgCode == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (listRequest == 1) {
+          element = proxytrack_process_HTTP_List(indexes, StringBuff(url));
+        }
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (listRequest == 2) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((element =
+               proxytrack_process_DAV_Request(indexes, StringBuff(url),
+                                              davDepth)) != NULL) {
+            msgCode = element-&gt;statuscode;
+            StringRoom(davHeaders, 1024);
+            sprintf(StringBuffRW(davHeaders),
+                    <B><FONT COLOR="#BC8F8F">&quot;DAV: 1, 2\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;MS-Author-Via: DAV\r\n&quot;</FONT></B>
+                    <B><FONT COLOR="#BC8F8F">&quot;Cache-Control: private\r\n&quot;</FONT></B>);
+            StringLength(davHeaders) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(davHeaders));
+          }
+        }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          element = PT_ReadIndex(indexes, StringBuff(url), FETCH_BODY);
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (element == NULL
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+            &amp;&amp; listRequest == 2
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            &amp;&amp; StringLength(url) &gt; 0
+            &amp;&amp; StringBuff(url)[StringLength(url) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+          element = PT_Index_HTML_BuildRootInfo(indexes);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (element != NULL) {
+            element-&gt;statuscode = 404;  <I><FONT COLOR="#B22222">/* HTML page, but in error */</FONT></I>
+          }
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (element != NULL) {
+          msgCode = element-&gt;statuscode;
+          StringRoom(headers, 8192);
+          sprintf(StringBuffRW(headers), <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.1 %d %s\r\n&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+                  <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                  <B><FONT COLOR="#BC8F8F">&quot;Content-Type: %s%s%s%s\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%s%s%s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%s%s%s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%s%s%s&quot;</FONT></B>,
+                  <I><FONT COLOR="#B22222">/* */</FONT></I>
+                  msgCode, element-&gt;msg,
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+                  <I><FONT COLOR="#B22222">/* DAV */</FONT></I>
+                  StringBuff(davHeaders),
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                  <I><FONT COLOR="#B22222">/* Content-type: foo; [ charset=bar ] */</FONT></I>
+                  element-&gt;contenttype,
+                  ((element-&gt;charset[0]) ? <B><FONT COLOR="#BC8F8F">&quot;; charset=\&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  element-&gt;charset, ((element-&gt;charset[0]) ? <B><FONT COLOR="#BC8F8F">&quot;\&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  <I><FONT COLOR="#B22222">/* location */</FONT></I>
+                  ((element-&gt;location != NULL
+                    &amp;&amp; element-&gt;location[0]) ? <B><FONT COLOR="#BC8F8F">&quot;Location: &quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;location != NULL
+                    &amp;&amp; element-&gt;location[0]) ? element-&gt;location : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;location != NULL
+                    &amp;&amp; element-&gt;location[0]) ? <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  <I><FONT COLOR="#B22222">/* last-modified */</FONT></I>
+                  ((element-&gt;lastmodified[0]) ? <B><FONT COLOR="#BC8F8F">&quot;Last-Modified: &quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;lastmodified[0]) ? element-&gt;lastmodified : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;lastmodified[0]) ? <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  <I><FONT COLOR="#B22222">/* etag */</FONT></I>
+                  ((element-&gt;etag[0]) ? <B><FONT COLOR="#BC8F8F">&quot;ETag: &quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;etag[0]) ? element-&gt;etag : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+                  ((element-&gt;etag[0]) ? <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>)
+            );
+          StringLength(headers) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(headers));
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <I><FONT COLOR="#B22222">/* No query string, no ending / : check the the &lt;url&gt;/ page */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(url) &gt; 0
+              &amp;&amp; StringBuff(url)[StringLength(url) - 1] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>
+              &amp;&amp; strchr(StringBuff(url), <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) == NULL) {
+            StringCopy(urlRedirect, StringBuff(url));
+            StringCat(urlRedirect, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (PT_LookupIndex(indexes, StringBuff(urlRedirect))) {
+              msgCode = 301;    <I><FONT COLOR="#B22222">/* Moved Permanently */</FONT></I>
+              StringRoom(headers, 8192);
+              sprintf(StringBuffRW(headers),
+                      <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.1 %d %s\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-Type: text/html\r\n&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;Location: %s\r\n&quot;</FONT></B>,
+                      <I><FONT COLOR="#B22222">/* */</FONT></I>
+                      msgCode, GetHttpMessage(msgCode), StringBuff(urlRedirect)
+                );
+              StringLength(headers) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(headers));
+              <I><FONT COLOR="#B22222">/* */</FONT></I>
+              StringRoom(output,
+                         1024 + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(PROXYTRACK_COMMENT_HEADER) +
+                         <B><FONT COLOR="#A020F0">sizeof</FONT></B>(DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES));
+              sprintf(StringBuffRW(output),
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;html&gt;&quot;</FONT></B> PROXYTRACK_COMMENT_HEADER
+                      DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES <B><FONT COLOR="#BC8F8F">&quot;&lt;head&gt;&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;title&gt;ProxyTrack - Page has moved&lt;/title&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/head&gt;\r\n&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;body&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;h3&gt;The correct location is:&lt;/h3&gt;&lt;br /&gt;&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;b&gt;&lt;a href=\&quot;%s\&quot;&gt;%s&lt;/a&gt;&lt;/b&gt;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;\r\n&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;i&gt;Generated by ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION
+                      <B><FONT COLOR="#BC8F8F">&quot;, (C) Xavier Roche and other contributors&lt;/i&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>
+                      <B><FONT COLOR="#BC8F8F">&quot;&lt;/body&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/header&gt;&quot;</FONT></B>, StringBuff(urlRedirect),
+                      StringBuff(urlRedirect));
+              StringLength(output) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(output));
+            }
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (msgCode == 0) {
+            msgCode = 404;
+            msgError = <B><FONT COLOR="#BC8F8F">&quot;Not Found in this cache&quot;</FONT></B>;
+          }
+        }
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      msgCode = 500;
+      msgError = <B><FONT COLOR="#BC8F8F">&quot;Server Error&quot;</FONT></B>;
+      keepAlive = 0;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(headers) == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (msgCode == 0) {
+        msgCode = 500;
+        msgError = <B><FONT COLOR="#BC8F8F">&quot;Internal Proxy Error&quot;</FONT></B>;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (msgError == NULL) {
+        msgError = GetHttpMessage(msgCode);
+      }
+      StringRoom(headers, 256);
+      sprintf(StringBuffRW(headers),
+              <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.1 %d %s\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: text/html\r\n&quot;</FONT></B>, msgCode,
+              msgError);
+      StringLength(headers) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(headers));
+      StringRoom(output,
+                 1024 + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(PROXYTRACK_COMMENT_HEADER) +
+                 <B><FONT COLOR="#A020F0">sizeof</FONT></B>(DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES));
+      sprintf(StringBuffRW(output),
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;html&gt;&quot;</FONT></B> PROXYTRACK_COMMENT_HEADER
+              DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES <B><FONT COLOR="#BC8F8F">&quot;&lt;head&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;title&gt;ProxyTrack - HTTP Proxy Error %d&lt;/title&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/head&gt;\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;body&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;h3&gt;A proxy error has occured while processing the request.&lt;/h3&gt;&lt;br /&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;b&gt;Error HTTP %d: &lt;i&gt;%s&lt;/i&gt;&lt;/b&gt;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;i&gt;Generated by ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION
+              <B><FONT COLOR="#BC8F8F">&quot;, (C) Xavier Roche and other contributors&lt;/i&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;/body&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;/html&gt;&quot;</FONT></B>, msgCode, msgCode, msgError);
+      StringLength(output) = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(output));
+    }
+    {
+      <B><FONT COLOR="#228B22">char</FONT></B> tmp[20 + 1];         <I><FONT COLOR="#B22222">/* 2^64 = 18446744073709551616 */</FONT></I>
+      size_t dataSize = 0;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!headRequest) {
+        dataSize = StringLength(output);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (dataSize == 0 &amp;&amp; element != NULL) {
+          dataSize = element-&gt;size;
+        }
+      }
+      sprintf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) dataSize);
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;Content-length: &quot;</FONT></B>);
+      StringCat(headers, tmp);
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (keepAlive) {
+      StringCat(headers,
+                <B><FONT COLOR="#BC8F8F">&quot;Connection: Keep-Alive\r\n&quot;</FONT></B>
+                <B><FONT COLOR="#BC8F8F">&quot;Proxy-Connection: Keep-Alive\r\n&quot;</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;Connection: Close\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Proxy-Connection: Close\r\n&quot;</FONT></B>);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (msgCode != 500)
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;X-Cache: HIT from &quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;X-Cache: MISS from &quot;</FONT></B>);
+    StringCat(headers, StringBuff(localhost));
+    StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+
+    <I><FONT COLOR="#B22222">/* Logging */</FONT></I>
+    {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *contentType = <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>;
+      size_t size =
+        StringLength(output) ? StringLength(output) : (element ? element-&gt;
+                                                       size : 0);
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      String ip = STRING_EMPTY;
+      SOCaddr serverClient;
+      SOClen lenServerClient = SOCaddr_capacity(serverClient);
+
+      memset(&amp;serverClient, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(serverClient));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (getsockname
+          (soc_c, &amp;SOCaddr_sockaddr(serverClient), &amp;lenServerClient) == 0) {
+        ip = getip(&amp;serverClient);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        StringCopy(ip, <B><FONT COLOR="#BC8F8F">&quot;unknown&quot;</FONT></B>);
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (element != NULL &amp;&amp; element-&gt;contenttype[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+        contentType = element-&gt;contenttype;
+      }
+      proxytrack_print_log(LOG, <B><FONT COLOR="#BC8F8F">&quot;HTTP %s %d %d %s %s %s&quot;</FONT></B>, StringBuff(ip),
+                           msgCode, (<B><FONT COLOR="#228B22">int</FONT></B>) size, command, StringBuff(url),
+                           contentType);
+      StringFree(ip);
+    }
+
+    <I><FONT COLOR="#B22222">/* Send reply */</FONT></I>
+    StringCat(headers,
+              <B><FONT COLOR="#BC8F8F">&quot;Server: ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; (HTTrack &quot;</FONT></B>
+              HTTRACK_VERSIONID <B><FONT COLOR="#BC8F8F">&quot;)\r\n&quot;</FONT></B>);
+    StringCat(headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>); <I><FONT COLOR="#B22222">/* Headers separator */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (send(soc_c, StringBuff(headers), (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(headers), 0) !=
+        StringLength(headers)
+        || (!headRequest &amp;&amp; StringLength(output) &gt; 0
+            &amp;&amp; send(soc_c, StringBuff(output), (<B><FONT COLOR="#228B22">int</FONT></B>) StringLength(output),
+                    0) != StringLength(output))
+        || (!headRequest &amp;&amp; StringLength(output) == 0 &amp;&amp; element != NULL
+            &amp;&amp; element-&gt;adr != NULL
+            &amp;&amp; send(soc_c, element-&gt;adr, (<B><FONT COLOR="#228B22">int</FONT></B>) element-&gt;size,
+                    0) != element-&gt;size)
+      ) {
+      keepAlive = 0;            <I><FONT COLOR="#B22222">/* Error, abort connection */</FONT></I>
+    }
+    PT_Element_Delete(&amp;element);
+
+    <I><FONT COLOR="#B22222">/* Shutdown (FIN) and wait until confirmed */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!keepAlive) {
+      <B><FONT COLOR="#228B22">char</FONT></B> c;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      shutdown(soc_c, SD_SEND);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      shutdown(soc_c, 1);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <B><FONT COLOR="#A020F0">while</FONT></B>(recv(soc_c, ((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;c), 1, 0) &gt; 0) ;
+    }
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(keepAlive);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  closesocket(soc_c);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  close(soc_c);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  StringFree(url);
+  StringFree(urlRedirect);
+  StringFree(headers);
+  StringFree(output);
+  StringFree(host);
+  StringFree(localhost);
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NO_WEBDAV</FONT>
+  StringFree(davHeaders);
+  StringFree(davRequest);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buffer)
+    free(buffer);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (line)
+    free(line);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (line1)
+    free(line1);
+}
+
+<I><FONT COLOR="#B22222">/* Generic threaded function start */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">startThread</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*funct) (<B><FONT COLOR="#228B22">void</FONT></B> *), <B><FONT COLOR="#228B22">void</FONT></B> *param) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (param != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (_beginthread(funct, 0, param) == -1) {
+      free(param);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Generic threaded function start */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">startThread</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>* (*funct) (<B><FONT COLOR="#228B22">void</FONT></B> *), <B><FONT COLOR="#228B22">void</FONT></B> *param) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (param != NULL) {
+    pthread_t handle = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> retcode = pthread_create(&amp;handle, NULL, funct, param);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (retcode != 0) {         <I><FONT COLOR="#B22222">/* error */</FONT></I>
+      free(param);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">/* detach the thread from the main process so that is can be independent */</FONT></I>
+      pthread_detach(handle);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Generic socket/index structure */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> proxytrack_process_th_p {
+  T_SOC soc_c;
+  PT_Indexes indexes;
+  <B><FONT COLOR="#228B22">void</FONT></B> (*process) (PT_Indexes indexes, T_SOC soc_c);
+} proxytrack_process_th_p;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> proxytrack_process_th_return_t;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PROXYTRACK_PROCESS_TH_RETURN</FONT> return
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* proxytrack_process_th_return_t;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PROXYTRACK_PROCESS_TH_RETURN</FONT> return NULL
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Generic socket/index function stub */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> proxytrack_process_th_return_t <B><FONT COLOR="#0000FF">proxytrack_process_th</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *param_) {
+  proxytrack_process_th_p *param = (proxytrack_process_th_p *) param_;
+  T_SOC soc_c = param-&gt;soc_c;
+  PT_Indexes indexes = param-&gt;indexes;
+  <B><FONT COLOR="#228B22">void</FONT></B> (*process) (PT_Indexes indexes, T_SOC soc_c) = param-&gt;process;
+
+  free(param);
+  process(indexes, soc_c);
+  PROXYTRACK_PROCESS_TH_RETURN;
+}
+
+<I><FONT COLOR="#B22222">/* Process generic socket/index operation */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>
+<B><FONT COLOR="#0000FF">proxytrack_process_generic</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*process) (PT_Indexes indexes, T_SOC soc_c),
+                           PT_Indexes indexes, T_SOC soc_c) {
+  proxytrack_process_th_p *param = calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(proxytrack_process_th_p), 1);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (param != NULL) {
+    param-&gt;soc_c = soc_c;
+    param-&gt;indexes = indexes;
+    param-&gt;process = process;
+    <B><FONT COLOR="#A020F0">return</FONT></B> startThread(proxytrack_process_th, param);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    proxytrack_print_log(CRITICAL,
+                         <B><FONT COLOR="#BC8F8F">&quot;proxytrack_process_generic:Memory exhausted&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* Process HTTP proxy requests */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_process_HTTP_threaded</FONT></B>(PT_Indexes indexes, T_SOC soc) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> proxytrack_process_generic(proxytrack_process_HTTP, indexes, soc);
+}
+
+<I><FONT COLOR="#B22222">/* HTTP Server */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_start_HTTP</FONT></B>(PT_Indexes indexes, T_SOC soc) {
+  <B><FONT COLOR="#A020F0">while</FONT></B>(soc != INVALID_SOCKET) {
+    T_SOC soc_c;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((soc_c = (T_SOC) accept(soc, NULL, NULL)) != INVALID_SOCKET) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!proxytrack_process_HTTP_threaded(indexes, soc_c)) {
+        proxytrack_print_log(CRITICAL,
+                             <B><FONT COLOR="#BC8F8F">&quot;proxytrack_start_HTTP::Can not fork a thread&quot;</FONT></B>);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<I><FONT COLOR="#B22222">/* Network order is big endian */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_NET16</FONT></B>(buffer) ( ( ((unsigned char*)buffer)[0] &lt;&lt; 8 ) + ((unsigned char*)buffer)[1] )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_NET32</FONT></B>(buffer) ( ( READ_NET16(buffer) &lt;&lt; 16 ) + READ_NET16(((unsigned char*)buffer) + 2) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_NET8</FONT></B>(buffer, value) do { \
+	((unsigned char*)buffer)[0] = (unsigned char)(value); \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_NET16</FONT></B>(buffer, value) do { \
+	((unsigned char*)buffer)[0] = (((unsigned short)(value)) &gt;&gt; 8) &amp; 0xff; \
+	((unsigned char*)buffer)[1] = ((unsigned short)(value)) &amp; 0xff; \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_NET32</FONT></B>(buffer, value) do { \
+	WRITE_NET16(buffer, ( ((unsigned int)(value)) &gt;&gt; 16 ) &amp; 0xffff); \
+	WRITE_NET16(((unsigned char*)buffer) + 2, ( ((unsigned int)(value)) ) &amp; 0xffff); \
+} while(0)
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ICP_reply</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> sockaddr *clientAddr, <B><FONT COLOR="#228B22">int</FONT></B> clientAddrLen, T_SOC soc,
+                     <I><FONT COLOR="#B22222">/* */</FONT></I>
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> Opcode, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> Version,
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> Message_Length, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Request_Number,
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Options, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Option_Data,
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Sender_Host_Address, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *Message) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = 0;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> BufferSize;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buffer;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (Message_Length == 0 &amp;&amp; Message != NULL)   <I><FONT COLOR="#B22222">/* We have to get the message size */</FONT></I>
+    Message_Length = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen((<B><FONT COLOR="#228B22">char</FONT></B>*) Message) + 1;        <I><FONT COLOR="#B22222">/* NULL terminated */</FONT></I>
+  BufferSize = 20 + Message_Length;
+  buffer = malloc(BufferSize);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buffer != NULL) {
+    WRITE_NET8(&amp;buffer[0], Opcode);
+    WRITE_NET8(&amp;buffer[1], Version);
+    WRITE_NET16(&amp;buffer[2], Message_Length);
+    WRITE_NET32(&amp;buffer[4], Request_Number);
+    WRITE_NET32(&amp;buffer[8], Options);
+    WRITE_NET32(&amp;buffer[12], Option_Data);
+    WRITE_NET32(&amp;buffer[16], Sender_Host_Address);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (Message != NULL &amp;&amp; Message_Length &gt; 0) {
+      memcpy(buffer + 20, Message, Message_Length);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (sendto(soc, buffer, BufferSize, 0, clientAddr, clientAddrLen) ==
+        BufferSize) {
+      ret = 1;
+    }
+    free(buffer);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<I><FONT COLOR="#B22222">/* ICP Server */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_start_ICP</FONT></B>(PT_Indexes indexes, T_SOC soc) {
+  <I><FONT COLOR="#B22222">/* &quot;ICP messages MUST not exceed 16,384 octets in length.&quot; (RFC2186) */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> bufferSize = 16384;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buffer = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) malloc(bufferSize + 1);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buffer == NULL) {
+    proxytrack_print_log(CRITICAL, <B><FONT COLOR="#BC8F8F">&quot;proxytrack_start_ICP:memory exhausted&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  }
+  <B><FONT COLOR="#A020F0">while</FONT></B>(soc != INVALID_SOCKET) {
+    SOCaddr clientAddr;
+    SOClen clientAddrLen = SOCaddr_capacity(clientAddr);
+    <B><FONT COLOR="#228B22">int</FONT></B> n;
+
+    memset(&amp;clientAddr, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(clientAddr));
+    n = recvfrom(soc, (<B><FONT COLOR="#228B22">char</FONT></B> *) buffer, bufferSize, 0, 
+                 &amp;SOCaddr_sockaddr(clientAddr),
+                 &amp;clientAddrLen);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (n != -1) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *LogRequest = <B><FONT COLOR="#BC8F8F">&quot;ERROR&quot;</FONT></B>;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *LogReply = <B><FONT COLOR="#BC8F8F">&quot;ERROR&quot;</FONT></B>;
+      <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *UrlRequest = NULL;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (n &gt;= 20) {
+        <B><FONT COLOR="#228B22">enum</FONT></B> {
+          ICP_OP_MIN = 0,
+          ICP_OP_INVALID = 0,
+          ICP_OP_QUERY = 1,
+          ICP_OP_HIT = 2,
+          ICP_OP_MISS = 3,
+          ICP_OP_ERR = 4,
+          ICP_OP_SECHO = 10,
+          ICP_OP_DECHO = 11,
+          ICP_OP_MISS_NOFETCH = 21,
+          ICP_OP_DENIED = 22,
+          ICP_OP_HIT_OBJ = 23,
+          ICP_OP_MAX = ICP_OP_HIT_OBJ
+        };
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> Opcode = buffer[0];
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> Version = buffer[1];
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> Message_Length = READ_NET16(&amp;buffer[2]);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Request_Number = READ_NET32(&amp;buffer[4]);   <I><FONT COLOR="#B22222">/* Session ID */</FONT></I>
+        <I><FONT COLOR="#B22222">//unsigned int Options = READ_NET32(&amp;buffer[8]);
+</FONT></I>        <I><FONT COLOR="#B22222">//unsigned int Option_Data = READ_NET32(&amp;buffer[12]);     /* ICP_FLAG_SRC_RTT */
+</FONT></I>        <I><FONT COLOR="#B22222">//unsigned int Sender_Host_Address = READ_NET32(&amp;buffer[16]);     /* ignored */
+</FONT></I>        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *Payload = &amp;buffer[20];
+
+        buffer[bufferSize] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;      <I><FONT COLOR="#B22222">/* Ensure payload is NULL terminated */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (Message_Length &lt;= bufferSize - 20) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (Opcode &gt;= ICP_OP_MIN &amp;&amp; Opcode &lt;= ICP_OP_MAX) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (Version == 2) {
+              <B><FONT COLOR="#A020F0">switch</FONT></B> (Opcode) {
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ICP_OP_QUERY</FONT></B>:
+                {
+                  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> UrlRequestSize;
+
+                  UrlRequest = &amp;Payload[4];
+                  UrlRequestSize = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen((<B><FONT COLOR="#228B22">char</FONT></B> *) UrlRequest);
+                  LogRequest = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_QUERY&quot;</FONT></B>;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes == NULL) {
+                    ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_DENIED,
+                              Version, 0, Request_Number, 0, 0, 0, UrlRequest);
+                    LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_DENIED&quot;</FONT></B>;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (PT_LookupIndex(indexes, (<B><FONT COLOR="#228B22">char</FONT></B>*) UrlRequest)) {
+                    ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_HIT,
+                              Version, 0, Request_Number, 0, 0, 0, UrlRequest);
+                    LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_HIT&quot;</FONT></B>;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (UrlRequestSize &gt; 0
+                        &amp;&amp; UrlRequest[UrlRequestSize - 1] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>
+                        &amp;&amp; strchr((<B><FONT COLOR="#228B22">char</FONT></B>*) UrlRequest, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) == NULL) {
+                      <B><FONT COLOR="#228B22">char</FONT></B> *UrlRedirect = malloc(UrlRequestSize + 1 + 1);
+
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (UrlRedirect != NULL) {
+                        sprintf(UrlRedirect, <B><FONT COLOR="#BC8F8F">&quot;%s/&quot;</FONT></B>, UrlRequest);
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (PT_LookupIndex(indexes, UrlRedirect)) {     <I><FONT COLOR="#B22222">/* We'll generate a redirect */</FONT></I>
+                          ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_HIT,
+                                    Version, 0, Request_Number, 0, 0, 0,
+                                    UrlRequest);
+                          LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_HIT&quot;</FONT></B>;
+                          free(UrlRedirect);
+                          <B><FONT COLOR="#A020F0">break</FONT></B>;
+                        }
+                        free(UrlRedirect);
+                      }
+                    }
+                    <I><FONT COLOR="#B22222">/* We won't retrive the cache MISS online, no way! */</FONT></I>
+                    ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc,
+                              ICP_OP_MISS_NOFETCH, Version, 0, Request_Number,
+                              0, 0, 0, UrlRequest);
+                    LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_MISS_NOFETCH&quot;</FONT></B>;
+                  }
+                }
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ICP_OP_SECHO</FONT></B>:
+                {
+                  UrlRequest = &amp;Payload[4];
+                  LogRequest = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_QUERY&quot;</FONT></B>;
+                  LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_QUERY&quot;</FONT></B>;
+                  ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_SECHO,
+                            Version, 0, Request_Number, 0, 0, 0, UrlRequest);
+                }
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+                LogRequest = <B><FONT COLOR="#BC8F8F">&quot;NOTIMPLEMENTED&quot;</FONT></B>;
+                LogReply = <B><FONT COLOR="#BC8F8F">&quot;ICP_OP_ERR&quot;</FONT></B>;
+                ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_ERR, Version,
+                          0, Request_Number, 0, 0, 0, NULL);
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_ERR, 2, 0,
+                        Request_Number, 0, 0, 0, NULL);
+            }
+          }                     <I><FONT COLOR="#B22222">/* Ignored (RFC2186) */</FONT></I>
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          ICP_reply(&amp;SOCaddr_sockaddr(clientAddr), clientAddrLen, soc, ICP_OP_ERR, Version, 0,
+                    Request_Number, 0, 0, 0, NULL);
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Logging */</FONT></I>
+      {
+        String ip = STRING_EMPTY;
+        SOCaddr serverClient;
+        <B><FONT COLOR="#228B22">int</FONT></B> lenServerClient = (<B><FONT COLOR="#228B22">int</FONT></B>) <B><FONT COLOR="#A020F0">sizeof</FONT></B>(serverClient);
+
+        SOCaddr_copyaddr(serverClient, lenServerClient, &amp;clientAddr,
+                         clientAddrLen);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lenServerClient &gt; 0) {
+          ip = getip(&amp;clientAddr);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          StringCopy(ip, <B><FONT COLOR="#BC8F8F">&quot;unknown&quot;</FONT></B>);
+        }
+        proxytrack_print_log(LOG, <B><FONT COLOR="#BC8F8F">&quot;ICP %s %s/%s %s&quot;</FONT></B>, StringBuff(ip), LogRequest,
+                             LogReply, (UrlRequest ? (<B><FONT COLOR="#228B22">char</FONT></B>*) UrlRequest : <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>));
+        StringFree(ip);
+      }
+
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  free(buffer);
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_start_ICP_th</FONT></B>(PT_Indexes indexes, T_SOC soc) {
+  (<B><FONT COLOR="#228B22">void</FONT></B>) proxytrack_start_ICP(indexes, soc);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">proxytrack_start</FONT></B>(PT_Indexes indexes, T_SOC soc, T_SOC socICP) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = 1;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (proxytrack_process_generic(proxytrack_start_ICP_th, indexes, socICP)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!proxytrack_start_HTTP(indexes, soc)) {
+      ret = 0;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    ret = 0;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/proxy/proxytrack.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+</HTML>

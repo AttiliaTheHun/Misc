@@ -1,0 +1,264 @@
+body {
+	text-align: center;
+	margin: 	0px;
+	padding: 	0px;
+}
+
+a:link {
+	color: #990000;
+}
+
+a:visited {
+	color: #000033;
+}
+
+h1 {
+	text-align: center;
+}
+
+h2 {
+	text-align: center;
+	font-size: 175%;	
+}
+
+h3 {
+	color: #990000;
+	font-size: 140%;
+}
+
+h4 {
+	color: #990000;
+	font-size: 120%;
+}
+
+h5 {
+	color: #990000;
+	font-size: 100%;
+}
+
+table#body_table {
+	vertical-align: 	top;
+	width:				100%;
+	margin: 			0px;
+	padding: 			0px;
+	border-spacing: 	0px;
+	border-collapse:	collapse;
+	align: 				left;
+}
+
+td#header_left {
+	vertical-align: bottom;
+	background: 	#DDDDDD;
+	text-align: 	right;
+	width: 			130px;
+	margin-top: 	0px;
+	margin-bottom: 	0px;
+	margin-right: 	0px;
+	padding: 		0px;
+}
+
+td#header_center {
+	vertical-align: bottom;
+	background: 	#DDDDDD;
+	text-align: 	left;
+	width: 			770px;
+	margin-top: 	0px;
+	margin-bottom: 	0px;
+	margin-left: 	0px;
+	padding: 		0px;
+	padding-left:  	10px;
+	padding-right: 	10px;
+}
+
+td#header_right {
+	vertical-align: bottom;
+	background: 	#DDDDDD;
+	margin: 		0px;
+	padding: 		0px;
+}
+
+td#footer_left {
+	vertical-align: top;
+	background: 	#DDDDDD;
+	width: 			130px;
+	padding:		0px;
+	padding-left:  	10px;
+	padding-right: 	10px;
+	border-right: 	1px solid #993333;
+}
+
+td#footer_center {
+	vertical-align: top;
+	width: 			770px;
+	padding-left: 	10px;
+	padding : 		0px;
+	background: 	#FFFFFF;
+	border-right:  	1px solid #993333;
+	border-bottom: 	1px solid #993333;
+}
+
+td#footer_right {
+	vertical-align: top;
+	background: 	#DDDDDD;
+	margin: 		0px;
+	padding: 		0px;
+}
+
+td#nav_menu{
+	vertical-align: top;
+	background: 	#DDDDDD;
+	text-align: 	left;
+	width: 			130px;
+	margin-top: 	0px;
+	padding-top: 	10px;
+	padding-left: 	10px;
+	border-right: 	1px solid #993333;
+}
+
+td#main_content{
+	vertical-align: top;
+	background: 	#FFFFFF;
+	width: 			770px;
+	text-align: 	left;
+	padding-top:  	0px;
+	padding-left:  	10px;
+	padding-right: 	10px;
+	border-right:  	1px solid #993333;
+	border-top:  	1px solid #993333;
+}
+
+td#middle_right {
+	vertical-align: top;
+	background: 	#DDDDDD;
+	margin: 		0px;
+	padding: 		0px;
+}
+
+table#lectures {
+	border: 1px solid #AAAAAA;
+}
+
+table#lectures th {
+	font-weight: 		bold ;
+	background: 		#CC9999;
+}
+
+table#lectures td {
+	background: 		#DDDDDD;
+}
+
+table#staff {
+	border: 2px solid #AAAAAA;
+}
+
+table#staff th {
+	font-weight:		bold;
+	text-align:			left;
+	vertical-align:		top;
+	padding-left:  		10px;
+	padding-right: 		10px;
+	border: 1px solid 	#AAAAAA;
+	background: 		#DDDDDD;
+	color: 				#990000;
+}
+
+table#staff td {
+	text-align:			left;
+	vertical-align:		top;
+	padding-left:  		10px;
+	padding-right: 		10px;
+	border: 1px solid #AAAAAA;
+	background: 		#FFFFFF;
+}
+
+table#staff td#divider {
+	background-color: #CC9999;
+}
+
+
+table#demos {
+	border: 	0px;
+	position: 	relative;
+}
+
+table#demos img {
+	float: 		right;
+	height: 	120px;
+	width: 		214px;
+	margin-left: 5px;
+}
+
+table#demos td {
+	padding: 	5px;
+	border-top: 1px solid #990000;
+	background-color: #CCCCCC;
+}
+
+div#schedule table {
+	border: 1px solid #AAAAAA ;
+	width: 100% ; 
+}
+
+div#schedule td { 
+	font-size: 8pt;
+	background-color:	#CC9999;
+	vertical-align: 	top ; 
+}
+
+div#schedule th {
+	border: thin solid black ;
+	text-align: 		center ;
+	font-size: 			medium ;
+	font-weight: 		bold;
+	color: 				#990000 ;
+	background-color: 	#DDDDDD; 
+}
+
+div#schedule td#blank {
+	background-color: 	#FFFFFF; 
+}
+
+div#schedule td#objective {
+	border: thin solid black ;
+	text-align: 		center;
+	font-size: 			10pt;	
+	font-weight: 		bold;
+	vertical-align: 	middle;
+	background-color: 	#DDDDDD;
+}
+
+div#deadlines td { 
+	font-size: 			medium;
+	background-color: 	#DDDDDD;
+	vertical-align: 	top; 
+}
+
+div#deadlines th {
+	border: thin solid black;
+	text-align: 		center;
+	font-size: 			10pt;
+	font-weight:	 	bold;
+	background-color: 	#CC9999;
+}
+
+table#groups {
+	border: 1px solid #AAAAAA;
+}
+
+table#groups th {
+	background: #DDDDDD;
+}
+
+table#groups td {
+	background: #CC9999;
+}
+
+table#groups td table {
+	border: 0px solid #000000;
+}
+
+div#groups h2 {
+	text-align: center ; 
+}
+
+

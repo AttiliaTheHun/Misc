@@ -1,0 +1,506 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsindex.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsindex.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsindex.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsindex.c                                             */</FONT></I>
+<I><FONT COLOR="#B22222">/*       keyword indexing system (search index)                 */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsindex.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_MAKE_KEYWORD_INDEX</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htshash.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Keyword Indexer Parameters */</FONT></I>
+
+<I><FONT COLOR="#B22222">// Maximum length for a keyword
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_LEN</FONT>             50
+<I><FONT COLOR="#B22222">// Minimum length for a keyword - MUST NOT BE NULL!!!
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_MIN_LEN</FONT>         3
+<I><FONT COLOR="#B22222">// What characters to accept? - MUST NOT BE EMPTY AND MUST NOT CONTAIN THE SPACE (32) CHARACTER!!!
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_ACCEPT</FONT>          <B><FONT COLOR="#BC8F8F">&quot;abcdefghijklmnopqrstuvwxyz0123456789-_.&quot;</FONT></B>
+<I><FONT COLOR="#B22222">// Convert A to a, and so on.. to avoid case problems in indexing
+</FONT></I><I><FONT COLOR="#B22222">// This can be a generic table, containing characters that are in fact not accepted by KEYW_ACCEPT
+</FONT></I><I><FONT COLOR="#B22222">// MUST HAVE SAME SIZES!!
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_TRANSCODE_FROM</FONT>  (\
+                               <B><FONT COLOR="#BC8F8F">&quot;ABCDEFGHIJKLMNOPQRSTUVWXYZ&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;àâä&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÀÂÄ&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;éèêë&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÈÈÊË&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ìîï&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÌÎÏ&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;òôö&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÒÔÖ&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ùûü&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÙÛÜ&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ÿ&quot;</FONT></B> \
+                             )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_TRANSCODE_TO</FONT>    ( \
+                               <B><FONT COLOR="#BC8F8F">&quot;abcdefghijklmnopqrstuvwxyz&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;aaa&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;aaa&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;eeee&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;eeee&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;iii&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;iii&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ooo&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;ooo&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;uuu&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;uuu&quot;</FONT></B> \
+                               <B><FONT COLOR="#BC8F8F">&quot;y&quot;</FONT></B> \
+                             )
+<I><FONT COLOR="#B22222">// These (accepted) characters will be ignored at beginning of a keyword
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_IGNORE_BEG</FONT>       <B><FONT COLOR="#BC8F8F">&quot;-_.&quot;</FONT></B>
+<I><FONT COLOR="#B22222">// These (accepted) characters will be stripped if at the end of a keyword
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_STRIP_END</FONT>       <B><FONT COLOR="#BC8F8F">&quot;-_.&quot;</FONT></B>
+<I><FONT COLOR="#B22222">// Words beginning with these (accepted) characters will be ignored
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_NOT_BEG</FONT>         <B><FONT COLOR="#BC8F8F">&quot;0123456789&quot;</FONT></B>
+<I><FONT COLOR="#B22222">// Treat these characters as space characters - MUST NOT BE EMPTY!!!
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_SPACE</FONT>           <B><FONT COLOR="#BC8F8F">&quot; ',;:!?\&quot;\x0d\x0a\x09\x0b\x0c&quot;</FONT></B>
+<I><FONT COLOR="#B22222">// Common words (the,for..) detector
+</FONT></I><I><FONT COLOR="#B22222">// If a word represents more than KEYW_USELESS1K (%1000) of total words, then ignore it
+</FONT></I><I><FONT COLOR="#B22222">// 5 (0.5%)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_USELESS1K</FONT>       5
+<I><FONT COLOR="#B22222">// If a word is present in more than KEYW_USELESS1KPG (%1000) pages, then ignore it
+</FONT></I><I><FONT COLOR="#B22222">// 800 (80%)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_USELESS1KPG</FONT>     800
+<I><FONT COLOR="#B22222">// This number will be reduced by index hit for sorting purpose
+</FONT></I><I><FONT COLOR="#B22222">// leave it as it is here if you don't REALLY know what you are doing
+</FONT></I><I><FONT COLOR="#B22222">// Yes, I may be the only person, maybe
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">KEYW_SORT_MAXCOUNT</FONT> 999999999
+
+<I><FONT COLOR="#B22222">/* End of Keyword Indexer Parameters */</FONT></I>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">strcpos</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> c);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">mystrcmp</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *_e1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *_e2);
+
+<I><FONT COLOR="#B22222">// Global variables
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> hts_index_init = 1;
+<B><FONT COLOR="#228B22">int</FONT></B> hts_primindex_size = 0;
+FILE *fp_tmpproject = NULL;
+<B><FONT COLOR="#228B22">int</FONT></B> hts_primindex_words = 0;
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* 
+  Init index 
+*/</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">index_init</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *indexpath) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_MAKE_KEYWORD_INDEX</FONT>
+  <I><FONT COLOR="#B22222">/* remove(concat(indexpath,&quot;index.txt&quot;)); */</FONT></I>
+  hts_index_init = 1;
+  hts_primindex_size = 0;
+  hts_primindex_words = 0;
+  fp_tmpproject = tmpfile();
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">/* 
+   Indexing system
+   A little bit dirty, (quick'n dirty, in fact)
+   But should be okay on most cases
+   Tags and javascript handled (ignored)
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/* Note: utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">index_keyword</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *html_data, LLint size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *indexpath) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_MAKE_KEYWORD_INDEX</FONT>
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">int</FONT></B> intag = 0, inscript = 0, incomment = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> keyword[KEYW_LEN + 32];
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">//int WordIndexSize = 1024;
+</FONT></I>  coucal WordIndexHash = NULL;
+  FILE *tmpfp = NULL;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>
+  <I><FONT COLOR="#B22222">// Check parameters
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (!html_data)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!size)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!mime)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!filename)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+  <I><FONT COLOR="#B22222">// Init ?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_index_init) {
+    UNLINK(concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), indexpath, <B><FONT COLOR="#BC8F8F">&quot;index.txt&quot;</FONT></B>));
+    UNLINK(concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), indexpath, <B><FONT COLOR="#BC8F8F">&quot;sindex.html&quot;</FONT></B>));
+    hts_index_init = 0;
+  }
+  <I><FONT COLOR="#B22222">// Check MIME type
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (is_html_mime_type(mime)) {
+    inscript = 0;
+  }
+  <I><FONT COLOR="#B22222">// FIXME - temporary fix for image/svg+xml (svg)
+</FONT></I>  <I><FONT COLOR="#B22222">// &quot;IN XML&quot; (html like, in fact :) )
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((strfield2(mime, <B><FONT COLOR="#BC8F8F">&quot;image/svg+xml&quot;</FONT></B>))
+           || (strfield2(mime, <B><FONT COLOR="#BC8F8F">&quot;image/svg-xml&quot;</FONT></B>))) {
+    inscript = 0;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((strfield2(mime, <B><FONT COLOR="#BC8F8F">&quot;application/x-javascript&quot;</FONT></B>))
+             || (strfield2(mime, <B><FONT COLOR="#BC8F8F">&quot;text/css&quot;</FONT></B>))
+    ) {
+    inscript = 1;
+    <I><FONT COLOR="#B22222">//} else if (strfield2(mime, &quot;text/vnd.wap.wml&quot;)) {   // humm won't work in many cases
+</FONT></I>    <I><FONT COLOR="#B22222">//  inscript=0;
+</FONT></I>  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+  <I><FONT COLOR="#B22222">// Temporary file
+</FONT></I>  tmpfp = tmpfile();
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!tmpfp)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+  <I><FONT COLOR="#B22222">// Create hash structure
+</FONT></I>  <I><FONT COLOR="#B22222">// Hash tables rulez da world!
+</FONT></I>  WordIndexHash = coucal_new(0);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!WordIndexHash)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+  <I><FONT COLOR="#B22222">// Start indexing this page
+</FONT></I>  keyword[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(i &lt; size) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(html_data + i, <B><FONT COLOR="#BC8F8F">&quot;&lt;script&quot;</FONT></B>)) {
+      inscript = 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(html_data + i, <B><FONT COLOR="#BC8F8F">&quot;&lt;!--&quot;</FONT></B>)) {
+      incomment = 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(html_data + i, <B><FONT COLOR="#BC8F8F">&quot;&lt;/script&quot;</FONT></B>)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!incomment)
+        inscript = 0;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(html_data + i, <B><FONT COLOR="#BC8F8F">&quot;--&gt;&quot;</FONT></B>)) {
+      incomment = 0;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (html_data[i] == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!inscript)
+        intag = 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (html_data[i] == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>) {
+      intag = 0;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">// Okay, parse keywords
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((!inscript) &amp;&amp; (!incomment) &amp;&amp; (!intag)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> cchar = html_data[i];
+        <B><FONT COLOR="#228B22">int</FONT></B> pos;
+        <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(keyword);
+
+        <I><FONT COLOR="#B22222">// Replace (ignore case, and so on..)
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = strcpos(KEYW_TRANSCODE_FROM, cchar)) &gt;= 0)
+          cchar = KEYW_TRANSCODE_TO[pos];
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(KEYW_ACCEPT, cchar)) {
+          <I><FONT COLOR="#B22222">/* Ignore some characters at beginning */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((len &gt; 0) || (!strchr(KEYW_IGNORE_BEG, cchar))) {
+            keyword[len++] = cchar;
+            keyword[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((strchr(KEYW_SPACE, cchar)) || (!cchar)) {
+
+          <I><FONT COLOR="#B22222">/* Avoid these words */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(KEYW_NOT_BEG, keyword[0])) {
+              keyword[(len = 0)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* Strip ending . and so */</FONT></I>
+          {
+            <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+
+            <B><FONT COLOR="#A020F0">while</FONT></B>((len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(keyword)) &amp;&amp; (!ok)) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(KEYW_STRIP_END, keyword[len - 1])) {   <I><FONT COLOR="#B22222">/* strip it */</FONT></I>
+                keyword[len - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              } <B><FONT COLOR="#A020F0">else</FONT></B>
+                ok = 1;
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* Store it ? */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt;= KEYW_MIN_LEN) {
+            hts_primindex_words++;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_inc(WordIndexHash, keyword)) {  <I><FONT COLOR="#B22222">/* added new */</FONT></I>
+              fprintf(tmpfp, <B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, keyword);
+            }
+          }
+          keyword[(len = 0)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        } <B><FONT COLOR="#A020F0">else</FONT></B>                  <I><FONT COLOR="#B22222">/* Invalid */</FONT></I>
+          keyword[(len = 0)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; KEYW_LEN) {
+          keyword[(len = 0)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        }
+      }
+
+    }
+
+    i++;
+  }
+
+  <I><FONT COLOR="#B22222">// Reset temp file
+</FONT></I>  fseek(tmpfp, 0, SEEK_SET);
+
+  <I><FONT COLOR="#B22222">// Process indexing for this page
+</FONT></I>  {
+    <I><FONT COLOR="#B22222">//FILE* fp=NULL;
+</FONT></I>    <I><FONT COLOR="#B22222">//fp=fopen(concat(indexpath,&quot;index.txt&quot;),&quot;ab&quot;);
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (fp_tmpproject) {
+      <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(tmpfp)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> line[KEYW_LEN + 32];
+
+        linput(tmpfp, line, KEYW_LEN + 2);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(line)) {
+          intptr_t e = 0;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(WordIndexHash, line, &amp;e)) {
+            <I><FONT COLOR="#B22222">//if (e) {
+</FONT></I>            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK savelst[HTS_URLMAXSIZE * 2];
+
+            e++;                <I><FONT COLOR="#B22222">/* 0 means &quot;once&quot; */</FONT></I>
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) fslash(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) indexpath), filename, strlen(indexpath)) == 0)  <I><FONT COLOR="#B22222">// couper
+</FONT></I>              strcpybuff(savelst, filename + strlen(indexpath));
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcpybuff(savelst, filename);
+
+            <I><FONT COLOR="#B22222">// Add entry for this file and word
+</FONT></I>            fprintf(fp_tmpproject, <B><FONT COLOR="#BC8F8F">&quot;%s %d %s\n&quot;</FONT></B>, line,
+                    (<B><FONT COLOR="#228B22">int</FONT></B>) (KEYW_SORT_MAXCOUNT - e), savelst);
+            hts_primindex_size++;
+            <I><FONT COLOR="#B22222">//}
+</FONT></I>          }
+        }
+      }
+      <I><FONT COLOR="#B22222">//fclose(fp);
+</FONT></I>    }
+  }
+
+  <I><FONT COLOR="#B22222">// Delete temp file
+</FONT></I>  fclose(tmpfp);
+  tmpfp = NULL;
+
+  <I><FONT COLOR="#B22222">// Clear hash table
+</FONT></I>  coucal_delete(&amp;WordIndexHash);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Sort index!
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">index_finish</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *indexpath, <B><FONT COLOR="#228B22">int</FONT></B> mode) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_MAKE_KEYWORD_INDEX</FONT>
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">char</FONT></B> **tab;
+  <B><FONT COLOR="#228B22">char</FONT></B> *blk;
+  off_t size = fpsize(fp_tmpproject);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; 0) {
+    <I><FONT COLOR="#B22222">//FILE* fp=fopen(concat(indexpath,&quot;index.txt&quot;),&quot;rb&quot;);
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (fp_tmpproject) {
+      tab = (<B><FONT COLOR="#228B22">char</FONT></B> **) malloct(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *) * (hts_primindex_size + 2));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (tab) {
+        blk = malloct(size + 4);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (blk) {
+          fseek(fp_tmpproject, 0, SEEK_SET);
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((INTsys) fread(blk, 1, size, fp_tmpproject) == size) {
+            <B><FONT COLOR="#228B22">char</FONT></B> *a = blk, *b;
+            <B><FONT COLOR="#228B22">int</FONT></B> index = 0;
+            <B><FONT COLOR="#228B22">int</FONT></B> i;
+            FILE *fp;
+
+            <B><FONT COLOR="#A020F0">while</FONT></B>((b = strchr(a, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>)) &amp;&amp; (index &lt; hts_primindex_size)) {
+              tab[index++] = a;
+              *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              a = b + 1;
+            }
+
+            <I><FONT COLOR="#B22222">// Sort it!
+</FONT></I>            qsort(tab, index, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *), mystrcmp);
+
+            <I><FONT COLOR="#B22222">// Delete fp_tmpproject
+</FONT></I>            fclose(fp_tmpproject);
+            fp_tmpproject = NULL;
+
+            <I><FONT COLOR="#B22222">// Write new file
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)      <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>              fp = fopen(concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), indexpath, <B><FONT COLOR="#BC8F8F">&quot;index.txt&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">else</FONT></B>                <I><FONT COLOR="#B22222">// HTML
+</FONT></I>              fp = fopen(concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), indexpath, <B><FONT COLOR="#BC8F8F">&quot;sindex.html&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+              <B><FONT COLOR="#228B22">char</FONT></B> current_word[KEYW_LEN + 32];
+              <B><FONT COLOR="#228B22">char</FONT></B> word[KEYW_LEN + 32];
+              <B><FONT COLOR="#228B22">int</FONT></B> hit;
+              <B><FONT COLOR="#228B22">int</FONT></B> total_hit = 0;
+              <B><FONT COLOR="#228B22">int</FONT></B> total_line = 0;
+              <B><FONT COLOR="#228B22">int</FONT></B> last_pos = 0;
+              <B><FONT COLOR="#228B22">char</FONT></B> word0 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+              current_word[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 2) {  <I><FONT COLOR="#B22222">// HTML
+</FONT></I>                <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; index; i++) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (word0 != tab[i][0]) {
+                    word0 = tab[i][0];
+                    fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot; &lt;a href=\&quot;#%c\&quot;&gt;%c&lt;/a&gt;\r\n&quot;</FONT></B>, word0, word0);
+                  }
+                }
+                word0 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;br&gt;&lt;br&gt;\r\n&quot;</FONT></B>);
+                fprintf(fp,
+                        <B><FONT COLOR="#BC8F8F">&quot;&lt;table width=\&quot;100%%\&quot; border=\&quot;0\&quot;&gt;\r\n&lt;tr&gt;\r\n&lt;td&gt;word&lt;/td&gt;\r\n&lt;td&gt;location\r\n&quot;</FONT></B>);
+              }
+
+              <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; index; i++) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(tab[i], <B><FONT COLOR="#BC8F8F">&quot;%s %d&quot;</FONT></B>, word, &amp;hit) == 2) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> *a = strchr(tab[i], <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (a)
+                    a = strchr(a + 1, <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (a++) {    <I><FONT COLOR="#B22222">/* Yes, a++, not ++a :) */</FONT></I>
+                    hit = KEYW_SORT_MAXCOUNT - hit;
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(word, current_word)) {   <I><FONT COLOR="#B22222">/* New word */</FONT></I>
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (total_hit) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)  <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>                          fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;\t=%d\r\n&quot;</FONT></B>, total_hit);
+                        <I><FONT COLOR="#B22222">//else                // HTML
+</FONT></I>                        <I><FONT COLOR="#B22222">//  fprintf(fp,&quot;&lt;br&gt;(%d total hits)\r\n&quot;,total_hit);
+</FONT></I>                        <B><FONT COLOR="#A020F0">if</FONT></B> ((((total_hit * 1000) / hts_primindex_words) &gt;=
+                             KEYW_USELESS1K)
+                            || (((total_line * 1000) / index) &gt;=
+                                KEYW_USELESS1KPG)
+                          ) {
+                          fseek(fp, last_pos, SEEK_SET);
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)        <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>                            fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;\tignored (%d)\r\n&quot;</FONT></B>,
+                                    ((total_hit * 1000) / hts_primindex_words));
+                          <B><FONT COLOR="#A020F0">else</FONT></B>
+                            fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;(ignored) [%d hits]&lt;br&gt;\r\n&quot;</FONT></B>,
+                                    total_hit);
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                          <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)        <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>                            fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;\t(%d)\r\n&quot;</FONT></B>,
+                                    ((total_hit * 1000) / hts_primindex_words));
+                          <I><FONT COLOR="#B22222">//else                // HTML
+</FONT></I>                          <I><FONT COLOR="#B22222">//  fprintf(fp,&quot;(%d)\r\n&quot;,((total_hit*1000)/hts_primindex_words));
+</FONT></I>                        }
+                      }
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)    <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>                        fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;%s\r\n&quot;</FONT></B>, word);
+                      <B><FONT COLOR="#A020F0">else</FONT></B> {    <I><FONT COLOR="#B22222">// HTML
+</FONT></I>                        fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;/td&gt;&lt;/tr&gt;\r\n&quot;</FONT></B>);
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (word0 != word[0]) {
+                          word0 = word[0];
+                          fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;th&gt;%c&lt;/th&gt;\r\n&quot;</FONT></B>, word0);
+                          fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;a name=\&quot;%c\&quot;&gt;&lt;/a&gt;\r\n&quot;</FONT></B>, word0);
+                        }
+                        fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;tr&gt;\r\n&lt;td&gt;%s&lt;/td&gt;\r\n&lt;td&gt;\r\n&quot;</FONT></B>, word);
+                      }
+                      fflush(fp);
+                      last_pos = ftell(fp);
+                      strcpybuff(current_word, word);
+                      total_hit = total_line = 0;
+                    }
+                    total_hit += hit;
+                    total_line++;
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 1)      <I><FONT COLOR="#B22222">// TEXT
+</FONT></I>                      fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;\t%d %s\r\n&quot;</FONT></B>, hit, a);
+                    <B><FONT COLOR="#A020F0">else</FONT></B>        <I><FONT COLOR="#B22222">// HTML
+</FONT></I>                      fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;a href=\&quot;%s\&quot;&gt;%s&lt;/a&gt; [%d hits]&lt;br&gt;\r\n&quot;</FONT></B>, a,
+                              a, hit);
+                  }
+                }
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (mode == 2)    <I><FONT COLOR="#B22222">// HTML
+</FONT></I>                fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;/td&gt;&lt;/tr&gt;\r\n&lt;/table&gt;\r\n&quot;</FONT></B>);
+              fclose(fp);
+            }
+
+          }
+          freet(blk);
+        }
+        freet(tab);
+      }
+
+    }
+    <I><FONT COLOR="#B22222">//qsort
+</FONT></I>  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fp_tmpproject)
+    fclose(fp_tmpproject);
+  fp_tmpproject = NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">/* Subroutines */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_MAKE_KEYWORD_INDEX</FONT>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">strcpos</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *apos = strchr(adr, c);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (apos)
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) (apos - adr);
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">mystrcmp</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *_e1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *_e2) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B>*<B><FONT COLOR="#228B22">const</FONT></B> e1 = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B>*) _e1;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B>*<B><FONT COLOR="#228B22">const</FONT></B> e2 = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B>*) _e2;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> strcmp(*e1, *e2);
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsindex.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:17 GMT -->
+</HTML>

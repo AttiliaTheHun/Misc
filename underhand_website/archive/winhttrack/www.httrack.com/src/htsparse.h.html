@@ -1,0 +1,208 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsparse.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsparse.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsparse.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsparse.h parser                                      */</FONT></I>
+<I><FONT COLOR="#B22222">/*       html/javascript/css parser                             */</FONT></I>
+<I><FONT COLOR="#B22222">/*       and other parser routines                              */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_robots_wizard</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_robots_wizard</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> robots_wizard robots_wizard;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hash_struct hash_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStructExtended</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStructExtended</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsmoduleStructExtended htsmoduleStructExtended;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsmoduleStructExtended {
+  <I><FONT COLOR="#B22222">/* Main object */</FONT></I>
+  htsblk *r_;
+
+  <I><FONT COLOR="#B22222">/* Error handling */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> *error_;
+  <B><FONT COLOR="#228B22">int</FONT></B> *exit_xh_;
+  <B><FONT COLOR="#228B22">int</FONT></B> *store_errpage_;
+
+  <I><FONT COLOR="#B22222">/* Structural */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> *filptr_;
+  <B><FONT COLOR="#228B22">char</FONT></B> ***filters_;
+  robots_wizard *robots_;
+  hash_struct *hash_;
+  <I><FONT COLOR="#B22222">//int *lien_max_;
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Base &amp; codebase */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *base;
+  <B><FONT COLOR="#228B22">char</FONT></B> *codebase;
+
+  <I><FONT COLOR="#B22222">/* Index */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> *makeindex_done_;
+  FILE **makeindex_fp_;
+  <B><FONT COLOR="#228B22">int</FONT></B> *makeindex_links_;
+  <B><FONT COLOR="#228B22">char</FONT></B> *makeindex_firstlink_;
+
+  <I><FONT COLOR="#B22222">/* Html templates */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *template_header_;
+  <B><FONT COLOR="#228B22">char</FONT></B> *template_body_;
+  <B><FONT COLOR="#228B22">char</FONT></B> *template_footer_;
+
+  <I><FONT COLOR="#B22222">/* Specific to downloads */</FONT></I>
+  LLint *stat_fragment_;
+  TStamp makestat_time;
+  FILE *makestat_fp;
+  LLint *makestat_total_;
+  <B><FONT COLOR="#228B22">int</FONT></B> *makestat_lnk_;
+  FILE *maketrack_fp;
+
+  <I><FONT COLOR="#B22222">/* Function-dependant */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *loc_;
+  TStamp *last_info_shell_;
+  <B><FONT COLOR="#228B22">int</FONT></B> *info_shell_;
+
+};
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">/*
+  Main parser, attempt to scan links inside the html/css/js file
+  Parameters: The public module structure, and the private module variables
+*/</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htsparse</FONT></B>(htsmoduleStruct * str, htsmoduleStructExtended * stre);
+
+<I><FONT COLOR="#B22222">/*
+  Check for 301,302.. errors (&quot;moved&quot;) and handle them; re-isuue requests, make
+  rediretc file, handle filters considerations..
+  Parameters: The public module structure, and the private module variables
+  Returns 0 upon success
+*/</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_mirror_check_moved</FONT></B>(htsmoduleStruct * str,
+                           htsmoduleStructExtended * stre);
+
+<I><FONT COLOR="#B22222">/*
+  Process user intercations: pause, add link, delete link..
+*/</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mirror_process_user_interaction</FONT></B>(htsmoduleStruct * str,
+                                         htsmoduleStructExtended * stre);
+
+<I><FONT COLOR="#B22222">/*
+  Get the next file on the queue, waiting for it, handling other files in background..
+  Parameters: The public module structure, and the private module variables
+  Returns 0 upon success
+*/</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_mirror_wait_for_next_file</FONT></B>(htsmoduleStruct * str,
+                                  htsmoduleStructExtended * stre);
+
+<I><FONT COLOR="#B22222">/*
+  Wait for (adr, fil, save) to be started, that is, 
+  to be ready for naming, having its header MIME type
+  If the final URL is to be forbidden, sets 'forbidden_url' to the corresponding value
+*/</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_wait_delayed</FONT></B>(htsmoduleStruct * str, lien_adrfilsave *afs,
+                     <B><FONT COLOR="#228B22">char</FONT></B> *parent_adr, <B><FONT COLOR="#228B22">char</FONT></B> *parent_fil, lien_adrfil *former,
+                     <B><FONT COLOR="#228B22">int</FONT></B> *forbidden_url);
+
+<I><FONT COLOR="#B22222">/* Context state */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ENGINE_DEFINE_CONTEXT_BASE</FONT></B>() \
+  httrackp* const opt HTS_UNUSED = (httrackp*) str-&gt;opt; \
+  struct_back* const sback HTS_UNUSED = (struct_back*) str-&gt;sback; \
+  lien_back* const back HTS_UNUSED = sback-&gt;lnk; \
+  const int back_max HTS_UNUSED = sback-&gt;count; \
+  cache_back* const cache HTS_UNUSED = (cache_back*) str-&gt;cache; \
+  hash_struct* const hashptr HTS_UNUSED = (hash_struct*) str-&gt;hashptr; \
+  const int numero_passe HTS_UNUSED = str-&gt;numero_passe; \
+  <I><FONT COLOR="#B22222">/* variable */</FONT></I> \
+  int ptr = *str-&gt;ptr_
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ENGINE_SET_CONTEXT_BASE</FONT></B>() \
+  ptr = *str-&gt;ptr_
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ENGINE_LOAD_CONTEXT_BASE</FONT></B>() \
+  ENGINE_DEFINE_CONTEXT_BASE()
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ENGINE_SAVE_CONTEXT_BASE</FONT></B>() \
+  <I><FONT COLOR="#B22222">/* Apply changes */</FONT></I> \
+  * str-&gt;ptr_ = ptr
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WAIT_FOR_AVAILABLE_SOCKET</FONT></B>() do { \
+  int prev = opt-&gt;state._hts_in_html_parsing; \
+  while(back_pluggable_sockets_strict(sback, opt) &lt;= 0) { \
+    opt-&gt;state._hts_in_html_parsing = 6; \
+    <I><FONT COLOR="#B22222">/* Wait .. */</FONT></I> \
+    back_wait(sback,opt,cache,0); \
+    <I><FONT COLOR="#B22222">/* Transfer rate */</FONT></I> \
+    engine_stats(); \
+    <I><FONT COLOR="#B22222">/* Refresh various stats */</FONT></I> \
+    HTS_STAT.stat_nsocket=back_nsoc(sback); \
+    HTS_STAT.stat_errors=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;error&quot;</FONT></B>); \
+    HTS_STAT.stat_warnings=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;warning&quot;</FONT></B>); \
+    HTS_STAT.stat_infos=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;info&quot;</FONT></B>); \
+    HTS_STAT.nbk=backlinks_done(sback,opt-&gt;liens,opt-&gt;lien_tot,ptr); \
+    HTS_STAT.nb=back_transferred(HTS_STAT.stat_bytes,sback); \
+    <I><FONT COLOR="#B22222">/* Check */</FONT></I> \
+    if (!RUN_CALLBACK7(opt, loop, sback-&gt;lnk, sback-&gt;count, -1,ptr,opt-&gt;lien_tot,(int) (time_local()-HTS_STAT.stat_timestart),&amp;HTS_STAT)) { \
+      return -1; \
+    } \
+  } \
+  opt-&gt;state._hts_in_html_parsing = prev; \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsparse.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

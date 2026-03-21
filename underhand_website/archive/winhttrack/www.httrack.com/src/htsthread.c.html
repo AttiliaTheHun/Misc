@@ -1,0 +1,237 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsthread.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsthread.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsthread.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Threads                                                */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsthread.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;process.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> process_chain = 0;
+<B><FONT COLOR="#228B22">static</FONT></B> htsmutex process_chain_mutex = HTSMUTEX_INIT;
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_wait</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  htsthread_wait_n(0);
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_wait_n</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> n_wait) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+  <B><FONT COLOR="#228B22">int</FONT></B> wait = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    hts_mutexlock(&amp;process_chain_mutex);
+    wait = (process_chain &gt; n_wait);
+    hts_mutexrelease(&amp;process_chain_mutex);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (wait)
+      Sleep(100);
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(wait);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">/* ensure initialized */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_DEBUG</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">DEBUG</FONT>))
+  assertf(process_chain == 0);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (process_chain_mutex == HTSMUTEX_INIT) {
+    hts_mutexinit(&amp;process_chain_mutex);
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  htsthread_wait();
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+  hts_mutexfree(&amp;process_chain_mutex);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hts_thread_s {
+  <B><FONT COLOR="#228B22">void</FONT></B> *arg;
+  <B><FONT COLOR="#228B22">void</FONT></B> (*fun) (<B><FONT COLOR="#228B22">void</FONT></B> *arg);
+} hts_thread_s;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __stdcall <B><FONT COLOR="#0000FF">hts_entry_point</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *tharg)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">hts_entry_point</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *tharg)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+{
+  hts_thread_s *s_args = (hts_thread_s *) tharg;
+  <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> arg = s_args-&gt;arg;
+  <B><FONT COLOR="#228B22">void</FONT></B> (*fun) (<B><FONT COLOR="#228B22">void</FONT></B> *arg) = s_args-&gt;fun;
+
+  free(tharg);
+
+  hts_mutexlock(&amp;process_chain_mutex);
+  process_chain++;
+  assertf(process_chain &gt; 0);
+  hts_mutexrelease(&amp;process_chain_mutex);
+
+  <I><FONT COLOR="#B22222">/* run */</FONT></I>
+  fun(arg);
+
+  hts_mutexlock(&amp;process_chain_mutex);
+  process_chain--;
+  assertf(process_chain &gt;= 0);
+  hts_mutexrelease(&amp;process_chain_mutex);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">/* create a thread */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_newthread</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*fun) (<B><FONT COLOR="#228B22">void</FONT></B> *arg), <B><FONT COLOR="#228B22">void</FONT></B> *arg) {
+  hts_thread_s *s_args = malloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(hts_thread_s));
+
+  assertf(s_args != NULL);
+  s_args-&gt;arg = arg;
+  s_args-&gt;fun = fun;
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> idt;
+    HANDLE handle =
+      (HANDLE) _beginthreadex(NULL, 0, hts_entry_point, s_args, 0, &amp;idt);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (handle == 0) {
+      free(s_args);
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">/* detach the thread from the main process so that is can be independent */</FONT></I>
+      CloseHandle(handle);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  {
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t stackSize = 1024 * 1024 * 8;
+    pthread_attr_t attr;
+    pthread_t handle = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> retcode;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pthread_attr_init(&amp;attr) != 0
+        || pthread_attr_setstacksize(&amp;attr, stackSize) != 0
+        || (retcode =
+            pthread_create(&amp;handle, &amp;attr, hts_entry_point, s_args)) != 0) {
+      free(s_args);
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">/* detach the thread from the main process so that is can be independent */</FONT></I>
+      pthread_detach(handle);
+      pthread_attr_destroy(&amp;attr);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+
+<I><FONT COLOR="#B22222">/* Note: new 3.41 cleaned up functions. */</FONT></I>
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexinit</FONT></B>(htsmutex * mutex) {
+  htsmutex_s *smutex = malloct(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(htsmutex_s));
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  smutex-&gt;handle = CreateMutex(NULL, FALSE, NULL);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  pthread_mutex_init(&amp;smutex-&gt;handle, 0);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  *mutex = smutex;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexfree</FONT></B>(htsmutex * mutex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (mutex != NULL &amp;&amp; *mutex != NULL) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    CloseHandle((*mutex)-&gt;handle);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    pthread_mutex_destroy(&amp;((*mutex)-&gt;handle));
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    freet(*mutex);
+    *mutex = NULL;
+  }
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexlock</FONT></B>(htsmutex * mutex) {
+  assertf(mutex != NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*mutex == HTSMUTEX_INIT) {        <I><FONT COLOR="#B22222">/* must be initialized */</FONT></I>
+    hts_mutexinit(mutex);
+  }
+  assertf(*mutex != NULL);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  assertf((*mutex)-&gt;handle != NULL);
+  WaitForSingleObject((*mutex)-&gt;handle, INFINITE);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  pthread_mutex_lock(&amp;(*mutex)-&gt;handle);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_mutexrelease</FONT></B>(htsmutex * mutex) {
+  assertf(mutex != NULL &amp;&amp; *mutex != NULL);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  assertf((*mutex)-&gt;handle != NULL);
+  ReleaseMutex((*mutex)-&gt;handle);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  pthread_mutex_unlock(&amp;(*mutex)-&gt;handle);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsthread.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

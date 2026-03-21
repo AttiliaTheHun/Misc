@@ -1,0 +1,1746 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsname.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsname.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsname.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       savename routine (compute output filename)             */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsname.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;md5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmd5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htstools.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscharset.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsencoding.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ADD_STANDARD_PATH</FONT> \
+    {  <I><FONT COLOR="#B22222">/* ajout nom */</FONT></I>\
+      char BIGSTK buff[HTS_URLMAXSIZE*2];\
+      buff[0]=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;\
+      strncatbuff(buff,start_pos,nom_pos - start_pos);\
+      url_savename_addstr(afs-&gt;save, buff);\
+    }
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ADD_STANDARD_NAME</FONT></B>(shortname) \
+    {  <I><FONT COLOR="#B22222">/* ajout nom */</FONT></I>\
+      char BIGSTK buff[HTS_URLMAXSIZE*2];\
+      standard_name(buff,dot_pos,nom_pos,fil_complete,(shortname));\
+      url_savename_addstr(afs-&gt;save, buff);\
+    }
+
+<I><FONT COLOR="#B22222">/* Avoid stupid DOS system folders/file such as 'nul' */</FONT></I>
+<I><FONT COLOR="#B22222">/* Based on linux/fs/umsdos/mangle.c */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_tbdev[] = {
+  <B><FONT COLOR="#BC8F8F">&quot;/prn&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/con&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/aux&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/nul&quot;</FONT></B>,
+  <B><FONT COLOR="#BC8F8F">&quot;/lpt1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/lpt2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/lpt3&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/lpt4&quot;</FONT></B>,
+  <B><FONT COLOR="#BC8F8F">&quot;/com1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/com2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/com3&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/com4&quot;</FONT></B>,
+  <B><FONT COLOR="#BC8F8F">&quot;/clock$&quot;</FONT></B>,
+  <B><FONT COLOR="#BC8F8F">&quot;/emmxxxx0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/xmsxxxx0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;/setverxx&quot;</FONT></B>,
+  <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>
+};
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">URLSAVENAME_WAIT_FOR_AVAILABLE_SOCKET</FONT></B>() do { \
+  int prev = opt-&gt;state._hts_in_html_parsing; \
+  while(back_pluggable_sockets_strict(sback, opt) &lt;= 0) { \
+    opt-&gt;state. _hts_in_html_parsing = 6; \
+    <I><FONT COLOR="#B22222">/* Wait .. */</FONT></I> \
+    back_wait(sback,opt,cache,0); \
+    <I><FONT COLOR="#B22222">/* Transfer rate */</FONT></I> \
+    engine_stats(); \
+    <I><FONT COLOR="#B22222">/* Refresh various stats */</FONT></I> \
+    HTS_STAT.stat_nsocket=back_nsoc(sback); \
+    HTS_STAT.stat_errors=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;error&quot;</FONT></B>); \
+    HTS_STAT.stat_warnings=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;warning&quot;</FONT></B>); \
+    HTS_STAT.stat_infos=fspc(opt,NULL,<B><FONT COLOR="#BC8F8F">&quot;info&quot;</FONT></B>); \
+    HTS_STAT.nbk=backlinks_done(sback,opt-&gt;liens,opt-&gt;lien_tot,ptr); \
+    HTS_STAT.nb=back_transferred(HTS_STAT.stat_bytes,sback); \
+    <I><FONT COLOR="#B22222">/* Check */</FONT></I> \
+    { \
+      if (!RUN_CALLBACK7(opt, loop, sback-&gt;lnk, sback-&gt;count,-1,ptr,opt-&gt;lien_tot,(int) (time_local()-HTS_STAT.stat_timestart),&amp;HTS_STAT)) { \
+        return -1; \
+      } \
+    } \
+  } \
+  opt-&gt;state._hts_in_html_parsing = prev; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/* Strip all // */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cleanDoubleSlash</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i, j;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0; s[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; i != 0 &amp;&amp; s[i - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">continue</FONT></B>;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (i != j) {
+      s[j] = s[i];
+    }
+    j++;
+  }
+  <I><FONT COLOR="#B22222">// terminating \0
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (i != j) {
+    s[j] = s[i];
+  }
+}
+
+<I><FONT COLOR="#B22222">/* Strip all ending . or ' ' (windows-forbidden) */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cleanEndingSpaceOrDot</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i, j, lastWriteEnd;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0, lastWriteEnd = 0; i == 0 || s[i - 1] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || s[i] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+      <I><FONT COLOR="#B22222">// Last write was not good, revert
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (j != lastWriteEnd) {
+        j = lastWriteEnd;
+      }
+    }
+     
+    <B><FONT COLOR="#A020F0">if</FONT></B> (i != j) {
+      s[j] = s[i];
+    }
+    j++;
+
+    <I><FONT COLOR="#B22222">// Commit good candidate for terminating character
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] != <B><FONT COLOR="#BC8F8F">' '</FONT></B> &amp;&amp; s[i] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+      lastWriteEnd = j;
+    }
+  }
+}
+
+<I><FONT COLOR="#B22222">// forme le nom du fichier à sauver (save) à partir de fil et adr
+</FONT></I><I><FONT COLOR="#B22222">// système intelligent, qui renomme en cas de besoin (exemple: deux INDEX.HTML et index.html)
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">url_savename</FONT></B>(lien_adrfilsave *<B><FONT COLOR="#228B22">const</FONT></B> afs,
+                 lien_adrfil *<B><FONT COLOR="#228B22">const</FONT></B> former,
+                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil, 
+                 httrackp * opt, struct_back * sback, cache_back * cache,
+                 hash_struct * hash, <B><FONT COLOR="#228B22">int</FONT></B> ptr, <B><FONT COLOR="#228B22">int</FONT></B> numero_passe,
+                 <B><FONT COLOR="#228B22">const</FONT></B> lien_back * headers) {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> is_redirect = headers != NULL &amp;&amp; HTTP_IS_REDIRECT(headers-&gt;r.statuscode);
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime_type = headers != NULL &amp;&amp; !is_redirect ? headers-&gt;r.contenttype : NULL;
+  <I><FONT COLOR="#B22222">/*const char* mime_type = ( headers &amp;&amp; HTTP_IS_OK(headers-&gt;r.statuscode) ) ? headers-&gt;r.contenttype : NULL; */</FONT></I>
+  lien_back *<B><FONT COLOR="#228B22">const</FONT></B> back = sback-&gt;lnk;
+
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK fil[HTS_URLMAXSIZE * 2];       <I><FONT COLOR="#B22222">/* =&quot;&quot; */</FONT></I>
+
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> adr_complete = afs-&gt;af.adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> fil_complete = afs-&gt;af.fil;
+
+  <I><FONT COLOR="#B22222">/*char BIGSTK normadr_[HTS_URLMAXSIZE*2]; */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK normadr_[HTS_URLMAXSIZE * 2], normfil_[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">enum</FONT></B> { PROTOCOL_HTTP, PROTOCOL_HTTPS, PROTOCOL_FTP, PROTOCOL_FILE,
+      PROTOCOL_UNKNOWN };
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *protocol_str[] =
+    { <B><FONT COLOR="#BC8F8F">&quot;http&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;https&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;ftp&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;file&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;unknown&quot;</FONT></B> };
+  <B><FONT COLOR="#228B22">int</FONT></B> protocol = PROTOCOL_HTTP;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> adr = jump_identification_const(adr_complete);
+  <I><FONT COLOR="#B22222">// copy of fil, used for lookups (see urlhack)
+</FONT></I>  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *normadr = adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *normfil = fil_complete;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> print_adr = jump_protocol_const(adr);
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *start_pos = NULL, *nom_pos = NULL, *dot_pos = NULL;     <I><FONT COLOR="#B22222">// Position nom et point
+</FONT></I>
+  <I><FONT COLOR="#B22222">// pour changement d'extension ou de nom (content-disposition)
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> ext_chg = 0, ext_chg_delayed = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> is_html = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> ext[256];
+  <B><FONT COLOR="#228B22">int</FONT></B> max_char = 0;
+
+  <I><FONT COLOR="#B22222">//CLEAR
+</FONT></I>  fil[0] = ext[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  afs-&gt;save[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <I><FONT COLOR="#B22222">/* 8-3 ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">switch</FONT></B> (opt-&gt;savename_83) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:                      <I><FONT COLOR="#B22222">// 8-3
+</FONT></I>    max_char = 8;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:                      <I><FONT COLOR="#B22222">// Level 2 File names may be up to 31 characters.
+</FONT></I>    max_char = 31;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    max_char = 8;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+
+  <I><FONT COLOR="#B22222">// normalize the URL:
+</FONT></I>  <I><FONT COLOR="#B22222">// www.foo.com -&gt; foo.com
+</FONT></I>  <I><FONT COLOR="#B22222">// www-42.foo.com -&gt; foo.com
+</FONT></I>  <I><FONT COLOR="#B22222">// foo.com/bar//foobar -&gt; foo.com/bar/foobar
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;urlhack) {
+    <I><FONT COLOR="#B22222">// copy of adr (without protocol), used for lookups (see urlhack)
+</FONT></I>    normadr = adr_normalized(adr, normadr_);
+    normfil = fil_normalized(fil_complete, normfil_);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (link_has_authority(adr_complete)) {     <I><FONT COLOR="#B22222">// https or other protocols : in &quot;http/&quot; subfolder
+</FONT></I>      <B><FONT COLOR="#228B22">char</FONT></B> *pos = strchr(adr_complete, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+        normadr_[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        strncatbuff(normadr_, adr_complete, (<B><FONT COLOR="#228B22">int</FONT></B>) (pos - adr_complete));
+        strcatbuff(normadr_, <B><FONT COLOR="#BC8F8F">&quot;://&quot;</FONT></B>);
+        strcatbuff(normadr_, normadr);
+        normadr = normadr_;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// à afficher sans ftp://
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(adr_complete, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>)) {
+    protocol = PROTOCOL_HTTPS;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(adr_complete, <B><FONT COLOR="#BC8F8F">&quot;ftp:&quot;</FONT></B>)) {
+    protocol = PROTOCOL_FTP;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(adr_complete, <B><FONT COLOR="#BC8F8F">&quot;file:&quot;</FONT></B>)) {
+    protocol = PROTOCOL_FILE;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    protocol = PROTOCOL_HTTP;
+  }
+
+  <I><FONT COLOR="#B22222">// court-circuit pour lien primaire
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(adr) == 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(fil_complete, <B><FONT COLOR="#BC8F8F">&quot;primary&quot;</FONT></B>) == 0) {
+      strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;primary.html&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Declare adr (IDNA-decoded if necessary) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">DECLARE_ADR</FONT></B>(FINAL_ADR) \
+  char *idna_adr =\
+    <I><FONT COLOR="#B22222">/* http or https */</FONT></I>\
+    (\
+    protocol == PROTOCOL_HTTP\
+    || protocol == PROTOCOL_HTTPS \
+    )\
+    <I><FONT COLOR="#B22222">/* and contains IDNA */</FONT></I>\
+    &amp;&amp; hts_isStringIDNA(adr_complete, strlen(print_adr))\
+    ? hts_convertStringIDNAToUTF8(print_adr, strlen(print_adr))\
+    : NULL;\
+  const char *const FINAL_ADR = idna_adr != NULL \
+    ? idna_adr : ( protocol == PROTOCOL_FILE ? <B><FONT COLOR="#BC8F8F">&quot;file&quot;</FONT></B> : print_adr )
+
+  <I><FONT COLOR="#B22222">/* Release adr */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RELEASE_ADR</FONT></B>() do {\
+  if (idna_adr != NULL) {\
+    free(idna_adr);\
+    idna_adr = NULL;\
+  }\
+} while(0)
+
+  <I><FONT COLOR="#B22222">// vérifier que le nom n'a pas déja été calculé (si oui le renvoyer tel que)
+</FONT></I>  <I><FONT COLOR="#B22222">// vérifier que le nom n'est pas déja pris...
+</FONT></I>  <I><FONT COLOR="#B22222">// NOTE: si on cherche /toto/ et que /toto est trouvé on le prend (et réciproquqment) ** // **
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;liens != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+    i = hash_read(hash, normadr, normfil, HASH_STRUCT_ADR_PATH);     <I><FONT COLOR="#B22222">// recherche table 1 (adr+fil)
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt;= 0) {               <I><FONT COLOR="#B22222">// ok, trouvé
+</FONT></I>      strcpybuff(afs-&gt;save, heap(i)-&gt;sav);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+    i = hash_read(hash, normadr, normfil, HASH_STRUCT_ORIGINAL_ADR_PATH);     <I><FONT COLOR="#B22222">// recherche table 2 (former-&gt;adr+former-&gt;fil)
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt;= 0) {               <I><FONT COLOR="#B22222">// ok, trouvé
+</FONT></I>      <I><FONT COLOR="#B22222">// copier location moved!
+</FONT></I>      strcpybuff(afs-&gt;af.adr, heap(i)-&gt;adr);
+      strcpybuff(afs-&gt;af.fil, heap(i)-&gt;fil);
+      <I><FONT COLOR="#B22222">// et save
+</FONT></I>      strcpybuff(afs-&gt;save, heap(i)-&gt;sav);  <I><FONT COLOR="#B22222">// copier (formé à partir du nouveau lien!)
+</FONT></I>      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+    <I><FONT COLOR="#B22222">// chercher sans / ou avec / dans former
+</FONT></I>    {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK fil_complete_patche[HTS_URLMAXSIZE * 2];
+
+      strcpybuff(fil_complete_patche, normfil);
+      <I><FONT COLOR="#B22222">// Version avec ou sans /
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (fil_complete_patche[strlen(fil_complete_patche) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+        fil_complete_patche[strlen(fil_complete_patche) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        strcatbuff(fil_complete_patche, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+      i = hash_read(hash, normadr, fil_complete_patche, HASH_STRUCT_ORIGINAL_ADR_PATH);       <I><FONT COLOR="#B22222">// recherche table 2 (former-&gt;adr+former-&gt;fil)
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt;= 0) {
+        <I><FONT COLOR="#B22222">// écraser fil et adr (pas former-&gt;fil?????)
+</FONT></I>        strcpybuff(afs-&gt;af.adr, heap(i)-&gt;adr);
+        strcpybuff(afs-&gt;af.fil, heap(i)-&gt;fil);
+        <I><FONT COLOR="#B22222">// écrire save
+</FONT></I>        strcpybuff(afs-&gt;save, heap(i)-&gt;sav);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+    }
+  }
+  <I><FONT COLOR="#B22222">// vérifier la non présence de paramètres dans le nom de fichier
+</FONT></I>  <I><FONT COLOR="#B22222">// si il y en a, les supprimer (ex: truc.cgi?subj=aspirateur)
+</FONT></I>  <I><FONT COLOR="#B22222">// néanmoins, gardé pour vérifier la non duplication (voir après)
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+    a = strchr(fil_complete, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (a != NULL) {
+      strncatbuff(fil, fil_complete, a - fil_complete);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      strcpybuff(fil, fil_complete);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// decode remaining % (normally not necessary; already done in htsparse.c)
+</FONT></I>  <I><FONT COLOR="#B22222">// this will NOT decode buggy %xx (ie. not UTF-8) ones
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_unescapeUrl(fil, catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff)) == 0) {
+    strcpybuff(fil, catbuff);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    hts_log_print(opt, LOG_WARNING,
+      <B><FONT COLOR="#BC8F8F">&quot;could not URL-decode string '%s'&quot;</FONT></B>, fil);
+  }
+
+  <I><FONT COLOR="#B22222">/* replace shtml to html.. */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_delayed == 2)
+    is_html = -1;               <I><FONT COLOR="#B22222">/* ALWAYS delay type */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    is_html = ishtml(opt, fil);
+  <B><FONT COLOR="#A020F0">switch</FONT></B> (is_html) {            <I><FONT COLOR="#B22222">/* .html,.shtml,.. */</FONT></I>
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((strfield2(get_ext(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), fil), <B><FONT COLOR="#BC8F8F">&quot;html&quot;</FONT></B>) == 0)
+        &amp;&amp; (strfield2(get_ext(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), fil), <B><FONT COLOR="#BC8F8F">&quot;htm&quot;</FONT></B>) == 0)
+      ) {
+      strcpybuff(ext, <B><FONT COLOR="#BC8F8F">&quot;html&quot;</FONT></B>);
+      ext_chg = 1;
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!strnotempty(ext)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (is_userknowntype(opt, fil)) { <I><FONT COLOR="#B22222">// mime known by user
+</FONT></I>        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK mime[1024];
+
+        mime[0] = ext[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        get_userhttptype(opt, mime, fil);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(mime)) {
+          give_mimext(ext, mime);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(ext)) {
+            ext_chg = 1;
+          }
+        }
+      }
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+
+  <I><FONT COLOR="#B22222">// si option check_type activée
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (is_html &lt; 0 &amp;&amp; opt-&gt;check_type &amp;&amp; !ext_chg) {
+    <B><FONT COLOR="#228B22">int</FONT></B> ishtest = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (protocol != PROTOCOL_FILE
+        &amp;&amp; protocol != PROTOCOL_FTP
+      ) {
+      <I><FONT COLOR="#B22222">// tester type avec requète HEAD si on ne connait pas le type du fichier
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (!((opt-&gt;check_type == 1) &amp;&amp; (fil[strlen(fil) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)))   <I><FONT COLOR="#B22222">// slash doit être html?
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_delayed == 2 || (ishtest = ishtml(opt, fil)) &lt; 0) {   <I><FONT COLOR="#B22222">// on ne sait pas si c'est un html ou un fichier..
+</FONT></I>          <I><FONT COLOR="#B22222">// lire dans le cache
+</FONT></I>          htsblk r = cache_read_including_broken(opt, cache, adr, fil); <I><FONT COLOR="#B22222">// test uniquement
+</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r.statuscode != -1) {     <I><FONT COLOR="#B22222">// pas d'erreur de lecture cache
+</FONT></I>            <B><FONT COLOR="#228B22">char</FONT></B> s[32];
+
+            s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Testing link type (from cache) %s%s&quot;</FONT></B>,
+                          adr_complete, fil_complete);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!HTTP_IS_REDIRECT(r.statuscode)) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(r.cdispo)) {        <I><FONT COLOR="#B22222">/* filename given */</FONT></I>
+                ext_chg = 2;      <I><FONT COLOR="#B22222">/* change filename */</FONT></I>
+                strcpybuff(ext, r.cdispo);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (!may_unknown2(opt, r.contenttype, fil)) {        <I><FONT COLOR="#B22222">// on peut patcher à priori?
+</FONT></I>                give_mimext(s, r.contenttype);    <I><FONT COLOR="#B22222">// obtenir extension
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s) &gt; 0) { <I><FONT COLOR="#B22222">// on a reconnu l'extension
+</FONT></I>                  ext_chg = 1;
+                  strcpybuff(ext, s);
+                }
+              }
+            }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DEFAULT_BIN_EXT</FONT>
+            <I><FONT COLOR="#B22222">// no extension and potentially bogus
+</FONT></I>            <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (ishtest == -2) {
+              ext_chg = 1;
+              strcpybuff(ext, DEFAULT_BIN_EXT + 1);
+            }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            <I><FONT COLOR="#B22222">//
+</FONT></I>          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_delayed != 2 &amp;&amp; is_userknowntype(opt, fil)) {        <I><FONT COLOR="#B22222">/* PATCH BY BRIAN SCHRÖDER. 
+                                                                                           Lookup mimetype not only by extension, 
+                                                                                           but also by filename */</FONT></I>
+            <I><FONT COLOR="#B22222">/* Note: &quot;foo.cgi =&gt; text/html&quot; means that foo.cgi shall have the text/html MIME file type,
+               that is, &quot;.html&quot; */</FONT></I>
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK mime[1024];
+
+            mime[0] = ext[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            get_userhttptype(opt, mime, fil);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(mime)) {
+              give_mimext(ext, mime);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(ext)) {
+                ext_chg = 1;
+              }
+            }
+          }
+          <I><FONT COLOR="#B22222">// note: if savename_delayed is enabled, the naming will be temporary (and slightly invalid!)
+</FONT></I>          <I><FONT COLOR="#B22222">// note: if we are about to stop (opt-&gt;state.stop), back_add() will fail later
+</FONT></I>          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_delayed != 0 &amp;&amp; !opt-&gt;state.stop) {
+            <I><FONT COLOR="#B22222">// Check if the file is ready in backing. We basically take the same logic as later.
+</FONT></I>            <I><FONT COLOR="#B22222">// FIXME: we should cleanup and factorize this unholy mess
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (headers != NULL &amp;&amp; headers-&gt;status &gt;= 0 &amp;&amp; !is_redirect) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(headers-&gt;r.cdispo)) {        <I><FONT COLOR="#B22222">/* filename given */</FONT></I>
+                ext_chg = 2;      <I><FONT COLOR="#B22222">/* change filename */</FONT></I>
+                strcpybuff(ext, headers-&gt;r.cdispo);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (!may_unknown2(opt, headers-&gt;r.contenttype, headers-&gt;url_fil)) {    <I><FONT COLOR="#B22222">// on peut patcher à priori? (pas interdit ou pas de type)
+</FONT></I>                <B><FONT COLOR="#228B22">char</FONT></B> s[16];
+                s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                give_mimext(s, headers-&gt;r.contenttype);    <I><FONT COLOR="#B22222">// obtenir extension
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s) &gt; 0) { <I><FONT COLOR="#B22222">// on a reconnu l'extension
+</FONT></I>                  ext_chg = 1;
+                  strcpybuff(ext, s);
+                }
+              }
+            }
+            <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (mime_type != NULL) {
+              ext[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (*mime_type) {
+                give_mimext(ext, mime_type);
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(ext)) {
+                <B><FONT COLOR="#228B22">char</FONT></B> mime_from_file[128];
+
+                mime_from_file[0] = 0;
+                get_httptype(opt, mime_from_file, fil, 1);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!strnotempty(mime_from_file) || strcasecmp(mime_type, mime_from_file) != 0) {       <I><FONT COLOR="#B22222">/* different mime for this type */</FONT></I>
+                  <I><FONT COLOR="#B22222">/* type change not forbidden (or no extension at all) */</FONT></I>
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (!may_unknown2(opt, mime_type, fil)) {
+                    ext_chg = 1;
+                  }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DEFAULT_BIN_EXT</FONT>
+                  <I><FONT COLOR="#B22222">// no extension and potentially bogus
+</FONT></I>                  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (ishtml(opt, fil) == -2) {
+                    ext_chg = 1;
+                    strcpybuff(ext, DEFAULT_BIN_EXT + 1);
+                  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  ext_chg = 0;
+                }
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <I><FONT COLOR="#B22222">/* Avoid collisions (no collisionning detection) */</FONT></I>
+              sprintf(ext, <B><FONT COLOR="#BC8F8F">&quot;%x.%s&quot;</FONT></B>, opt-&gt;state.delayedId++, DELAYED_EXT);
+              ext_chg = 1;
+              ext_chg_delayed = 1;      <I><FONT COLOR="#B22222">/* due to naming system */</FONT></I>
+            }
+          }
+          <I><FONT COLOR="#B22222">// test imposible dans le cache, faire une requête
+</FONT></I>          <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">//
+</FONT></I>            <B><FONT COLOR="#228B22">int</FONT></B> hihp = opt-&gt;state._hts_in_html_parsing;
+            <B><FONT COLOR="#228B22">int</FONT></B> has_been_moved = 0;
+            lien_adrfil current;
+
+            <I><FONT COLOR="#B22222">/* Ensure we don't use too many sockets by using a &quot;testing&quot; one
+               If we have only 1 simultaneous connection authorized, wait for pending download
+               Wait for an available slot 
+             */</FONT></I>
+            URLSAVENAME_WAIT_FOR_AVAILABLE_SOCKET();
+
+            <I><FONT COLOR="#B22222">/* Rock'in */</FONT></I>
+            current.adr[0] = current.fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            opt-&gt;state._hts_in_html_parsing = 2;        <I><FONT COLOR="#B22222">// test
+</FONT></I>            hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Testing link type %s%s&quot;</FONT></B>,
+                          adr_complete, fil_complete);
+            strcpybuff(current.adr, adr_complete);
+            strcpybuff(current.fil, fil_complete);
+            <I><FONT COLOR="#B22222">// ajouter dans le backing le fichier en mode test
+</FONT></I>            <I><FONT COLOR="#B22222">// savename: rien car en mode test
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (back_add
+                (sback, opt, cache, current.adr, current.fil, BACK_ADD_TEST,
+                 referer_adr, referer_fil, 1) != -1) {
+              <B><FONT COLOR="#228B22">int</FONT></B> b;
+
+              b = back_index(opt, sback, current.adr, current.fil, BACK_ADD_TEST);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (b &gt;= 0) {
+                <B><FONT COLOR="#228B22">int</FONT></B> stop_looping = 0;
+                <B><FONT COLOR="#228B22">int</FONT></B> petits_tours = 0;
+                <B><FONT COLOR="#228B22">int</FONT></B> get_test_request = 0;       <I><FONT COLOR="#B22222">// en cas de bouclage sur soi même avec HEAD, tester avec GET.. parfois c'est la cause des problèmes
+</FONT></I>
+                <B><FONT COLOR="#A020F0">do</FONT></B> {
+                  <I><FONT COLOR="#B22222">// temps à attendre, et remplir autant que l'on peut le cache (backing)
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (back[b].status &gt; 0) {
+                    back_wait(sback, opt, cache, 0);
+                  }
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (ptr &gt;= 0) {
+                    back_fillmax(sback, opt, cache, ptr, numero_passe);
+                  }
+                  <I><FONT COLOR="#B22222">// on est obligé d'appeler le shell pour le refresh..
+</FONT></I>                  <I><FONT COLOR="#B22222">// Transfer rate
+</FONT></I>                  engine_stats();
+
+                  <I><FONT COLOR="#B22222">// Refresh various stats
+</FONT></I>                  HTS_STAT.stat_nsocket = back_nsoc(sback);
+                  HTS_STAT.stat_errors = fspc(opt, NULL, <B><FONT COLOR="#BC8F8F">&quot;error&quot;</FONT></B>);
+                  HTS_STAT.stat_warnings = fspc(opt, NULL, <B><FONT COLOR="#BC8F8F">&quot;warning&quot;</FONT></B>);
+                  HTS_STAT.stat_infos = fspc(opt, NULL, <B><FONT COLOR="#BC8F8F">&quot;info&quot;</FONT></B>);
+                  HTS_STAT.nbk = backlinks_done(sback, opt-&gt;liens, opt-&gt;lien_tot, ptr);
+                  HTS_STAT.nb = back_transferred(HTS_STAT.stat_bytes, sback);
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (!RUN_CALLBACK7
+                      (opt, loop, sback-&gt;lnk, sback-&gt;count, b, ptr, opt-&gt;lien_tot,
+                       (<B><FONT COLOR="#228B22">int</FONT></B>) (time_local() - HTS_STAT.stat_timestart),
+                       &amp;HTS_STAT)) {
+                    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;state._hts_cancel || !back_checkmirror(opt)) {        <I><FONT COLOR="#B22222">// cancel 2 ou 1 (cancel parsing)
+</FONT></I>                    back_delete(opt, cache, sback, b);  <I><FONT COLOR="#B22222">// cancel test
+</FONT></I>                    stop_looping = 1;
+                  }
+                  <I><FONT COLOR="#B22222">// traitement des 304,303..
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (back[b].status &lt;= 0) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (HTTP_IS_REDIRECT(back[b].r.statuscode)) {       <I><FONT COLOR="#B22222">// agh moved.. un tit tour de plus
+</FONT></I>                      <B><FONT COLOR="#A020F0">if</FONT></B> ((petits_tours &lt; 5) &amp;&amp; former != NULL) { <I><FONT COLOR="#B22222">// on va pas tourner en rond non plus!
+</FONT></I>                        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(back[b].r.location)) {    <I><FONT COLOR="#B22222">// location existe!
+</FONT></I>                          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK mov_url[HTS_URLMAXSIZE * 2];
+                          lien_adrfil moved;
+                          mov_url[0] = moved.adr[0] = moved.fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                          <I><FONT COLOR="#B22222">//
+</FONT></I>                          strcpybuff(mov_url, back[b].r.location);      <I><FONT COLOR="#B22222">// copier URL
+</FONT></I>                          <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_relatif
+                              (mov_url, current.adr, current.fil, &amp;moved) &gt;= 0) {
+                            <I><FONT COLOR="#B22222">// si non bouclage sur soi même, ou si test avec GET non testé
+</FONT></I>                            <B><FONT COLOR="#A020F0">if</FONT></B> ((strcmp(moved.adr, current.adr))
+                                || (strcmp(moved.fil, current.fil))
+                                || (get_test_request == 0)) {
+                              <I><FONT COLOR="#B22222">// bouclage?
+</FONT></I>                              <B><FONT COLOR="#A020F0">if</FONT></B> ((!strcmp(moved.adr, current.adr))
+                                  &amp;&amp; (!strcmp(moved.fil, current.fil)))
+                                get_test_request = 1;   <I><FONT COLOR="#B22222">// faire requète avec GET
+</FONT></I>
+                              <I><FONT COLOR="#B22222">// recopier former-&gt;adr/fil?
+</FONT></I>                              <B><FONT COLOR="#A020F0">if</FONT></B> (former != NULL) {
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(former-&gt;adr) == 0) {     <I><FONT COLOR="#B22222">// Pas déja noté
+</FONT></I>                                  strcpybuff(former-&gt;adr, current.adr);
+                                  strcpybuff(former-&gt;fil, current.fil);
+                                }
+                              }
+                              <I><FONT COLOR="#B22222">// check explicit forbidden - don't follow 3xx in this case
+</FONT></I>                              {
+                                <B><FONT COLOR="#228B22">int</FONT></B> set_prio_to = 0;
+
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (hts_acceptlink(opt, ptr, moved.adr, moved.fil, NULL, NULL, &amp;set_prio_to, NULL) == 1) { <I><FONT COLOR="#B22222">/* forbidden */</FONT></I>
+                                  has_been_moved = 1;
+                                  back_maydelete(opt, cache, sback, b); <I><FONT COLOR="#B22222">// ok
+</FONT></I>                                  strcpybuff(current.adr, moved.adr);
+                                  strcpybuff(current.fil, moved.fil);
+                                  mov_url[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                                  stop_looping = 1;
+                                }
+                              }
+
+                              <I><FONT COLOR="#B22222">// ftp: stop!
+</FONT></I>                              <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(mov_url, <B><FONT COLOR="#BC8F8F">&quot;ftp://&quot;</FONT></B>)
+                                ) {     <I><FONT COLOR="#B22222">// ftp, ok on arrête
+</FONT></I>                                has_been_moved = 1;
+                                back_maydelete(opt, cache, sback, b);   <I><FONT COLOR="#B22222">// ok
+</FONT></I>                                strcpybuff(current.adr, moved.adr);
+                                strcpybuff(current.fil, moved.fil);
+                                stop_looping = 1;
+                              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (*mov_url) {
+                                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *methode;
+
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (!get_test_request)
+                                  methode = BACK_ADD_TEST;      <I><FONT COLOR="#B22222">// tester avec HEAD
+</FONT></I>                                <B><FONT COLOR="#A020F0">else</FONT></B> {
+                                  methode = BACK_ADD_TEST2;     <I><FONT COLOR="#B22222">// tester avec GET
+</FONT></I>                                  hts_log_print(opt, LOG_WARNING,
+                                                <B><FONT COLOR="#BC8F8F">&quot;Loop with HEAD request (during prefetch) at %s%s&quot;</FONT></B>,
+                                                current.adr, current.fil);
+                                }
+                                <I><FONT COLOR="#B22222">// Ajouter
+</FONT></I>                                URLSAVENAME_WAIT_FOR_AVAILABLE_SOCKET();
+                                <B><FONT COLOR="#A020F0">if</FONT></B> (back_add(sback, opt, cache, moved.adr, moved.fil, methode, referer_adr, referer_fil, 1) != -1) {        <I><FONT COLOR="#B22222">// OK
+</FONT></I>                                  hts_log_print(opt, LOG_DEBUG,
+                                                <B><FONT COLOR="#BC8F8F">&quot;(during prefetch) %s (%d) to link %s at %s%s&quot;</FONT></B>,
+                                                back[b].r.msg,
+                                                back[b].r.statuscode,
+                                                back[b].r.location, current.adr,
+                                                current.fil);
+
+                                  <I><FONT COLOR="#B22222">// libérer emplacement backing actuel et attendre le prochain
+</FONT></I>                                  back_maydelete(opt, cache, sback, b);
+                                  strcpybuff(current.adr, moved.adr);
+                                  strcpybuff(current.fil, moved.fil);
+                                  b =
+                                    back_index(opt, sback, current.adr, current.fil,
+                                               methode);
+                                  <B><FONT COLOR="#A020F0">if</FONT></B> (!get_test_request)
+                                    has_been_moved = 1; <I><FONT COLOR="#B22222">// sinon ne pas forcer has_been_moved car non déplacé
+</FONT></I>                                  petits_tours++;
+                                  <I><FONT COLOR="#B22222">//
+</FONT></I>                                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">// sinon on fait rien et on s'en va.. (ftp etc)
+</FONT></I>                                  hts_log_print(opt, LOG_DEBUG,
+                                                <B><FONT COLOR="#BC8F8F">&quot;Warning: Savename redirect backing error at %s%s&quot;</FONT></B>,
+                                                moved.adr, moved.fil);
+                                }
+                              }
+                            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                              hts_log_print(opt, LOG_WARNING,
+                                            <B><FONT COLOR="#BC8F8F">&quot;Unable to test %s%s (loop to same filename)&quot;</FONT></B>,
+                                            adr_complete, fil_complete);
+                            }
+
+                          }
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {  <I><FONT COLOR="#B22222">// arrêter les frais
+</FONT></I>                        hts_log_print(opt, LOG_WARNING,
+                                      <B><FONT COLOR="#BC8F8F">&quot;Unable to test %s%s (loop)&quot;</FONT></B>,
+                                      adr_complete, fil_complete);
+                      }
+                    }           <I><FONT COLOR="#B22222">// ok, leaving
+</FONT></I>                  }
+                } <B><FONT COLOR="#A020F0">while</FONT></B>(!stop_looping &amp;&amp; back[b].status &gt; 0
+                        &amp;&amp; back[b].status &lt; 1000);
+
+                <I><FONT COLOR="#B22222">// Si non déplacé, forcer type?
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (!has_been_moved) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (back[b].r.statuscode != -10) {    <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(back[b].r.contenttype) == 0)
+                      strcpybuff(back[b].r.contenttype, <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>);   <I><FONT COLOR="#B22222">// message d'erreur en html
+</FONT></I>                    <I><FONT COLOR="#B22222">// Finalement on, renvoie un erreur, pour ne toucher à rien dans le code
+</FONT></I>                    <I><FONT COLOR="#B22222">// libérer emplacement backing
+</FONT></I>                  }
+
+                  {             <I><FONT COLOR="#B22222">// pas d'erreur, changer type?
+</FONT></I>                    <B><FONT COLOR="#228B22">char</FONT></B> s[16];
+
+                    s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(back[b].r.cdispo)) {        <I><FONT COLOR="#B22222">/* filename given */</FONT></I>
+                      ext_chg = 2;      <I><FONT COLOR="#B22222">/* change filename */</FONT></I>
+                      strcpybuff(ext, back[b].r.cdispo);
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (!may_unknown2(opt, back[b].r.contenttype, back[b].url_fil)) {    <I><FONT COLOR="#B22222">// on peut patcher à priori? (pas interdit ou pas de type)
+</FONT></I>                      give_mimext(s, back[b].r.contenttype);    <I><FONT COLOR="#B22222">// obtenir extension
+</FONT></I>                      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s) &gt; 0) { <I><FONT COLOR="#B22222">// on a reconnu l'extension
+</FONT></I>                        ext_chg = 1;
+                        strcpybuff(ext, s);
+                      }
+                    }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DEFAULT_BIN_EXT</FONT>
+                    <I><FONT COLOR="#B22222">// no extension and potentially bogus
+</FONT></I>                    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (ishtest == -2) {
+                      ext_chg = 1;
+                      strcpybuff(ext, DEFAULT_BIN_EXT + 1);
+                    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                  }
+                }
+                <I><FONT COLOR="#B22222">// FIN Si non déplacé, forcer type?
+</FONT></I>
+                <I><FONT COLOR="#B22222">// libérer emplacement backing
+</FONT></I>                back_maydelete(opt, cache, sback, b);
+
+                <I><FONT COLOR="#B22222">// --- --- ---
+</FONT></I>                <I><FONT COLOR="#B22222">// oops, a été déplacé.. on recalcule en récursif (osons!)
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (has_been_moved) {
+                  <I><FONT COLOR="#B22222">// copier adr, fil (optionnel, mais sinon marche pas pour le rip)
+</FONT></I>                  strcpybuff(afs-&gt;af.adr, current.adr);
+                  strcpybuff(afs-&gt;af.fil, current.fil);
+                  <I><FONT COLOR="#B22222">// copier adr, fil
+</FONT></I>
+                  <B><FONT COLOR="#A020F0">return</FONT></B> url_savename(afs, NULL,
+                                      referer_adr, referer_fil, opt, 
+                                      sback, cache, hash, ptr,
+                                      numero_passe, NULL);
+                }
+                <I><FONT COLOR="#B22222">// --- --- ---
+</FONT></I>
+              }
+
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              printf
+                (<B><FONT COLOR="#BC8F8F">&quot;PANIC! : Savename Crash adding error, unexpected error found.. [%d]\n&quot;</FONT></B>,
+                 __LINE__);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">BDEBUG</FONT>==1
+              printf(<B><FONT COLOR="#BC8F8F">&quot;error while savename crash adding\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+              hts_log_print(opt, LOG_ERROR,
+                            <B><FONT COLOR="#BC8F8F">&quot;Unexpected savename backing error at %s%s&quot;</FONT></B>, adr,
+                            fil_complete);
+
+            }
+            <I><FONT COLOR="#B22222">// restaurer
+</FONT></I>            opt-&gt;state._hts_in_html_parsing = hihp;
+          }                     <I><FONT COLOR="#B22222">// caché?
+</FONT></I>        }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// - - - DEBUT NOMMAGE - - -
+</FONT></I>
+  <I><FONT COLOR="#B22222">// Donner nom par défaut?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (fil[strlen(fil) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!strfield(adr_complete, <B><FONT COLOR="#BC8F8F">&quot;ftp://&quot;</FONT></B>)
+      ) {
+      strcatbuff(fil, DEFAULT_HTML);    <I><FONT COLOR="#B22222">// nommer page par défaut!!
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;proxy.active)
+        strcatbuff(fil, DEFAULT_FTP);   <I><FONT COLOR="#B22222">// nommer page par défaut (texte)
+</FONT></I>      <B><FONT COLOR="#A020F0">else</FONT></B>
+        strcatbuff(fil, DEFAULT_HTML);  <I><FONT COLOR="#B22222">// nommer page par défaut (à priori ici html depuis un proxy http)
+</FONT></I>    }
+  }
+  <I><FONT COLOR="#B22222">// Changer extension?
+</FONT></I>  <I><FONT COLOR="#B22222">// par exemple, php3 sera sauvé en html, cgi en html ou gif, xbm etc.. selon les cas
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (ext_chg &amp;&amp; !opt-&gt;no_type_change) {                <I><FONT COLOR="#B22222">// changer ext
+</FONT></I>    <B><FONT COLOR="#228B22">char</FONT></B> *a = fil + strlen(fil) - 1;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;debug &gt; 1) &amp;&amp; (opt-&gt;log != NULL)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ext_chg == 1)
+        hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Changing link extension %s%s to .%s&quot;</FONT></B>,
+                      adr_complete, fil_complete, ext);
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Changing link name %s%s to %s&quot;</FONT></B>,
+                      adr_complete, fil_complete, ext);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ext_chg == 1) {
+      <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+        a--;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)
+        *a = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;              <I><FONT COLOR="#B22222">// couper
+</FONT></I>      strcatbuff(fil, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>);     <I><FONT COLOR="#B22222">// recopier point
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+        a--;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+        a++;
+      *a = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+    strcatbuff(fil, ext);       <I><FONT COLOR="#B22222">// copier ext/nom
+</FONT></I>  }
+  <I><FONT COLOR="#B22222">// Rechercher premier / et dernier .
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = fil + strlen(fil) - 1;
+
+    <I><FONT COLOR="#B22222">// passer structures
+</FONT></I>    start_pos = fil;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)            <I><FONT COLOR="#B22222">// point? noter position
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (!dot_pos)
+          dot_pos = a;
+      a--;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) || (*a == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>))
+      a++;
+    nom_pos = a;
+  }
+
+  <I><FONT COLOR="#B22222">// un nom de fichier est généré
+</FONT></I>  <I><FONT COLOR="#B22222">// s'il existe déja, alors on le mofifie légèrement
+</FONT></I>
+  <I><FONT COLOR="#B22222">// ajouter nom du site éventuellement en premier
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type == -1) {       <I><FONT COLOR="#B22222">// utiliser savename_userdef! (%h%p/%n%q.%t)
+</FONT></I>    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = StringBuff(opt-&gt;savename_userdef);
+    <B><FONT COLOR="#228B22">char</FONT></B> *b = afs-&gt;save;
+
+    <I><FONT COLOR="#B22222">/*char *nom_pos=NULL,*dot_pos=NULL;  // Position nom et point */</FONT></I>
+    <B><FONT COLOR="#228B22">char</FONT></B> tok;
+
+    <I><FONT COLOR="#B22222">/*
+       {  // Rechercher premier /
+       char* a=fil+strlen(fil)-1;
+       // passer structures
+       while(((int) a&gt;(int) fil) &amp;&amp; (*a != '/') &amp;&amp; (*a != '\\')) {
+       if (*a == '.')    // point? noter position
+       if (!dot_pos)
+       dot_pos=a;
+       a--;
+       }
+       if ((*a=='/') || (*a=='\\')) a++;
+       nom_pos = a;
+       }
+     */</FONT></I>
+
+    <I><FONT COLOR="#B22222">// Construire nom
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>((*a) &amp;&amp; (((<B><FONT COLOR="#228B22">int</FONT></B>) (b - afs-&gt;save)) &lt; HTS_URLMAXSIZE)) {      <I><FONT COLOR="#B22222">// parser, et pas trop long..
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+        <B><FONT COLOR="#228B22">int</FONT></B> short_ver = 0;
+
+        a++;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'s'</FONT></B>) {
+          short_ver = 1;
+          a++;
+        }
+        *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <B><FONT COLOR="#A020F0">switch</FONT></B> (tok = *a++) {
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'['</FONT></B>:              <I><FONT COLOR="#B22222">// %[param:prefix_if_not_empty:suffix_if_not_empty:empty_replacement:notfound_replacement]
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(a, <B><FONT COLOR="#BC8F8F">']'</FONT></B>)) {
+            <B><FONT COLOR="#228B22">int</FONT></B> pos = 0;
+            <B><FONT COLOR="#228B22">char</FONT></B> name[5][256];
+            <B><FONT COLOR="#228B22">char</FONT></B> *c = name[0];
+
+            <B><FONT COLOR="#A020F0">for</FONT></B>(pos = 0; pos &lt; 5; pos++) {
+              name[pos][0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            }
+            pos = 0;
+            <B><FONT COLOR="#A020F0">while</FONT></B>(*a != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; *a != <B><FONT COLOR="#BC8F8F">']'</FONT></B>) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (pos &lt; 5) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">':'</FONT></B>) {        <I><FONT COLOR="#B22222">// next token
+</FONT></I>                  c = name[++pos];
+                  a++;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  *c++ = *a++;
+                  *c = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                }
+              }
+            }
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">']'</FONT></B>) {
+              a++;
+            }
+            strcatbuff(name[0], <B><FONT COLOR="#BC8F8F">&quot;=&quot;</FONT></B>);   <I><FONT COLOR="#B22222">/* param=.. */</FONT></I>
+            c = strchr(fil_complete, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+            <I><FONT COLOR="#B22222">/* parameters exists */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (c) {
+              <B><FONT COLOR="#228B22">char</FONT></B> *cp;
+
+              <B><FONT COLOR="#A020F0">while</FONT></B>((cp = strstr(c + 1, name[0])) &amp;&amp; *(cp - 1) != <B><FONT COLOR="#BC8F8F">'?'</FONT></B> &amp;&amp; *(cp - 1) != <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>) {    <I><FONT COLOR="#B22222">/* finds [?&amp;]param= */</FONT></I>
+                c = cp;
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (cp) {
+                c = cp + strlen(name[0]);       <I><FONT COLOR="#B22222">/* jumps &quot;param=&quot; */</FONT></I>
+                strcpybuff(b, name[1]); <I><FONT COLOR="#B22222">/* prefix */</FONT></I>
+                b += strlen(b);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (*c != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; *c != <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> *d = name[0];
+
+                  <I><FONT COLOR="#B22222">/* */</FONT></I>
+                  <B><FONT COLOR="#A020F0">while</FONT></B>(*c != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; *c != <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>) {
+                    *d++ = *c++;
+                  }
+                  *d = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  d = unescape_http(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), name[0]);
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (d &amp;&amp; *d) {
+                    strcpybuff(b, d);   <I><FONT COLOR="#B22222">/* value */</FONT></I>
+                    b += strlen(b);
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    strcpybuff(b, name[3]);     <I><FONT COLOR="#B22222">/* empty replacement if any */</FONT></I>
+                    b += strlen(b);
+                  }
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  strcpybuff(b, name[3]);       <I><FONT COLOR="#B22222">/* empty replacement if any */</FONT></I>
+                  b += strlen(b);
+                }
+                strcpybuff(b, name[2]); <I><FONT COLOR="#B22222">/* suffix */</FONT></I>
+                b += strlen(b);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                strcpybuff(b, name[4]); <I><FONT COLOR="#B22222">/* not found replacement if any */</FONT></I>
+                b += strlen(b);
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpybuff(b, name[4]);   <I><FONT COLOR="#B22222">/* not found replacement if any */</FONT></I>
+              b += strlen(b);
+            }
+          }
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'%'</FONT></B>:
+          *b++ = <B><FONT COLOR="#BC8F8F">'%'</FONT></B>;
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'n'</FONT></B>:              <I><FONT COLOR="#B22222">// nom sans ext
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strncatbuff(b, nom_pos, (<B><FONT COLOR="#228B22">int</FONT></B>) (dot_pos - nom_pos));
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, nom_pos, min((<B><FONT COLOR="#228B22">int</FONT></B>) (dot_pos - nom_pos), 8));
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, nom_pos);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, nom_pos, 8);
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'N'</FONT></B>:              <I><FONT COLOR="#B22222">// nom avec ext
+</FONT></I>          <I><FONT COLOR="#B22222">// RECOPIE NOM + EXT
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strncatbuff(b, nom_pos, (<B><FONT COLOR="#228B22">int</FONT></B>) (dot_pos - nom_pos));
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, nom_pos, min((<B><FONT COLOR="#228B22">int</FONT></B>) (dot_pos - nom_pos), 8));
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, nom_pos);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, nom_pos, 8);
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <I><FONT COLOR="#B22222">// RECOPIE NOM + EXT
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, dot_pos + 1);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, dot_pos + 1, 3);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, DEFAULT_EXT + 1);   <I><FONT COLOR="#B22222">// pas de..
+</FONT></I>            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcpybuff(b, DEFAULT_EXT_SHORT + 1);     <I><FONT COLOR="#B22222">// pas de..
+</FONT></I>          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <I><FONT COLOR="#B22222">//
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'t'</FONT></B>:              <I><FONT COLOR="#B22222">// ext
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, dot_pos + 1);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, dot_pos + 1, 3);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, DEFAULT_EXT + 1);   <I><FONT COLOR="#B22222">// pas de..
+</FONT></I>            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcpybuff(b, DEFAULT_EXT_SHORT + 1);     <I><FONT COLOR="#B22222">// pas de..
+</FONT></I>          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'p'</FONT></B>:              <I><FONT COLOR="#B22222">// path sans dernier /
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (nom_pos != fil + 1) {     <I><FONT COLOR="#B22222">// pas: /index.html (chemin nul)
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver) {   <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strncatbuff(b, fil, (<B><FONT COLOR="#228B22">int</FONT></B>) (nom_pos - fil) - 1);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK pth[HTS_URLMAXSIZE * 2], n83[HTS_URLMAXSIZE * 2];
+
+              pth[0] = n83[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <I><FONT COLOR="#B22222">//
+</FONT></I>              strncatbuff(pth, fil, (<B><FONT COLOR="#228B22">int</FONT></B>) (nom_pos - fil) - 1);
+              long_to_83(opt-&gt;savename_83, n83, pth);
+              strcpybuff(b, n83);
+            }
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'h'</FONT></B>:              <I><FONT COLOR="#B22222">// host (IDNA decoded if suitable)
+</FONT></I>          <I><FONT COLOR="#B22222">// IDNA / RFC 3492 (Punycode) handling for HTTP(s)
+</FONT></I>          {
+            DECLARE_ADR(final_adr);
+
+            <I><FONT COLOR="#B22222">/* Copy address */</FONT></I>
+            *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)
+              strcpybuff(b, final_adr);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcpybuff(b, final_adr);
+
+            <I><FONT COLOR="#B22222">/* release */</FONT></I>
+            RELEASE_ADR();
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'H'</FONT></B>:              <I><FONT COLOR="#B22222">// host, raw (old mode)
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (protocol == PROTOCOL_FILE) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, <B><FONT COLOR="#BC8F8F">&quot;localhost&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcpybuff(b, <B><FONT COLOR="#BC8F8F">&quot;local&quot;</FONT></B>);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)     <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>              strcpybuff(b, print_adr);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              strncatbuff(b, print_adr, 8);
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'M'</FONT></B>:              <I><FONT COLOR="#B22222">/* host/address?query MD5 (128-bits) */</FONT></I>
+          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          {
+            <B><FONT COLOR="#228B22">char</FONT></B> digest[32 + 2];
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 2];
+
+            digest[0] = buff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            strcpybuff(buff, adr);
+            strcatbuff(buff, fil_complete);
+            domd5mem(buff, strlen(buff), digest, 1);
+            strcpybuff(b, digest);
+          }
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'Q'</FONT></B>:
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'q'</FONT></B>:              <I><FONT COLOR="#B22222">/* query MD5 (128-bits/16-bits) 
+                                   GENERATED ONLY IF query string exists! */</FONT></I>
+          {
+            <B><FONT COLOR="#228B22">char</FONT></B> md5[32 + 2];
+
+            *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            strncatbuff(b, url_md5(md5, fil_complete), (tok == <B><FONT COLOR="#BC8F8F">'Q'</FONT></B>) ? 32 : 4);
+            b += strlen(b);     <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          }
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'r'</FONT></B>:
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'R'</FONT></B>:              <I><FONT COLOR="#B22222">// protocol
+</FONT></I>          *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          strcatbuff(b, protocol_str[protocol]);
+          b += strlen(b);       <I><FONT COLOR="#B22222">// pointer à la fin
+</FONT></I>          <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+          <I><FONT COLOR="#B22222">/* Patch by Juan Fco Rodriguez to get the full query string */</FONT></I>
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'k'</FONT></B>:
+          {
+            <B><FONT COLOR="#228B22">char</FONT></B> *d = strchr(fil_complete, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (d != NULL) {
+              strcatbuff(b, d);
+              b += strlen(b);
+            }
+          }
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B>
+        *b++ = *a++;
+    }
+    *b++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    <I><FONT COLOR="#B22222">// Types prédéfinis
+</FONT></I>    <I><FONT COLOR="#B22222">//
+</FONT></I>
+  }
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// Structure originale
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type % 100 == 0) {
+    <I><FONT COLOR="#B22222">/* recopier www.. */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type != 100) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (((opt-&gt;savename_type / 1000) % 2) == 0) {     <I><FONT COLOR="#B22222">// &gt;1000 signifie &quot;pas de www/&quot;
+</FONT></I>        DECLARE_ADR(final_adr);
+
+        <I><FONT COLOR="#B22222">// adresse url
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;savename_83) {      <I><FONT COLOR="#B22222">// noms longs (et pas de .)
+</FONT></I>          strcatbuff(afs-&gt;save, final_adr);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// noms 8-3
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(final_adr) &gt; 4) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(final_adr, <B><FONT COLOR="#BC8F8F">&quot;www.&quot;</FONT></B>))
+              hts_appendStringUTF8(afs-&gt;save, final_adr + 4, max_char);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              hts_appendStringUTF8(afs-&gt;save, final_adr, max_char);
+          } <B><FONT COLOR="#A020F0">else</FONT></B>
+            hts_appendStringUTF8(afs-&gt;save, final_adr, max_char);
+        }
+
+        <I><FONT COLOR="#B22222">/* release */</FONT></I>
+        RELEASE_ADR();
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+          strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+      }
+    }
+
+    hts_lowcase(afs-&gt;save);
+
+    <I><FONT COLOR="#B22222">/*
+       // ne sert à rien car a déja été filtré normalement
+       if ((*fil=='.') &amp;&amp; (*(fil+1)=='/'))          // ./index.html ** //
+       url_savename_addstr(save,fil+2);
+       else                                               // index.html ou /index.html
+       url_savename_addstr(save,fil);
+       if (save[strlen(save)-1]=='/') 
+       strcatbuff(save,DEFAULT_HTML);     // nommer page par défaut!!
+     */</FONT></I>
+
+    <I><FONT COLOR="#B22222">/* add name */</FONT></I>
+    ADD_STANDARD_PATH;
+    ADD_STANDARD_NAME(0);
+
+  }
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// Structure html/image
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <I><FONT COLOR="#B22222">// dossier &quot;web&quot; ou &quot;www.xxx&quot; ?
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (((opt-&gt;savename_type / 1000) % 2) == 0) {       <I><FONT COLOR="#B22222">// &gt;1000 signifie &quot;pas de www/&quot;
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;savename_type / 100) % 2) {
+        DECLARE_ADR(final_adr);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;savename_83) {      <I><FONT COLOR="#B22222">// noms longs
+</FONT></I>          strcatbuff(afs-&gt;save, final_adr);
+          strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// noms 8-3
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(final_adr) &gt; 4) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(final_adr, <B><FONT COLOR="#BC8F8F">&quot;www.&quot;</FONT></B>))
+              hts_appendStringUTF8(afs-&gt;save, final_adr + 4, max_char);
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              hts_appendStringUTF8(afs-&gt;save, final_adr, max_char);
+            strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            hts_appendStringUTF8(afs-&gt;save, final_adr, max_char);
+            strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* release */</FONT></I>
+        RELEASE_ADR();
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;web/&quot;</FONT></B>);       <I><FONT COLOR="#B22222">// répertoire général
+</FONT></I>      }
+    }
+    <I><FONT COLOR="#B22222">// si un html à coup sûr
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> ((ext_chg != 0) ? (ishtml_ext(ext) == 1) : (ishtml(opt, fil) == 1)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type % 100 == 2) {      <I><FONT COLOR="#B22222">// html/
+</FONT></I>        strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;html/&quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;savename_type % 100 == 1) || (opt-&gt;savename_type % 100 == 2)) { <I><FONT COLOR="#B22222">// html &amp; images
+</FONT></I>        strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;images/&quot;</FONT></B>);
+      }
+    }
+
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (opt-&gt;savename_type % 100) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B>:
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">5</FONT></B>:{                   <I><FONT COLOR="#B22222">// séparer par types
+</FONT></I>        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = fil + strlen(fil) - 1;
+
+        <I><FONT COLOR="#B22222">// passer structures
+</FONT></I>        <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>))
+          a--;
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) || (*a == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>))
+          a++;
+
+        <I><FONT COLOR="#B22222">// html?
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((ext_chg != 0) ? (ishtml_ext(ext) == 1) : (ishtml(opt, fil) == 1)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type % 100 == 5)
+            strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;html/&quot;</FONT></B>);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = fil + strlen(fil) - 1;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+            a--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)
+            strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;other&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">else</FONT></B>
+            strcatbuff(afs-&gt;save, a + 1);
+          strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+        }
+        <I><FONT COLOR="#B22222">/*strcatbuff(save,a); */</FONT></I>
+        <I><FONT COLOR="#B22222">/* add name */</FONT></I>
+        ADD_STANDARD_NAME(0);
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">99</FONT></B>:{                  <I><FONT COLOR="#B22222">// 'codé' .. c'est un gadget
+</FONT></I>        size_t i;
+        size_t j;
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a;
+        <B><FONT COLOR="#228B22">char</FONT></B> C[] = <B><FONT COLOR="#BC8F8F">&quot;ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-&quot;</FONT></B>;
+        <B><FONT COLOR="#228B22">int</FONT></B> L;
+
+        <I><FONT COLOR="#B22222">// pseudo-CRC sur fil et adr pour initialiser générateur aléatoire..
+</FONT></I>        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> s = 0;
+
+        L = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(C);
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; fil_complete[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+          s += (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) fil_complete[i];
+        }
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; adr_complete[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+          s += (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) adr_complete[i];
+        }
+        srand(s);
+
+        j = strlen(afs-&gt;save);
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 8; i++) {
+          <B><FONT COLOR="#228B22">char</FONT></B> c = C[(rand() % L)];
+
+          afs-&gt;save[i + j] = c;
+        }
+        afs-&gt;save[i + j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <I><FONT COLOR="#B22222">// ajouter extension
+</FONT></I>        a = fil + strlen(fil) - 1;
+        <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+          a--;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+          strcatbuff(afs-&gt;save, a);  <I><FONT COLOR="#B22222">// ajouter
+</FONT></I>        }
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>:{                  <I><FONT COLOR="#B22222">// noms sans les noms des répertoires
+</FONT></I>        <I><FONT COLOR="#B22222">// ne garder que le nom, pas la structure
+</FONT></I>        <I><FONT COLOR="#B22222">/*
+           char* a=fil+strlen(fil)-1;
+           while(((int) a&gt;(int) fil) &amp;&amp; (*a != '/') &amp;&amp; (*a != '\\')) a--;      
+           if ((*a=='/') || (*a=='\\')) a++;
+           strcatbuff(save,a);
+         */</FONT></I>
+
+        <I><FONT COLOR="#B22222">/* add name */</FONT></I>
+        ADD_STANDARD_NAME(0);
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+
+    hts_lowcase(afs-&gt;save);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (afs-&gt;save[strlen(afs-&gt;save) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      strcatbuff(afs-&gt;save, DEFAULT_HTML);   <I><FONT COLOR="#B22222">// nommer page par défaut!!
+</FONT></I>  }
+
+  <I><FONT COLOR="#B22222">// vérifier qu'on ne doit pas forcer l'extension
+</FONT></I>  <I><FONT COLOR="#B22222">// par exemple, asp sera sauvé en html, cgi en html ou gif, xbm etc.. selon les cas
+</FONT></I>  <I><FONT COLOR="#B22222">/*if (ext_chg) {
+     char* a=save+strlen(save)-1;
+     while(((int) a&gt;(int) save) &amp;&amp; (*a!='.') &amp;&amp; (*a!='/')) a--;
+     if (*a=='.') *a='\0';  // couper
+     // recopier extension
+     strcatbuff(save,&quot;.&quot;);
+     strcatbuff(save,ext);    // copier ext
+     } */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// Not used anymore unless non-delayed types.
+</FONT></I>  <I><FONT COLOR="#B22222">// de même en cas de manque d'extension on en place une de manière forcée..
+</FONT></I>  <I><FONT COLOR="#B22222">// cela évite les /chez/toto et les /chez/toto/index.html incompatibles
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_type != -1 &amp;&amp; opt-&gt;savename_delayed != 2) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a = afs-&gt;save + strlen(afs-&gt;save) - 1;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; afs-&gt;save) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+      a--;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {            <I><FONT COLOR="#B22222">// agh pas de point
+</FONT></I>      <I><FONT COLOR="#B22222">//strcatbuff(save,&quot;.none&quot;);                 // a éviter
+</FONT></I>      strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;.html&quot;</FONT></B>);        <I><FONT COLOR="#B22222">// préférable!
+</FONT></I>      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Default HTML type set for %s%s =&gt; %s&quot;</FONT></B>,
+                    adr_complete, fil_complete, afs-&gt;save);
+    }
+  }
+  <I><FONT COLOR="#B22222">// effacer pass au besoin pour les autentifications
+</FONT></I>  <I><FONT COLOR="#B22222">// (plus la peine : masqué au début)
+</FONT></I><I><FONT COLOR="#B22222">/*
+  {
+    char* a = jump_identification(afs-&gt;save);
+    if (a!=afs-&gt;save) {
+      char BIGSTK tempo[HTS_URLMAXSIZE*2];
+      char *b;
+      tempo[0]='\0';
+      strcpybuff(tempo,&quot;[&quot;);
+      b=strchr(save,':');
+      if (!b) b=strchr(save,'@');
+      if (b)
+        strncatbuff(tempo,save,(int) b-(int) a);
+      strcatbuff(tempo,&quot;]&quot;);
+      strcatbuff(tempo,a);
+      strcpybuff(save,a);
+    }
+  }
+*/</FONT></I>
+
+  <I><FONT COLOR="#B22222">// éviter les / au début (cause: N100)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (afs-&gt;save[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+    strcpybuff(tempo, afs-&gt;save + 1);
+    strcpybuff(afs-&gt;save, tempo);
+  }
+
+  <I><FONT COLOR="#B22222">/* Cleanup reserved or forbidden characters. */</FONT></I>
+  {
+    size_t i;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; afs-&gt;save[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) {
+      <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) afs-&gt;save[i];
+      <B><FONT COLOR="#A020F0">if</FONT></B> (c &lt; 32      <I><FONT COLOR="#B22222">// control
+</FONT></I>        || c == 127   <I><FONT COLOR="#B22222">// unwise
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'~'</FONT></B>   <I><FONT COLOR="#B22222">// unix unwise
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>  <I><FONT COLOR="#B22222">// windows separator
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">':'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'*'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>  <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        || c == <B><FONT COLOR="#BC8F8F">'|'</FONT></B>   <I><FONT COLOR="#B22222">// windows forbidden
+</FONT></I>        <I><FONT COLOR="#B22222">//|| c == '@' // ?
+</FONT></I>        ||
+          (
+            opt-&gt;savename_83 == 2 <I><FONT COLOR="#B22222">// CDROM
+</FONT></I>            &amp;&amp;
+            (
+              c == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>
+              || c == <B><FONT COLOR="#BC8F8F">'='</FONT></B>
+              || c == <B><FONT COLOR="#BC8F8F">'+'</FONT></B>
+            )
+          )
+        )
+      {
+         afs-&gt;save[i] = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// éliminer les // (comme ftp://)
+</FONT></I>  cleanDoubleSlash(afs-&gt;save);
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_OVERRIDE_DOS_FOLDERS</FONT>
+  <I><FONT COLOR="#B22222">/* Replace /foo/nul/bar by /foo/nul_/bar */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(hts_tbdev[i][0]) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = afs-&gt;save;
+
+      <B><FONT COLOR="#A020F0">while</FONT></B>((a = strstrcase(a, hts_tbdev[i]))) {
+        <B><FONT COLOR="#A020F0">switch</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) a[strlen(hts_tbdev[i])]) {
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>:
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'/'</FONT></B>:
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'.'</FONT></B>:
+          {
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+            tempo[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            strncatbuff(tempo, afs-&gt;save, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - afs-&gt;save) + strlen(hts_tbdev[i]));
+            strcatbuff(tempo, <B><FONT COLOR="#BC8F8F">&quot;_&quot;</FONT></B>);
+            strcatbuff(tempo, a + strlen(hts_tbdev[i]));
+            strcpybuff(afs-&gt;save, tempo);
+          }
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+        a += strlen(hts_tbdev[i]);
+      }
+      i++;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Strip ending . or ' ' forbidden on windoz */</FONT></I>
+  cleanEndingSpaceOrDot(afs-&gt;save);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">// conversion 8-3 .. y compris pour les répertoires
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_83) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK n83[HTS_URLMAXSIZE * 2];
+
+    long_to_83(opt-&gt;savename_83, n83, afs-&gt;save);
+    strcpybuff(afs-&gt;save, n83);
+  }
+  <I><FONT COLOR="#B22222">// enforce stricter ISO9660 compliance (bug reported by Steffo Carlsson)
+</FONT></I>  <I><FONT COLOR="#B22222">// Level 1 File names are restricted to 8 characters with a 3 character extension, 
+</FONT></I>  <I><FONT COLOR="#B22222">// upper case letters, numbers and underscore; maximum depth of directories is 8.
+</FONT></I>  <I><FONT COLOR="#B22222">// This will be our &quot;DOS mode&quot;
+</FONT></I>  <I><FONT COLOR="#B22222">// L2: 31 characters
+</FONT></I>  <I><FONT COLOR="#B22222">// A-Z,0-9,_
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_83 &gt; 0) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a, *last;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(last = afs-&gt;save + strlen(afs-&gt;save) - 1;
+        last != afs-&gt;save &amp;&amp; *last != <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; *last != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B> &amp;&amp; *last != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>; last--) ;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*last != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+      last = NULL;
+    }
+    <B><FONT COLOR="#A020F0">for</FONT></B>(a = afs-&gt;save; *a != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; a++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*a &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> &amp;&amp; *a &lt;= <B><FONT COLOR="#BC8F8F">'z'</FONT></B>) {
+        *a -= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (a != last) {
+          *a = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!
+            ((*a &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; *a &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>) || (*a &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; *a &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>) || *a == <B><FONT COLOR="#BC8F8F">'_'</FONT></B>
+             || *a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || *a == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)) {
+        *a = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* ensure that there is no ../ (potential vulnerability) */</FONT></I>
+  fil_simplifie(afs-&gt;save);
+
+  <I><FONT COLOR="#B22222">/* convert name to UTF-8 ? Note: already done while parsing. */</FONT></I>
+  <I><FONT COLOR="#B22222">//if (charset != NULL &amp;&amp; charset[0] != '\0') {
+</FONT></I>  <I><FONT COLOR="#B22222">//  char *const s = hts_convertStringToUTF8(save, (int) strlen(save), charset);
+</FONT></I>
+  <I><FONT COLOR="#B22222">//  if (s != NULL) {
+</FONT></I>  <I><FONT COLOR="#B22222">//    hts_log_print(opt, LOG_DEBUG,
+</FONT></I>  <I><FONT COLOR="#B22222">//                  &quot;engine: save-name: charset conversion from '%s' to '%s' using charset '%s'&quot;,
+</FONT></I>  <I><FONT COLOR="#B22222">//                  save, s, charset);
+</FONT></I>  <I><FONT COLOR="#B22222">//    strcpybuff(save, s);
+</FONT></I>  <I><FONT COLOR="#B22222">//    free(s);
+</FONT></I>  <I><FONT COLOR="#B22222">//  }
+</FONT></I>  <I><FONT COLOR="#B22222">//}
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* callback */</FONT></I>
+  RUN_CALLBACK5(opt, savename, adr_complete, fil_complete, referer_adr,
+                referer_fil, afs-&gt;save);
+
+  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;engine: save-name: local name: %s%s -&gt; %s&quot;</FONT></B>,
+                adr, fil, afs-&gt;save);
+
+  <I><FONT COLOR="#B22222">/* Ensure that the MANDATORY &quot;temporary&quot; extension is set */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ext_chg_delayed) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *ptr;
+    <B><FONT COLOR="#228B22">char</FONT></B> *lastDot = NULL;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(ptr = afs-&gt;save; *ptr != 0; ptr++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*ptr == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+        lastDot = ptr;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (*ptr == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || *ptr == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>) {
+        lastDot = NULL;
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (lastDot == NULL) {
+      strcatbuff(afs-&gt;save, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B> DELAYED_EXT);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (!IS_DELAYED_EXT(afs-&gt;save)) {
+      strcatbuff(lastDot, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B> DELAYED_EXT);
+    }
+  }
+  <I><FONT COLOR="#B22222">// enforce 260-character path limit before inserting destination path
+</FONT></I>  <I><FONT COLOR="#B22222">// note: 12 characters at least for WIN32, and 12 for &quot;.99.delayed&quot;
+</FONT></I>  <I><FONT COLOR="#B22222">// (MSDN) &quot;When using an API to create a directory, the specified path 
+</FONT></I>  <I><FONT COLOR="#B22222">// cannot be so long that you cannot append an 8.3 file name 
+</FONT></I>  <I><FONT COLOR="#B22222">// (that is, the directory name cannot exceed MAX_PATH minus 12).&quot;
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_MAX_PATH_LEN</FONT> ( 260 - 12 - 12 )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MIN_LAST_SEG_RESERVE</FONT> 12
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAX_LAST_SEG_RESERVE</FONT> 24
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAX_SEG_LEN</FONT> 48
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_stringLengthUTF8(afs-&gt;save) +
+      hts_stringLengthUTF8(StringBuff(opt-&gt;path_html_utf8)) &gt;=
+      HTS_MAX_PATH_LEN) {
+    <I><FONT COLOR="#B22222">// convert to Unicode (much simpler)
+</FONT></I>    size_t wsaveLen;
+    hts_UCS4 *<B><FONT COLOR="#228B22">const</FONT></B> wsave = hts_convertUTF8StringToUCS4(afs-&gt;save, strlen(afs-&gt;save), &amp;wsaveLen);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (wsave != NULL) {
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t parentLen =
+        hts_stringLengthUTF8(StringBuff(opt-&gt;path_html_utf8));
+      <I><FONT COLOR="#B22222">// parent path length is not insane (otherwise, ignore and pick 200 as 
+</FONT></I>      <I><FONT COLOR="#B22222">// suffix length)
+</FONT></I>      <B><FONT COLOR="#228B22">const</FONT></B> size_t maxLen =
+        parentLen &lt;
+        HTS_MAX_PATH_LEN - HTS_MAX_PATH_LEN / 4
+        ? HTS_MAX_PATH_LEN - parentLen : HTS_MAX_PATH_LEN;
+      size_t i, j, lastSeg, lastSegSize, dirSize;
+      <B><FONT COLOR="#228B22">char</FONT></B> *saveFinal;
+
+      <I><FONT COLOR="#B22222">// pick up last segment
+</FONT></I>      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, lastSeg = 0; wsave[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (wsave[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+          lastSeg = i + 1;
+        }
+      }
+      lastSegSize = wsaveLen - lastSeg;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (lastSegSize &gt; MAX_LAST_SEG_RESERVE) {
+        lastSegSize = MAX_LAST_SEG_RESERVE;
+      }
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (lastSegSize &lt; MIN_LAST_SEG_RESERVE) {
+        lastSegSize = MIN_LAST_SEG_RESERVE;
+      }
+
+      <I><FONT COLOR="#B22222">// add as much pathes as we can.
+</FONT></I>      <I><FONT COLOR="#B22222">// note: i is in bytes, iUtf in characters
+</FONT></I>      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0, dirSize = 0
+        ; i + 1 &lt; lastSeg &amp;&amp; j + lastSegSize &lt; maxLen; i++) {
+          <I><FONT COLOR="#B22222">// reset segment counting
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (wsave[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+            dirSize = 0;
+          }
+
+          <I><FONT COLOR="#B22222">// copy if not too long
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (dirSize &lt; MAX_SEG_LEN) {
+            wsave[j++] = wsave[i];
+            dirSize++;
+          }
+      }
+
+      <I><FONT COLOR="#B22222">// last segment
+</FONT></I>      wsave[j++] = <B><FONT COLOR="#BC8F8F">'/'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAX_UTF8_SEQ_CHARS</FONT> 4
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = lastSeg; wsave[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; j &lt; maxLen; i++) {
+        wsave[j++] = wsave[i];
+      }
+      <I><FONT COLOR="#B22222">// terminating \0
+</FONT></I>      wsave[j++] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+      <I><FONT COLOR="#B22222">// copy final name and cleanup
+</FONT></I>      saveFinal = hts_convertUCS4StringToUTF8(wsave, j);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (saveFinal != NULL) {
+        strcpybuff(afs-&gt;save, saveFinal);
+        free(saveFinal);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        hts_log_print(opt, LOG_ERROR, <B><FONT COLOR="#BC8F8F">&quot;Could not revert to UTF-8: %s%s&quot;</FONT></B>,
+          adr_complete, fil_complete);
+      }
+      free(wsave);
+
+      <I><FONT COLOR="#B22222">// log in debug
+</FONT></I>      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Too long filename shortened: %s%s =&gt; %s&quot;</FONT></B>,
+        adr_complete, fil_complete, afs-&gt;save);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      hts_log_print(opt, LOG_ERROR, <B><FONT COLOR="#BC8F8F">&quot;Could not read UTF-8: %s&quot;</FONT></B>, afs-&gt;save);
+    }
+
+    <I><FONT COLOR="#B22222">// Re-check again ending space or dot after cut (see bug #5)
+</FONT></I>    cleanEndingSpaceOrDot(afs-&gt;save);
+  }
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">MAX_UTF8_SEQ_CHARS</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">MIN_LAST_SEG_RESERVE</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">HTS_MAX_PATH_LEN</FONT>
+
+  <I><FONT COLOR="#B22222">// chemin primaire éventuel A METTRE AVANT
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(StringBuff(opt-&gt;path_html_utf8))) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+    strcpybuff(tempo, StringBuff(opt-&gt;path_html_utf8));
+    strcatbuff(tempo, afs-&gt;save);
+    strcpybuff(afs-&gt;save, tempo);
+  }
+  <I><FONT COLOR="#B22222">// vérifier que le nom n'est pas déja pris...
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;liens != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> nom_ok;
+
+    <B><FONT COLOR="#A020F0">do</FONT></B> {
+      <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      nom_ok = 1;               <I><FONT COLOR="#B22222">// à priori bon
+</FONT></I>      <I><FONT COLOR="#B22222">// on part de la fin pour optimiser, plus les opti de taille pour 
+</FONT></I>      <I><FONT COLOR="#B22222">// aller encore plus vite..
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_SAVENAME</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;\nStart search\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+      i = hash_read(hash, afs-&gt;save, NULL, HASH_STRUCT_FILENAME);      <I><FONT COLOR="#B22222">// lecture type 0 (sav)
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt;= 0) {
+        <B><FONT COLOR="#228B22">int</FONT></B> sameAdr = (strfield2(heap(i)-&gt;adr, normadr) != 0);
+        <B><FONT COLOR="#228B22">int</FONT></B> sameFil;
+
+        <I><FONT COLOR="#B22222">// NO - URL hack is only for stripping // and www.
+</FONT></I>        <I><FONT COLOR="#B22222">//if (opt-&gt;urlhack != 0)
+</FONT></I>        <I><FONT COLOR="#B22222">//  sameFil = ( strfield2(heap(i)-&gt;fil, normfil) != 0);
+</FONT></I>        <I><FONT COLOR="#B22222">//else
+</FONT></I>        sameFil = (strcmp(heap(i)-&gt;fil, normfil) == 0);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sameAdr &amp;&amp; sameFil) {       <I><FONT COLOR="#B22222">// ok c'est le même lien, adresse déja définie
+</FONT></I>          <I><FONT COLOR="#B22222">/* Take the existing name not to screw up with cAsE sEnSiTiViTy of Linux/Unix */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(heap(i)-&gt;sav, afs-&gt;save) != 0) {
+            strcpybuff(afs-&gt;save, heap(i)-&gt;sav);
+          }
+          i = 0;
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_SAVENAME</FONT>
+          printf(<B><FONT COLOR="#BC8F8F">&quot;\nOK ALREADY DEFINED\n&quot;</FONT></B>, 13, i);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">// utilisé par un AUTRE, changer de nom
+</FONT></I>          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+          <B><FONT COLOR="#228B22">char</FONT></B> *a = afs-&gt;save + strlen(afs-&gt;save) - 1;
+          <B><FONT COLOR="#228B22">char</FONT></B> *b;
+          <B><FONT COLOR="#228B22">int</FONT></B> n = 2;
+          <B><FONT COLOR="#228B22">char</FONT></B> collisionSeparator = ((opt-&gt;savename_83 != 2) ? <B><FONT COLOR="#BC8F8F">'-'</FONT></B> : <B><FONT COLOR="#BC8F8F">'_'</FONT></B>);
+
+          tempo[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_SAVENAME</FONT>
+          printf(<B><FONT COLOR="#BC8F8F">&quot;\nWRONG CASE UNMATCH : \n%s\n%s, REDEFINE\n&quot;</FONT></B>, heap(i)-&gt;fil,
+                 fil_complete);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          nom_ok = 0;
+          i = 0;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; afs-&gt;save) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+            a--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)
+            strncatbuff(tempo, afs-&gt;save, a - afs-&gt;save);
+          <B><FONT COLOR="#A020F0">else</FONT></B>
+            strcatbuff(tempo, afs-&gt;save);
+
+          <I><FONT COLOR="#B22222">// tester la présence d'un -xx (ex: index-2.html -&gt; index-3.html)
+</FONT></I>          b = tempo + strlen(tempo) - 1;
+          <B><FONT COLOR="#A020F0">while</FONT></B>(isdigit((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *b))
+            b--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*b == collisionSeparator) {
+            sscanf(b + 1, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n);
+            *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;          <I><FONT COLOR="#B22222">// couper
+</FONT></I>            n++;                <I><FONT COLOR="#B22222">// plus un
+</FONT></I>          }
+          <I><FONT COLOR="#B22222">// en plus il faut gérer le 8-3 .. pas facile le client
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;savename_83) {
+            <B><FONT COLOR="#228B22">int</FONT></B> max;
+            <B><FONT COLOR="#228B22">char</FONT></B> *a = tempo + strlen(tempo) - 1;
+
+            <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; tempo) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+              a--;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              a++;
+            max = max_char - 1 - nombre_digit(n);
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(a) &gt; max)
+              *(a + max) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;        <I><FONT COLOR="#B22222">// couper sinon il n'y aura pas la place!
+</FONT></I>          }
+          <I><FONT COLOR="#B22222">// ajouter -xx (ex: index.html -&gt; index-2.html)
+</FONT></I>          sprintf(tempo + strlen(tempo), <B><FONT COLOR="#BC8F8F">&quot;%c%d&quot;</FONT></B>, collisionSeparator, n);
+
+          <I><FONT COLOR="#B22222">// ajouter extension
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)
+            strcatbuff(tempo, a);
+
+          strcpybuff(afs-&gt;save, tempo);
+
+          <I><FONT COLOR="#B22222">//printf(&quot;switched: %s\n&quot;,save);
+</FONT></I>
+        }                       <I><FONT COLOR="#B22222">// if
+</FONT></I>      }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_SAVENAME</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;\nEnd search, %s\n&quot;</FONT></B>, fil_complete);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    } <B><FONT COLOR="#A020F0">while</FONT></B>(!nom_ok);
+
+  }
+  <I><FONT COLOR="#B22222">//printf(&quot;'%s' %s %s\n&quot;,save,adr,fil);
+</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* nom avec md5 urilisé partout */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">standard_name</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *b, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *dot_pos, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *nom_pos, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                   <B><FONT COLOR="#228B22">int</FONT></B> short_ver) {
+  <B><FONT COLOR="#228B22">char</FONT></B> md5[32 + 2];
+
+  b[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">/* Nom */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)             <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>      strncatbuff(b, nom_pos, (dot_pos - nom_pos));
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strncatbuff(b, nom_pos, min(dot_pos - nom_pos, 8));
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)             <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>      strcatbuff(b, nom_pos);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strncatbuff(b, nom_pos, 8);
+  }
+  <I><FONT COLOR="#B22222">/* MD5 - 16 bits */</FONT></I>
+  strncatbuff(b, url_md5(md5, fil), 4);
+  <I><FONT COLOR="#B22222">/* Ext */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dot_pos) {
+    strcatbuff(b, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)             <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>      strcatbuff(b, dot_pos + 1);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strncatbuff(b, dot_pos + 1, 3);
+  }
+  <I><FONT COLOR="#B22222">// Allow extensionless
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">DO_NOT_ALLOW_EXTENSIONLESS</FONT>
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!short_ver)             <I><FONT COLOR="#B22222">// Noms longs
+</FONT></I>      strcatbuff(b, DEFAULT_EXT);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strcatbuff(b, DEFAULT_EXT_SHORT);
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">/* Petit md5 */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">url_md5</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *digest, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+  digest[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  a = strchr(fil, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(a)) {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 2];
+
+      a++;
+      digest[0] = buff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      strcatbuff(buff, a);      <I><FONT COLOR="#B22222">/* query string MD5 */</FONT></I>
+      domd5mem(buff, strlen(buff), digest, 1);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> digest;
+}
+
+<I><FONT COLOR="#B22222">// interne à url_savename: ajoute une chaîne à une autre avec \ -&gt; /
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">url_savename_addstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *d, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(d);
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*s) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*s == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)             <I><FONT COLOR="#B22222">// remplacer \ par des /
+</FONT></I>      d[i++] = <B><FONT COLOR="#BC8F8F">'/'</FONT></B>;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      d[i++] = *s;
+    s++;
+  }
+  d[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+}
+
+<I><FONT COLOR="#B22222">/* &quot;filename&quot; should be at least 64 bytes. */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">url_savename_refname</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> bindigest[16];
+  <B><FONT COLOR="#228B22">struct</FONT></B> MD5Context ctx;
+
+  MD5Init(&amp;ctx, 0);
+  MD5Update(&amp;ctx, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) adr, (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(adr));
+  MD5Update(&amp;ctx, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) <B><FONT COLOR="#BC8F8F">&quot;,&quot;</FONT></B>, 1);
+  MD5Update(&amp;ctx, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) fil, (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(fil));
+  MD5Final(bindigest, &amp;ctx);
+  sprintf(filename,
+          CACHE_REFNAME <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%02x%02x%02x%02x%02x%02x%02x%02x&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;%02x%02x%02x%02x%02x%02x%02x%02x&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;.ref&quot;</FONT></B>, bindigest[0], bindigest[1],
+          bindigest[2], bindigest[3], bindigest[4], bindigest[5], bindigest[6],
+          bindigest[7], bindigest[8], bindigest[9], bindigest[10],
+          bindigest[11], bindigest[12], bindigest[13], bindigest[14],
+          bindigest[15]);
+}
+
+<I><FONT COLOR="#B22222">/* note: return a local filename */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">url_savename_refname_fullpath</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> digest_filename[64];
+
+  url_savename_refname(adr, fil, digest_filename);
+  <B><FONT COLOR="#A020F0">return</FONT></B> fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+    StringBuff(opt-&gt;path_log), digest_filename);
+}
+
+<I><FONT COLOR="#B22222">/* remove refname if any */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">url_savename_refname_remove</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *filename = url_savename_refname_fullpath(opt, adr, fil);
+
+  (<B><FONT COLOR="#228B22">void</FONT></B>) UNLINK(filename);
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsname.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

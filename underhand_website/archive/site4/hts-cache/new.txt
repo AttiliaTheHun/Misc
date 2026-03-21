@@ -1,0 +1,3 @@
+date	size'/'remotesize	flags(request:Update,Range state:File response:Modified,Chunked,gZipped)	statuscode	status ('servermsg')	MIME	Etag|Date	URL	localfile	(from URL)
+12:31:04	41/41	---M--	200	added ('OK')	text/plain	date:Thu,%2008%20Oct%202020%2023:29:31%20GMT	https://www.behance.net/robots.txt		(from )
+12:31:04	509939/509939	---MC-	200	added ('OK')	text/html	date:Mon,%2012%20Oct%202020%2010:31:03%20GMT	https://www.behance.net/gallery/57705975/Underhand-(the-Card-Game)	C:/Users/Jaroslav/Desktop/WinHTTrack/Behance/www.behance.net/gallery/57705975/Underhand-(the-Card-Game).html	(from )

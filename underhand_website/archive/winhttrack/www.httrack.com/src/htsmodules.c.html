@@ -1,0 +1,284 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsmodules.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsmodules.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsmodules.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsmodules.c subroutines:                              */</FONT></I>
+<I><FONT COLOR="#B22222">/*       external modules (parsers)                             */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmodules.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsopt.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbasenet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fspc</FONT></B>(httrackp * opt, FILE * fp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *type);
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DLOPEN</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;dlfcn.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* &gt;&gt;&gt; Put all modules definitions here */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htszlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+<I><FONT COLOR="#B22222">/* &lt;&lt;&lt; */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* &gt;&gt;&gt; Put all modules variables here */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+t_gzopen gzopen = NULL;
+t_gzread gzread = NULL;
+t_gzclose gzclose = NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">int</FONT></B> V6_is_available = HTS_INET6;
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> WHAT_is_available[64] = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+
+<I><FONT COLOR="#B22222">/* &lt;&lt;&lt; */</FONT></I>
+
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_get_version_info</FONT></B>(httrackp * opt) {
+  size_t size;
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  strcpy(opt-&gt;state.HTbuff, WHAT_is_available);
+  size = strlen(opt-&gt;state.HTbuff);
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; opt-&gt;libHandles.count; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name = opt-&gt;libHandles.handles[i].moduleName;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (name != NULL) {
+      size_t nsize = strlen(name) + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+
+      size += nsize;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (size + 1 &gt;= <B><FONT COLOR="#A020F0">sizeof</FONT></B>(opt-&gt;state.HTbuff))
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      strcat(opt-&gt;state.HTbuff, <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+      strcat(opt-&gt;state.HTbuff, name);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> opt-&gt;state.HTbuff;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_log</FONT></B>(htsmoduleStruct * str, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_parse_externals</FONT></B>(htsmoduleStruct * str) {
+  str-&gt;wrapper_name = <B><FONT COLOR="#BC8F8F">&quot;wrapper-lib&quot;</FONT></B>;
+
+  <I><FONT COLOR="#B22222">/* External callback */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (RUN_CALLBACK1(str-&gt;opt, detect, str)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (str-&gt;wrapper_name == NULL)
+      str-&gt;wrapper_name = <B><FONT COLOR="#BC8F8F">&quot;wrapper-lib&quot;</FONT></B>;
+    <I><FONT COLOR="#B22222">/* Blacklisted */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (multipleStringMatch
+        (str-&gt;wrapper_name, StringBuff(str-&gt;opt-&gt;mod_blacklist))) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      htspe_log(str, str-&gt;wrapper_name);
+      <B><FONT COLOR="#A020F0">return</FONT></B> RUN_CALLBACK1(str-&gt;opt, parse, str);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Not detected */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">//static void addCallback(htscallbacks* chain, void* moduleHandle, htscallbacksfncptr exitFnc) {
+</FONT></I><I><FONT COLOR="#B22222">//  while(chain-&gt;next != NULL) {
+</FONT></I><I><FONT COLOR="#B22222">//    chain = chain-&gt;next;
+</FONT></I><I><FONT COLOR="#B22222">//  }
+</FONT></I><I><FONT COLOR="#B22222">//  chain-&gt;next = calloct(1, sizeof(htscallbacks));
+</FONT></I><I><FONT COLOR="#B22222">//  assertf(chain-&gt;next != NULL);
+</FONT></I><I><FONT COLOR="#B22222">//  chain = chain-&gt;next;
+</FONT></I><I><FONT COLOR="#B22222">//  memset(chain, 0, sizeof(*chain));
+</FONT></I><I><FONT COLOR="#B22222">//  chain-&gt;exitFnc = exitFnc;
+</FONT></I><I><FONT COLOR="#B22222">//  chain-&gt;moduleHandle = moduleHandle;
+</FONT></I><I><FONT COLOR="#B22222">//}
+</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">clearCallbacks</FONT></B>(htscallbacks * chain_);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">clearCallbacks</FONT></B>(htscallbacks * chain_) {
+  htscallbacks *chain;
+
+  chain = chain_;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(chain != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (chain-&gt;exitFnc != NULL) {
+      (<B><FONT COLOR="#228B22">void</FONT></B>) chain-&gt;exitFnc();  <I><FONT COLOR="#B22222">/* result ignored */</FONT></I>
+      chain-&gt;exitFnc = NULL;
+    }
+    chain = chain-&gt;next;
+  }
+  chain = chain_;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(chain != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (chain-&gt;moduleHandle != NULL) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      FreeLibrary(chain-&gt;moduleHandle);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      dlclose(chain-&gt;moduleHandle);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+    chain = chain-&gt;next;
+  }
+  chain = chain_-&gt;next;         <I><FONT COLOR="#B22222">// Don't free the block #0
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>(chain != NULL) {
+    htscallbacks *nextchain = chain-&gt;next;
+
+    freet(chain);
+    chain = nextchain;
+  }
+  chain_-&gt;next = NULL;          <I><FONT COLOR="#B22222">// Empty
+</FONT></I>}
+
+<B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">openFunctionLib</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file_) {
+  <B><FONT COLOR="#228B22">void</FONT></B> *handle;
+  <B><FONT COLOR="#228B22">char</FONT></B> *file = malloct(strlen(file_) + 32);
+
+  strcpy(file, file_);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  handle = LoadLibraryA(file);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (handle == NULL) {
+    sprintf(file, <B><FONT COLOR="#BC8F8F">&quot;%s.dll&quot;</FONT></B>, file_);
+    handle = LoadLibraryA(file);
+  }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  handle = dlopen(file, RTLD_LAZY);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (handle == NULL) {
+    sprintf(file, <B><FONT COLOR="#BC8F8F">&quot;lib%s.so&quot;</FONT></B>, file_);
+    handle = dlopen(file, RTLD_LAZY);
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  freet(file);
+  <B><FONT COLOR="#A020F0">return</FONT></B> handle;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">closeFunctionLib</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *handle) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  FreeLibrary(handle);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  dlclose(handle);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">getFunctionPtr</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *handle, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fncname_) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (handle) {
+    <B><FONT COLOR="#228B22">void</FONT></B> *userfunction = NULL;
+    <B><FONT COLOR="#228B22">char</FONT></B> *fncname = strdupt(fncname_);
+
+    <I><FONT COLOR="#B22222">/* Strip optional comma */</FONT></I>
+    <B><FONT COLOR="#228B22">char</FONT></B> *comma;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((comma = strchr(fncname, <B><FONT COLOR="#BC8F8F">','</FONT></B>)) != NULL) {       <I><FONT COLOR="#B22222">/* empty arg */</FONT></I>
+      *comma++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+
+    <I><FONT COLOR="#B22222">/* the function itself */</FONT></I>
+    userfunction = (<B><FONT COLOR="#228B22">void</FONT></B> *) DynamicGet(handle, (<B><FONT COLOR="#228B22">char</FONT></B> *) fncname);
+
+    freet(fncname);
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> userfunction;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> initOk = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!initOk) {
+    initOk = 1;
+
+    <I><FONT COLOR="#B22222">/* See CVE-2010-5252 */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN32</FONT>) &amp;&amp; (!<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_DEBUG</FONT>)))
+    {
+      <I><FONT COLOR="#B22222">/* See KB 2389418
+         &quot;If this parameter is an empty string (&quot;&quot;), the call removes the 
+         current directory from the default DLL search order&quot; */</FONT></I>
+      BOOL (WINAPI*<B><FONT COLOR="#228B22">const</FONT></B> k32_SetDllDirectoryA)(LPCSTR) = 
+        (BOOL (WINAPI *)(LPCSTR))
+        GetProcAddress(GetModuleHandle(<B><FONT COLOR="#BC8F8F">&quot;kernel32.dll&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;SetDllDirectoryA&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (k32_SetDllDirectoryA != NULL &amp;&amp; !k32_SetDllDirectoryA(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>)) {
+        <I><FONT COLOR="#B22222">/* Do no choke on NT or 98SE with KernelEx NT API (James Blough) */</FONT></I>
+        <B><FONT COLOR="#228B22">const</FONT></B> DWORD dwVersion = GetVersion();
+        <B><FONT COLOR="#228B22">const</FONT></B> DWORD dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
+        <B><FONT COLOR="#228B22">const</FONT></B> DWORD dwMinorVersion = (DWORD)(HIBYTE(LOWORD(dwVersion)));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (dwMajorVersion &gt;= 5) {
+          assertf(!<B><FONT COLOR="#BC8F8F">&quot;SetDllDirectory failed&quot;</FONT></B>);
+        }
+      }
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <I><FONT COLOR="#B22222">/* Options availability */</FONT></I>
+    sprintf(WHAT_is_available, <B><FONT COLOR="#BC8F8F">&quot;%s%s%s&quot;</FONT></B>, V6_is_available ? <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;-noV6&quot;</FONT></B>,
+            <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>,
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_USEOPENSSL</FONT>
+            <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;-nossl&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            );
+  }
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_log</FONT></B>(htsmoduleStruct * str, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *savename = str-&gt;filename;
+  httrackp *opt = (httrackp *) str-&gt;opt;
+
+  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;(External module): parsing %s using module %s&quot;</FONT></B>,
+                savename, msg);
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_is_available</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> WHAT_is_available;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsmodules.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

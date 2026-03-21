@@ -1,0 +1,33 @@
+---
+title: Underhand
+description: Grease takes the friction out of building fast, adaptable, aesthetic websites.
+layout: base.html
+eleventyImport:
+  collections: ["underhand"]
+# noindex: true
+# canonical: https://example.com/page.html
+permalink: /
+---
+
+  <section id="docs" class="docs-layout">
+    <nav class="sticky@md top-md mb-lg">
+      <small-details>
+        <details>
+          <summary class="font-size-sm font-weight-md uppercase letter-spacing-lg">Evil summary</summary>
+          <ul class="unlisted font-size-sm font-weight-lg mt-sm">
+          {%- for post in collections.underhand -%}
+            <li>
+              <a class="button --simple" href="#{{ post.data.title | slugify }}">{{ post.data.title }}</a>
+            </li>
+          {%- endfor -%}
+        </details>
+      </small-details>
+    </nav>
+    <article class="line-length-lg">
+      {%- for post in collections.underhand -%}
+        <h2 id="{{ post.data.title | slugify }}">{{ post.data.title }}</h2>
+        {{ post.content }}
+        <hr>
+      {%- endfor -%}
+    </article>
+  </section>

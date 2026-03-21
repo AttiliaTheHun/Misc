@@ -1,0 +1,123 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsmd5.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsmd5.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsmd5.c</H1>
+
+<PRE>
+
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsmd5.c subroutines:                                  */</FONT></I>
+<I><FONT COLOR="#B22222">/*       generate a md5 hash                                    */</FONT></I>
+<I><FONT COLOR="#B22222">/*                                                              */</FONT></I>
+<I><FONT COLOR="#B22222">/* Written March 1993 by Branko Lankester                       */</FONT></I>
+<I><FONT COLOR="#B22222">/* Modified June 1993 by Colin Plumb for altered md5.c.         */</FONT></I>
+<I><FONT COLOR="#B22222">/* Modified October 1995 by Erik Troan for RPM                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Modified 2000 by Xavier Roche for domd5mem                   */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;assert.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmd5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;md5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">domd5mem</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buf, size_t len, <B><FONT COLOR="#228B22">char</FONT></B> *digest, <B><FONT COLOR="#228B22">int</FONT></B> asAscii) {
+  <B><FONT COLOR="#228B22">int</FONT></B> endian = 1;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> bindigest[16];
+  <B><FONT COLOR="#228B22">struct</FONT></B> MD5Context ctx;
+
+  MD5Init(&amp;ctx, *((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;endian));
+  MD5Update(&amp;ctx, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) buf, (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) len);
+  MD5Final(bindigest, &amp;ctx);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!asAscii) {
+    memcpy(digest, bindigest, 16);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    sprintf(digest,
+            <B><FONT COLOR="#BC8F8F">&quot;%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;%02x%02x%02x%02x%02x&quot;</FONT></B>, bindigest[0], bindigest[1], bindigest[2],
+            bindigest[3], bindigest[4], bindigest[5], bindigest[6],
+            bindigest[7], bindigest[8], bindigest[9], bindigest[10],
+            bindigest[11], bindigest[12], bindigest[13], bindigest[14],
+            bindigest[15]);
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">md5sum32</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *buff) {
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    <B><FONT COLOR="#228B22">char</FONT></B> md5digest[16];
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> hash;
+  } u;
+
+  domd5mem(buff, strlen(buff), u.md5digest, 0);
+  <B><FONT COLOR="#A020F0">return</FONT></B> u.hash;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">md5selftest</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> str1[] = <B><FONT COLOR="#BC8F8F">&quot;The quick brown fox jumps over the lazy dog\n&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> str1m[] = <B><FONT COLOR="#BC8F8F">&quot;37c4b87edffc5d198ff5a185cee7ee09&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> str2[] = <B><FONT COLOR="#BC8F8F">&quot;Hello&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> str2m[] = <B><FONT COLOR="#BC8F8F">&quot;8b1a9953c4611296a827abf8c47804d7&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> digest[64];
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">MDCHECK</FONT></B>(VAR, VARMD) do { \
+  memset(digest, 0xCC, sizeof(digest)); \
+  domd5mem(VAR, sizeof(VAR) - 1, digest, 1); \
+  if (strcmp(digest, VARMD) != 0) { \
+    fprintf(stderr, \
+            <B><FONT COLOR="#BC8F8F">&quot;error: md5 selftest failed: '%s' =&gt; '%s' (!= '%s')\n&quot;</FONT></B>, \
+            VAR, digest, VARMD); \
+    assert(! <B><FONT COLOR="#BC8F8F">&quot;md5 selftest failed&quot;</FONT></B>); \
+  } \
+} while(0)
+<B><FONT COLOR="#0000FF">MDCHECK</FONT></B>(str1, str1m);
+<B><FONT COLOR="#0000FF">MDCHECK</FONT></B>(str2, str2m);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">MDCHECK</FONT>
+  fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;md5 selftest succeeded\n&quot;</FONT></B>);
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsmd5.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

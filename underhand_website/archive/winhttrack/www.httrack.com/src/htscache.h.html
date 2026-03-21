@@ -1,0 +1,117 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htscache.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htscache.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htscache.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       cache system (index and stores files in cache)         */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTSCACHE_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSCACHE_DEFH</FONT>
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> cache_back cache_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// cache
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_mayadd</FONT></B>(httrackp * opt, cache_back * cache, htsblk * r,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fil,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_save);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_add</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> htsblk * r,
+               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_save,
+               <B><FONT COLOR="#228B22">int</FONT></B> all_in_cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path_prefix);
+htsblk <B><FONT COLOR="#0000FF">cache_read</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location);
+htsblk <B><FONT COLOR="#0000FF">cache_read_ro</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location);
+htsblk <B><FONT COLOR="#0000FF">cache_read_including_broken</FONT></B>(httrackp * opt, cache_back * cache,
+                                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+htsblk <B><FONT COLOR="#0000FF">cache_readex</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                    <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly);
+htsblk *<B><FONT COLOR="#0000FF">cache_header</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, htsblk * r);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_init</FONT></B>(cache_back * cache, httrackp * opt);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_writedata</FONT></B>(FILE * cache_ndx, FILE * cache_dat, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str1,
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str2, <B><FONT COLOR="#228B22">char</FONT></B> *outbuff, <B><FONT COLOR="#228B22">int</FONT></B> len);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_readdata</FONT></B>(cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str2,
+                   <B><FONT COLOR="#228B22">char</FONT></B> **inbuff, <B><FONT COLOR="#228B22">int</FONT></B> *len);
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rstr</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cache_rstr_addr</FONT></B>(FILE * fp);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_brstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_quickbrstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_brint</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">int</FONT></B> *i);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">int</FONT></B> *i);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rLLint</FONT></B>(FILE * fp, LLint * i);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wstr</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">int</FONT></B> i);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wLLint</FONT></B>(FILE * fp, LLint i);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htscache.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

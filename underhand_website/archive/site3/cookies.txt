@@ -1,0 +1,7 @@
+# HTTrack Website Copier Cookie File
+# This file format is compatible with Netscape cookies
+.bostonfig.com	TRUE	/	FALSE	1999999999	__cfduid	dcba35b2c6e53502a508d232fcec7db1f1602101821
+www.bostonfig.com	TRUE	/	FALSE	1999999999	SameSite	Lax
+.google.com	TRUE	/	FALSE	1999999999	NID	204=pOaufTwg8QVV4ZH7TzkNOCgM5BH6DFJ5UPd7QgUyyKlRA0oivIICyWtouwC2QD-PmqTkdm9z93_HyrCUGnpJhd3h83F84mASkWb0iyOK9C_Myy_LGLJ-62Z5naQikCDMN1TUSJv_RCRmKLZpUqIGhYiIxVBo9sGF6LQJP747DzE
+www.bostonfig.com	TRUE	/	FALSE	1999999999	wordpress_google_apps_login	033f7141c879e55f6664380a7ed822fe
+

@@ -1,0 +1,57 @@
+table {
+    text-align: center;
+    border: var(--border-width-sm) solid var(--color-border);
+    border-collapse: collapse;
+    margin: 0 auto;
+}
+thead {
+    border-bottom: var(--border-width-sm) solid var(--color-border);
+}
+tr {
+    min-height: 35em;
+}
+tr:nth-child(even) {
+    background-color: var(--primary);
+}
+td {
+    padding-left: 1em;
+    padding-right: 1em;
+    border-right: var(--border-width-sm) solid var(--color-border);
+}
+th {
+    padding-left: 1em;
+    padding-right: 1em;
+}
+.god-of-beginnings {
+    color: #BC989C;
+}
+.rhybaax {
+    color: #BFD921;
+}
+.wiindigoo {
+    color: #903D32;
+}
+.jhaiti {
+    color: #FFF434;
+}
+.kekujira {
+    color: #4DD0EF;
+}
+.yacare {
+    color: #FDAD96;
+}
+.uhluhtc {
+    color: #7A5B92;
+}
+
+.full-height {
+    height: 100%;
+}
+
+.event-properties {
+    padding-left: 1em;
+}
+
+footer {
+	text-align: center;
+}

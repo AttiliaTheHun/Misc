@@ -1,0 +1,344 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsencoding.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsencoding.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsencoding.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Encoding conversion functions                          */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscharset.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsencoding.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* static int decode_entity(const unsigned int hash, const size_t len);
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsentities.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* hexadecimal conversion */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">get_hex_value</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (c &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; c &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>)
+    <B><FONT COLOR="#A020F0">return</FONT></B> c - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (c &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> &amp;&amp; c &lt;= <B><FONT COLOR="#BC8F8F">'f'</FONT></B>)
+    <B><FONT COLOR="#A020F0">return</FONT></B> (c - <B><FONT COLOR="#BC8F8F">'a'</FONT></B> + 10);
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (c &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; c &lt;= <B><FONT COLOR="#BC8F8F">'F'</FONT></B>)
+    <B><FONT COLOR="#A020F0">return</FONT></B> (c - <B><FONT COLOR="#BC8F8F">'A'</FONT></B> + 10);
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">/* Numerical Recipes,
+   see &lt;http://en.wikipedia.org/wiki/Linear_congruential_generator&gt; */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HASH_PRIME</FONT> ( 1664525 )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HASH_CONST</FONT> ( 1013904223 )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HASH_ADD</FONT></B>(HASH, C) do {                  \
+    (HASH) *= HASH_PRIME;                       \
+    (HASH) += HASH_CONST;                       \
+    (HASH) += (C);                              \
+  } while(0)
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_unescapeEntitiesWithCharset</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, <B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t max, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  size_t i, j, ampStart, ampStartDest;
+  <B><FONT COLOR="#228B22">int</FONT></B> uc;
+  <B><FONT COLOR="#228B22">int</FONT></B> hex;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> hash;
+
+  assertf(max != 0);
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0, ampStart = (size_t) -1, ampStartDest = 0,
+        uc = -1, hex = 0, hash = 0 ; src[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) {
+    <I><FONT COLOR="#B22222">/* start of entity */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (src[i] == <B><FONT COLOR="#BC8F8F">'&amp;'</FONT></B>) {
+      ampStart = i;
+      ampStartDest = j;
+      hash = 0;
+      uc = -1;
+    }
+    <I><FONT COLOR="#B22222">/* inside a potential entity */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (ampStart != (size_t) -1) {
+      <I><FONT COLOR="#B22222">/* &amp;#..; entity */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ampStart + 1 == i &amp;&amp; src[ampStart + 1] == <B><FONT COLOR="#BC8F8F">'#'</FONT></B>) {
+        uc = 0;
+        hex = 0;
+      }
+      <I><FONT COLOR="#B22222">/* &amp;#x..; entity */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (ampStart + 2 == i &amp;&amp; src[ampStart + 1] == <B><FONT COLOR="#BC8F8F">'#'</FONT></B>
+               &amp;&amp; src[ampStart + 2] == <B><FONT COLOR="#BC8F8F">'x'</FONT></B>) {
+        hex = 1;
+      }
+      <I><FONT COLOR="#B22222">/* end of entity */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (src[i] == <B><FONT COLOR="#BC8F8F">';'</FONT></B>) {
+        size_t len;
+        
+        <I><FONT COLOR="#B22222">/* decode entity */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uc == -1) {
+          <I><FONT COLOR="#B22222">/* &amp;foo; */</FONT></I>
+          uc = decode_entity(hash, <I><FONT COLOR="#B22222">/*&amp;src[ampStart + 1],*/</FONT></I>
+                             i - ampStart - 1);
+          <I><FONT COLOR="#B22222">/* FIXME: TEMPORARY HACK FROM PREVIOUS VERSION TO BE INVESTIGATED */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (uc == 160) {
+            uc = 32;
+          }
+        }
+        
+        <I><FONT COLOR="#B22222">/* end */</FONT></I>
+        ampStart = (size_t) -1;
+        
+        <I><FONT COLOR="#B22222">/* success ? */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uc &gt; 0) {
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t maxOut = max - ampStartDest;
+          <I><FONT COLOR="#B22222">/* write at position */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (charset != NULL &amp;&amp; hts_isCharsetUTF8(charset)) {
+            len = hts_writeUTF8(uc, &amp;dest[ampStartDest], maxOut);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            size_t ulen;
+            <B><FONT COLOR="#228B22">char</FONT></B> buffer[32];
+            len = 0;
+            <B><FONT COLOR="#A020F0">if</FONT></B> ( ( ulen = hts_writeUTF8(uc, buffer, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(buffer)) ) != 0) {
+              <B><FONT COLOR="#228B22">char</FONT></B> *s;
+              buffer[ulen] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              s = hts_convertStringFromUTF8(buffer, strlen(buffer), charset);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (s != NULL) {
+                <B><FONT COLOR="#228B22">const</FONT></B> size_t sLen = strlen(s);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (sLen &lt; maxOut) {
+                  <I><FONT COLOR="#B22222">/* Do not copy \0. */</FONT></I>
+                  memcpy(&amp;dest[ampStartDest], s, sLen);
+                  len = sLen;
+                }
+                free(s);
+              }
+            }
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0) {
+            <I><FONT COLOR="#B22222">/* new dest position */</FONT></I>
+            j = ampStartDest + len;
+            <I><FONT COLOR="#B22222">/* do not copy ; */</FONT></I>
+            <B><FONT COLOR="#A020F0">continue</FONT></B>;
+          }
+        }
+      }
+      <I><FONT COLOR="#B22222">/* numerical entity */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uc != -1) {
+        <I><FONT COLOR="#B22222">/* decimal */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!hex) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (src[i] &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; src[i] &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> h = src[i] - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>;
+            uc *= 10;
+            uc += h;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">/* abandon */</FONT></I>
+            ampStart = (size_t) -1;
+          }
+        }
+        <I><FONT COLOR="#B22222">/* hex */</FONT></I>
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> h = get_hex_value(src[i]);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (h != -1) {
+            uc *= 16;
+            uc += h;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">/* abandon */</FONT></I>
+            ampStart = (size_t) -1;
+          }
+        }
+      }
+      <I><FONT COLOR="#B22222">/* alphanumerical entity */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <I><FONT COLOR="#B22222">/* alphanum and not too far ('&amp;thetasym;' is the longest) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (i &lt;= ampStart + 10 &amp;&amp;
+            (
+             (src[i] &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; src[i] &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>)
+             || (src[i] &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; src[i] &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>)
+             || (src[i] &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> &amp;&amp; src[i] &lt;= <B><FONT COLOR="#BC8F8F">'z'</FONT></B>)
+             )
+            ) {
+          <I><FONT COLOR="#B22222">/* compute hash */</FONT></I>
+          HASH_ADD(hash, (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) src[i]);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <I><FONT COLOR="#B22222">/* abandon */</FONT></I>
+          ampStart = (size_t) -1;
+        }
+      }
+    }
+    
+    <I><FONT COLOR="#B22222">/* copy */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (j + 1 &gt; max) {
+      <I><FONT COLOR="#B22222">/* overflow */</FONT></I>
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (src != dest || i != j) {
+      dest[j] = src[i];
+    }
+    j++;
+  }
+  dest[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_unescapeEntities</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, <B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t max) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_unescapeEntitiesWithCharset(src, dest, max, <B><FONT COLOR="#BC8F8F">&quot;UTF-8&quot;</FONT></B>);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_unescapeUrlSpecial</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, <B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t max,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  size_t i, j, lastI, lastJ, k, utfBufferJ, utfBufferSize;
+  <B><FONT COLOR="#228B22">int</FONT></B> seenQuery = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> utfBuffer[32];
+
+  assertf(src != dest);
+  assertf(max != 0);
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0, k = 0, utfBufferJ = 0, utfBufferSize = 0,
+      lastI = (size_t) -1, lastJ = (size_t) -1
+      ; src[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) {
+    <B><FONT COLOR="#228B22">char</FONT></B> c = src[i];
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> cUtf = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) c;
+
+    <I><FONT COLOR="#B22222">/* Replacement for ' ' */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c == <B><FONT COLOR="#BC8F8F">'+'</FONT></B> &amp;&amp; seenQuery) {
+      c = cUtf = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+      k = 0;  <I><FONT COLOR="#B22222">/* cancel any sequence */</FONT></I>
+    }
+    <I><FONT COLOR="#B22222">/* Escape sequence start */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (c == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+      <I><FONT COLOR="#B22222">/* last known position of % written on destination
+         copy blindly c, we'll rollback later */</FONT></I>
+      lastI = i;
+      lastJ = j;
+    }
+    <I><FONT COLOR="#B22222">/* End of sequence seen */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt;= 2 &amp;&amp; i == lastI + 2) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> a1 = get_hex_value(src[lastI + 1]);
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> a2 = get_hex_value(src[lastI + 2]);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (a1 != -1 &amp;&amp; a2 != -1) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> ec = a1*16 + a2;  <I><FONT COLOR="#B22222">/* new character */</FONT></I>
+        cUtf = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) ec;
+
+        <I><FONT COLOR="#B22222">/* Shortcut for ASCII (do not unescape non-printable) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (
+            (cUtf &lt; 0x80 &amp;&amp; cUtf &gt;= 32)
+            &amp;&amp; ( flags &amp; UNESCAPE_URL_NO_ASCII ) == 0
+            ) {
+          <I><FONT COLOR="#B22222">/* Rollback new write position and character */</FONT></I>
+          j = lastJ;
+          c = ec;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        k = 0;  <I><FONT COLOR="#B22222">/* cancel any sequence */</FONT></I>
+      }
+    }
+    <I><FONT COLOR="#B22222">/* ASCII (and not in %xx) */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (cUtf &lt; 0x80 &amp;&amp; i != lastI + 1) {
+      k = 0;  <I><FONT COLOR="#B22222">/* cancel any sequence */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B> &amp;&amp; !seenQuery) {
+        seenQuery = 1;
+      }
+    }
+    
+    <I><FONT COLOR="#B22222">/* UTF-8 sequence in progress (either a raw or a %xx character) */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cUtf &gt;= 0x80) {
+      <I><FONT COLOR="#B22222">/* Leading UTF ? */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (HTS_IS_LEADING_UTF8(cUtf)) {
+        k = 0;  <I><FONT COLOR="#B22222">/* cancel any sequence */</FONT></I>
+      }
+
+      <I><FONT COLOR="#B22222">/* Copy */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (k &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(utfBuffer)) {
+        <I><FONT COLOR="#B22222">/* First character */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (k == 0) {
+          <I><FONT COLOR="#B22222">/* New destination-centric offset of utf-8 buffer beginning */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (lastI != (size_t) -1 &amp;&amp; i == lastI + 2) {  <I><FONT COLOR="#B22222">/* just read a %xx */</FONT></I>
+            utfBufferJ = lastJ;  <I><FONT COLOR="#B22222">/* position of % */</FONT></I>
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            utfBufferJ = j;      <I><FONT COLOR="#B22222">/* current position otherwise */</FONT></I>
+          }
+
+          <I><FONT COLOR="#B22222">/* Sequence length */</FONT></I>
+          utfBufferSize = hts_getUTF8SequenceLength(cUtf);
+        }
+
+        <I><FONT COLOR="#B22222">/* Copy */</FONT></I>
+        utfBuffer[k++] = cUtf;
+
+        <I><FONT COLOR="#B22222">/* Flush UTF-8 buffer when completed. */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (k == utfBufferSize) {
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t nRead = hts_readUTF8(utfBuffer, utfBufferSize, NULL);
+
+          <I><FONT COLOR="#B22222">/* Reset UTF-8 buffer in all cases. */</FONT></I>
+          k = 0;
+
+          <I><FONT COLOR="#B22222">/* Was the character read successfully ? */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (nRead == utfBufferSize) {
+            <I><FONT COLOR="#B22222">/* Rollback write position to sequence start write position */</FONT></I>
+            j = utfBufferJ;
+
+            <I><FONT COLOR="#B22222">/* Copy full character sequence */</FONT></I>
+            memcpy(&amp;dest[j], utfBuffer, utfBufferSize);
+            j += utfBufferSize;
+
+            <I><FONT COLOR="#B22222">/* Skip current character */</FONT></I>
+            <B><FONT COLOR="#A020F0">continue</FONT></B>;
+          }
+        }
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* Check for overflow */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (j + 1 &gt; max) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+
+    <I><FONT COLOR="#B22222">/* Copy current */</FONT></I>
+    dest[j++] = c;
+  }
+  dest[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_unescapeUrl</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, <B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t max) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_unescapeUrlSpecial(src, dest, max, 0);
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsencoding.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

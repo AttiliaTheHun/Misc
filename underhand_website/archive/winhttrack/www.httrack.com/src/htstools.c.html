@@ -1,0 +1,1345 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htstools.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htstools.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htstools.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       various tools (filename analyzing ..)                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">/* String */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htstools.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsstrings.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscharset.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;windows.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;dirent.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_UNISTD_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;unistd.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/stat.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// Portable directory find functions
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_find_handle_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_find_handle_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> find_handle_struct find_handle_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">struct</FONT></B> find_handle_struct {
+  WIN32_FIND_DATAA hdata;
+  HANDLE handle;
+};
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> find_handle_struct {
+  DIR *hdir;
+  <B><FONT COLOR="#228B22">struct</FONT></B> dirent *dirp;
+  STRUCT_STAT filestat;
+  <B><FONT COLOR="#228B22">char</FONT></B> path[2048];
+};
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">//#ifndef HTS_DEF_FWSTRUCT_topindex_chain
+</FONT></I><I><FONT COLOR="#B22222">//#define HTS_DEF_FWSTRUCT_topindex_chain
+</FONT></I><I><FONT COLOR="#B22222">//typedef struct topindex_chain topindex_chain;
+</FONT></I><I><FONT COLOR="#B22222">//#endif
+</FONT></I><I><FONT COLOR="#B22222">//struct topindex_chain {
+</FONT></I><I><FONT COLOR="#B22222">//  int level;                    /* sort level */
+</FONT></I><I><FONT COLOR="#B22222">//  char *category;               /* category */
+</FONT></I><I><FONT COLOR="#B22222">//  char name[2048];              /* path */
+</FONT></I><I><FONT COLOR="#B22222">//  struct topindex_chain *next;  /* next element */
+</FONT></I><I><FONT COLOR="#B22222">//};
+</FONT></I>
+<I><FONT COLOR="#B22222">/* Tools */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ehexh</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((c &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B>) &amp;&amp; (c &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>))
+    <B><FONT COLOR="#A020F0">return</FONT></B> c - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((c &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B>) &amp;&amp; (c &lt;= <B><FONT COLOR="#BC8F8F">'f'</FONT></B>))
+    c -= (<B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((c &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B>) &amp;&amp; (c &lt;= <B><FONT COLOR="#BC8F8F">'F'</FONT></B>))
+    <B><FONT COLOR="#A020F0">return</FONT></B> (c - <B><FONT COLOR="#BC8F8F">'A'</FONT></B> + 10);
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ehex</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 16 * ehexh(*s) + ehexh(*(s + 1));
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">unescapehttp</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, String * tempo) {
+  size_t i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; s[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B> &amp;&amp; s[i + 1] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+      i++;
+      StringAddchar(*tempo, <B><FONT COLOR="#BC8F8F">'%'</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+      <B><FONT COLOR="#228B22">char</FONT></B> hc;
+
+      i++;
+      hc = (<B><FONT COLOR="#228B22">char</FONT></B>) ehex(s + i);
+      StringAddchar(*tempo, (<B><FONT COLOR="#228B22">char</FONT></B>) hc);
+      i++;                      <I><FONT COLOR="#B22222">// sauter 2 caractères finalement
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (s[i] == <B><FONT COLOR="#BC8F8F">'+'</FONT></B>) {
+      StringAddchar(*tempo, <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      StringAddchar(*tempo, s[i]);
+  }
+}
+
+<I><FONT COLOR="#B22222">// forme à partir d'un lien et du contexte (origin_fil et origin_adr d'où il est tiré) adr et fil
+</FONT></I><I><FONT COLOR="#B22222">// [adr et fil sont des buffers de 1ko]
+</FONT></I><I><FONT COLOR="#B22222">// 0 : ok
+</FONT></I><I><FONT COLOR="#B22222">// -1 : erreur
+</FONT></I><I><FONT COLOR="#B22222">// -2 : protocole non supporté (ftp)
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">ident_url_relatif</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lien, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *origin_adr,
+                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *origin_fil,
+                      lien_adrfil* <B><FONT COLOR="#228B22">const</FONT></B> adrfil) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> scheme = 0;
+
+  assertf(adrfil != NULL);
+
+  adrfil-&gt;adr[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  adrfil-&gt;fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;                <I><FONT COLOR="#B22222">//effacer buffers
+</FONT></I>
+  <I><FONT COLOR="#B22222">// lien non vide!
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(lien) == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// erreur!
+</FONT></I>
+  <I><FONT COLOR="#B22222">// Scheme?
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = lien;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(isalpha((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a))
+      a++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">':'</FONT></B>)
+      scheme = 1;
+  }
+
+  <I><FONT COLOR="#B22222">// filtrer les parazites (mailto &amp; cie)
+</FONT></I>  <I><FONT COLOR="#B22222">// scheme+authority (//)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> ((strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>))       <I><FONT COLOR="#B22222">// scheme+//
+</FONT></I>      || (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;file://&quot;</FONT></B>))    <I><FONT COLOR="#B22222">// scheme+//
+</FONT></I>      || (strncmp(lien, <B><FONT COLOR="#BC8F8F">&quot;//&quot;</FONT></B>, 2) == 0)  <I><FONT COLOR="#B22222">// // sans scheme (-&gt; default)
+</FONT></I>    ) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_absolute(lien, adrfil) == -1) {
+      ok = -1;                  <I><FONT COLOR="#B22222">// erreur URL
+</FONT></I>    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;ftp://&quot;</FONT></B>)) {
+    <I><FONT COLOR="#B22222">// Note: ftp:foobar.gif is not valid
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (ftp_available()) {      <I><FONT COLOR="#B22222">// ftp supporté
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_absolute(lien, adrfil) == -1) {
+        ok = -1;                <I><FONT COLOR="#B22222">// erreur URL
+</FONT></I>      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      ok = -2;                  <I><FONT COLOR="#B22222">// non supporté
+</FONT></I>    }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_USEOPENSSL</FONT>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;https://&quot;</FONT></B>)) {
+    <I><FONT COLOR="#B22222">// Note: ftp:foobar.gif is not valid
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_absolute(lien, adrfil) == -1) {
+      ok = -1;                <I><FONT COLOR="#B22222">// erreur URL
+</FONT></I>    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((scheme) &amp;&amp; ((!strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;http:&quot;</FONT></B>))
+                          &amp;&amp; (!strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>))
+                          &amp;&amp; (!strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;ftp:&quot;</FONT></B>))
+             )) {
+    ok = -1;                    <I><FONT COLOR="#B22222">// unknown scheme
+</FONT></I>  } <B><FONT COLOR="#A020F0">else</FONT></B> {                      <I><FONT COLOR="#B22222">// c'est un lien relatif
+</FONT></I>    <I><FONT COLOR="#B22222">// On forme l'URL complète à partie de l'url actuelle
+</FONT></I>    <I><FONT COLOR="#B22222">// et du chemin actuel si besoin est.
+</FONT></I>
+    <I><FONT COLOR="#B22222">// sanity check
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (origin_adr == NULL || origin_fil == NULL 
+      || *origin_adr == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> || *origin_fil == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+
+    <I><FONT COLOR="#B22222">// copier adresse
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(origin_adr) &lt; HTS_URLMAXSIZE)
+        &amp;&amp; ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(origin_fil) &lt; HTS_URLMAXSIZE)
+        &amp;&amp; ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(lien) &lt; HTS_URLMAXSIZE)) {
+
+      <I><FONT COLOR="#B22222">/* patch scheme if necessary */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;http:&quot;</FONT></B>)) {
+        lien += 5;
+        strcpybuff(adrfil-&gt;adr, jump_protocol_const(origin_adr));     <I><FONT COLOR="#B22222">// même adresse ; protocole vide (http)
+</FONT></I>      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>)) {
+        lien += 6;
+        strcpybuff(adrfil-&gt;adr, <B><FONT COLOR="#BC8F8F">&quot;https://&quot;</FONT></B>);    <I><FONT COLOR="#B22222">// même adresse forcée en https
+</FONT></I>        strcatbuff(adrfil-&gt;adr, jump_protocol_const(origin_adr));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(lien, <B><FONT COLOR="#BC8F8F">&quot;ftp:&quot;</FONT></B>)) {
+        lien += 4;
+        strcpybuff(adrfil-&gt;adr, <B><FONT COLOR="#BC8F8F">&quot;ftp://&quot;</FONT></B>);      <I><FONT COLOR="#B22222">// même adresse forcée en ftp
+</FONT></I>        strcatbuff(adrfil-&gt;adr, jump_protocol_const(origin_adr));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        strcpybuff(adrfil-&gt;adr, origin_adr);    <I><FONT COLOR="#B22222">// même adresse ; et même éventuel protocole
+</FONT></I>      }
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*lien != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {       <I><FONT COLOR="#B22222">// sinon c'est un lien absolu
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (*lien == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+          strcpybuff(adrfil-&gt;fil, origin_fil);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (*lien == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) {      <I><FONT COLOR="#B22222">// example: a href=&quot;?page=2&quot;
+</FONT></I>          <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+          strcpybuff(adrfil-&gt;fil, origin_fil);
+          a = strchr(adrfil-&gt;fil, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (a)
+            *a = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          strcatbuff(adrfil-&gt;fil, lien);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = strchr(origin_fil, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (a == NULL)
+            a = origin_fil + strlen(origin_fil);
+          <B><FONT COLOR="#A020F0">while</FONT></B>((*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (a &gt; origin_fil))
+            a--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {      <I><FONT COLOR="#B22222">// ok on a un '/'
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> ((((<B><FONT COLOR="#228B22">int</FONT></B>) (a - origin_fil)) + 1 + strlen(lien)) &lt; HTS_URLMAXSIZE) {
+              <I><FONT COLOR="#B22222">// copier chemin
+</FONT></I>              strncpy(adrfil-&gt;fil, origin_fil, ((<B><FONT COLOR="#228B22">int</FONT></B>) (a - origin_fil)) + 1);
+              *(adrfil-&gt;fil + ((<B><FONT COLOR="#228B22">int</FONT></B>) (a - origin_fil)) + 1) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+              <I><FONT COLOR="#B22222">// copier chemin relatif
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(adrfil-&gt;fil) + (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(lien)) &lt; HTS_URLMAXSIZE) {
+                strcatbuff(adrfil-&gt;fil, lien + ((*lien == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0));
+                <I><FONT COLOR="#B22222">// simplifier url pour les ../
+</FONT></I>                fil_simplifie(adrfil-&gt;fil);
+              } <B><FONT COLOR="#A020F0">else</FONT></B>
+                ok = -1;        <I><FONT COLOR="#B22222">// erreur
+</FONT></I>            } <B><FONT COLOR="#A020F0">else</FONT></B> {            <I><FONT COLOR="#B22222">// erreur
+</FONT></I>              ok = -1;          <I><FONT COLOR="#B22222">// erreur URL
+</FONT></I>            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// erreur
+</FONT></I>            ok = -1;            <I><FONT COLOR="#B22222">// erreur URL
+</FONT></I>          }
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// chemin absolu
+</FONT></I>        <I><FONT COLOR="#B22222">// copier chemin directement
+</FONT></I>        strcatbuff(adrfil-&gt;fil, lien);
+        fil_simplifie(adrfil-&gt;fil);
+      }                         <I><FONT COLOR="#B22222">// *lien!='/'
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      ok = -1;
+
+  }                             <I><FONT COLOR="#B22222">// test news: etc.
+</FONT></I>
+  <I><FONT COLOR="#B22222">// case insensitive pour adresse
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a = jump_identification(adrfil-&gt;adr);
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((*a &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B>) &amp;&amp; (*a &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>))
+        *a += <B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>;
+      a++;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// IDNA / RFC 3492 (Punycode) handling for HTTP(s)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(adrfil-&gt;adr) || strfield(adrfil-&gt;adr, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>)) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> a = jump_identification(adrfil-&gt;adr);
+    <I><FONT COLOR="#B22222">// Non-ASCII characters (theorically forbidden, but browsers are lenient)
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (!hts_isStringAscii(a, strlen(a))) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> idna = hts_convertStringUTF8ToIDNA(a, strlen(a));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (idna != NULL) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(idna) &lt; HTS_URLMAXSIZE) {
+          strcpybuff(a, idna);
+        }
+        free(idna);
+      }
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> ok;
+}
+
+<I><FONT COLOR="#B22222">// créer dans s, à partir du chemin courant curr_fil, le lien vers link (absolu)
+</FONT></I><I><FONT COLOR="#B22222">// un ident_url_relatif a déja été fait avant, pour que link ne soit pas un chemin relatif
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">lienrelatif</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *link, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *curr_fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK _curr[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK newcurr_fil[HTS_URLMAXSIZE * 2], newlink[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> *curr;
+
+  <I><FONT COLOR="#B22222">//int n=0;
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+  <B><FONT COLOR="#228B22">int</FONT></B> slash = 0;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  newcurr_fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  newlink[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>
+  <I><FONT COLOR="#B22222">// patch: éliminer les ? (paramètres) sinon bug
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((a = strchr(curr_fil, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>))) {
+      strncatbuff(newcurr_fil, curr_fil, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - curr_fil));
+      curr_fil = newcurr_fil;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((a = strchr(link, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>))) {
+      strncatbuff(newlink, link, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - link));
+      link = newlink;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// recopier uniquement le chemin courant
+</FONT></I>  curr = _curr;
+  strcpybuff(curr, curr_fil);
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((a = strchr(curr, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>)) == NULL)  <I><FONT COLOR="#B22222">// couper au ? (params)
+</FONT></I>    a = curr + strlen(curr) - 1;        <I><FONT COLOR="#B22222">// pas de params: aller à la fin
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>((*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (a &gt; curr))
+    a--;                        <I><FONT COLOR="#B22222">// chercher dernier / du chemin courant
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+    *(a + 1) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;            <I><FONT COLOR="#B22222">// couper dernier /
+</FONT></I>
+  <I><FONT COLOR="#B22222">// &quot;effacer&quot; s
+</FONT></I>  s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <I><FONT COLOR="#B22222">// sauter ce qui est commun aux 2 chemins
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *l;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*link == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      link++;                   <I><FONT COLOR="#B22222">// sauter slash
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (*curr == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      curr++;
+    l = link;
+    <I><FONT COLOR="#B22222">//c=curr;
+</FONT></I>    <I><FONT COLOR="#B22222">// couper ce qui est commun
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>((streql(*link, *curr)) &amp;&amp; (*link != 0)) {
+      link++;
+      curr++;
+    }
+    <I><FONT COLOR="#B22222">// mais on veut un répertoirer entier!
+</FONT></I>    <I><FONT COLOR="#B22222">// si on a /toto/.. et /toto2/.. on ne veut pas sauter /toto !
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>(((*link != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) || (*curr != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)) &amp;&amp; (link &gt; l)) {
+      link--;
+      curr--;
+    }
+    <I><FONT COLOR="#B22222">//if (*link=='/') link++;
+</FONT></I>    <I><FONT COLOR="#B22222">//if (*curr=='/') curr++;
+</FONT></I>  }
+
+  <I><FONT COLOR="#B22222">// calculer la profondeur du répertoire courant et remonter
+</FONT></I>  <I><FONT COLOR="#B22222">// LES ../ ONT ETE SIMPLIFIES
+</FONT></I>  a = curr;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+    a++;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a)
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*(a++) == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      strcatbuff(s, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>);
+  <I><FONT COLOR="#B22222">//if (strlen(s)==0) strcatbuff(s,&quot;/&quot;);
+</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (slash)
+    strcatbuff(s, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);         <I><FONT COLOR="#B22222">// garder absolu!!
+</FONT></I>
+  <I><FONT COLOR="#B22222">// on est dans le répertoire de départ, copier
+</FONT></I>  strcatbuff(s, link + ((*link == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0));
+
+  <I><FONT COLOR="#B22222">/* Security check */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(s) &gt;= HTS_URLMAXSIZE)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+
+  <I><FONT COLOR="#B22222">// on a maintenant une chaine de la forme ../../test/truc.html  
+</FONT></I>  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* Is the link absolute (http://www..) or relative (/bar/foo.html) ? */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">link_has_authority</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lien) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = lien;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (isalpha((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a)) {
+    <I><FONT COLOR="#B22222">// Skip scheme?
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>(isalpha((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a))
+      a++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">':'</FONT></B>)
+      a++;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(a, <B><FONT COLOR="#BC8F8F">&quot;//&quot;</FONT></B>, 2) == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">link_has_authorization</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lien) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr = jump_protocol_const(lien);
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *firstslash = strchr(adr, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>);
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *detect = strchr(adr, <B><FONT COLOR="#BC8F8F">'@'</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (firstslash) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (detect) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> (detect &lt; firstslash);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> (detect != NULL);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// conversion chemin de fichier/dossier vers 8-3 ou ISO9660
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">long_to_83</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> mode, <B><FONT COLOR="#228B22">char</FONT></B> *n83, <B><FONT COLOR="#228B22">char</FONT></B> *save) {
+  n83[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*save) {
+    <B><FONT COLOR="#228B22">char</FONT></B> fn83[256], fnl[256];
+    size_t i, j;
+
+    fn83[0] = fnl[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = j = 0 ; save[i] &amp;&amp; save[i] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B> ; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (j + 1 &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(fnl)) {
+        fnl[j++] = save[i];
+      }
+    }
+    fnl[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <I><FONT COLOR="#B22222">// conversion
+</FONT></I>    longfile_to_83(mode, fn83, fnl);
+    strcatbuff(n83, fn83);
+
+    save += i;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*save == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+      strcatbuff(n83, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+      save++;
+    }
+  }
+}
+
+<I><FONT COLOR="#B22222">// conversion nom de fichier/dossier isolé vers 8-3 ou ISO9660
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">longfile_to_83</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> mode, <B><FONT COLOR="#228B22">char</FONT></B> *n83, <B><FONT COLOR="#228B22">char</FONT></B> *save) {
+  <B><FONT COLOR="#228B22">int</FONT></B> j = 0, max = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> nom[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> ext[256];
+
+  nom[0] = ext[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">switch</FONT></B> (mode) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+    max = 8;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:
+    max = 31;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    max = 8;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+
+  <I><FONT COLOR="#B22222">/* No starting . */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (save[0] == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+    save[0] = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+  }
+  <I><FONT COLOR="#B22222">/* No multiple dots */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">char</FONT></B> *last_dot = strrchr(save, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>);
+    <B><FONT COLOR="#228B22">char</FONT></B> *dot;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>((dot = strchr(save, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))) {
+      *dot = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (last_dot) {
+      *last_dot = <B><FONT COLOR="#BC8F8F">'.'</FONT></B>;
+    }
+  }
+  <I><FONT COLOR="#B22222">/* 
+     Avoid: (ISO9660, but also suitable for 8-3)
+     (Thanks to jonat@cellcast.com for te hint)
+     /:;?\#*~
+     0x00-0x1f and 0x80-0xff
+   */</FONT></I>
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0; save[i] != 0; i++) {
+    <B><FONT COLOR="#228B22">char</FONT></B> a = save[i];
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (a &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> &amp;&amp; a &lt;= <B><FONT COLOR="#BC8F8F">'z'</FONT></B>) {
+      a -= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>;
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!
+          ((a &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; a &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>) || (a &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; a &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>) || a == <B><FONT COLOR="#BC8F8F">'_'</FONT></B>
+           || a == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (j != 0 &amp;&amp; save[j - 1] == <B><FONT COLOR="#BC8F8F">'_'</FONT></B>) {
+        <B><FONT COLOR="#A020F0">continue</FONT></B>;  <I><FONT COLOR="#B22222">// avoid __
+</FONT></I>      }
+      a = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+    }
+    save[j++] = a;
+  }
+  save[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  i = j = 0;
+  <B><FONT COLOR="#A020F0">while</FONT></B>((i &lt; max) &amp;&amp; (save[j]) &amp;&amp; (save[j] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (save[j] != <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+      nom[i] = save[j];
+      i++;
+    }
+    j++;
+  }                             <I><FONT COLOR="#B22222">// recopier nom
+</FONT></I>  nom[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (save[j]) {                <I><FONT COLOR="#B22222">// il reste au moins un point
+</FONT></I>    i = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(save) - 1;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((i &gt; 0) &amp;&amp; (save[i] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) &amp;&amp; (save[i] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+      i--;                      <I><FONT COLOR="#B22222">// rechercher dernier .
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (save[i] == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {       <I><FONT COLOR="#B22222">// point!
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> j = 0;
+
+      i++;
+      <B><FONT COLOR="#A020F0">while</FONT></B>((j &lt; 3) &amp;&amp; (save[i])) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (save[i] != <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+          ext[j] = save[i];
+          j++;
+        }
+        i++;
+      }
+      ext[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+  }
+  <I><FONT COLOR="#B22222">// corriger vers 8-3
+</FONT></I>  n83[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  strncatbuff(n83, nom, max);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(ext)) {
+    strcatbuff(n83, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>);
+    strncatbuff(n83, ext, 3);
+  }
+}
+
+<I><FONT COLOR="#B22222">// écrire backblue.gif
+</FONT></I><I><FONT COLOR="#B22222">/* Note: utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">verif_backblue</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *base) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = 0;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (!base) {                  <I><FONT COLOR="#B22222">// init
+</FONT></I>    opt-&gt;state.verif_backblue_done = 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((!opt-&gt;state.verif_backblue_done)
+      || (fsize_utf8(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), base, <B><FONT COLOR="#BC8F8F">&quot;backblue.gif&quot;</FONT></B>)) !=
+          HTS_DATA_BACK_GIF_LEN)) {
+    FILE *fp =
+      filecreate(&amp;opt-&gt;state.strc,
+                 fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), base, <B><FONT COLOR="#BC8F8F">&quot;backblue.gif&quot;</FONT></B>));
+    opt-&gt;state.verif_backblue_done = 1;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(HTS_DATA_BACK_GIF, HTS_DATA_BACK_GIF_LEN, 1, fp) !=
+          HTS_DATA_BACK_GIF_LEN)
+        ret = 1;
+      fclose(fp);
+      usercommand(opt, 0, NULL,
+                  fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), base, <B><FONT COLOR="#BC8F8F">&quot;backblue.gif&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      ret = 1;
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    fp =
+      filecreate(&amp;opt-&gt;state.strc,
+                 fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), base, <B><FONT COLOR="#BC8F8F">&quot;fade.gif&quot;</FONT></B>));
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(HTS_DATA_FADE_GIF, HTS_DATA_FADE_GIF_LEN, 1, fp) !=
+          HTS_DATA_FADE_GIF_LEN)
+        ret = 1;
+      fclose(fp);
+      usercommand(opt, 0, NULL, fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), base, <B><FONT COLOR="#BC8F8F">&quot;fade.gif&quot;</FONT></B>),
+                  <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      ret = 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<I><FONT COLOR="#B22222">// flag
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">verif_external</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> nb, <B><FONT COLOR="#228B22">int</FONT></B> test) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> flag = 1 &lt;&lt; nb;
+  <B><FONT COLOR="#228B22">int</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> status = &amp;opt-&gt;state.verif_external_status;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!test)
+    *status &amp;= ~flag;             <I><FONT COLOR="#B22222">// reset
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((*status &amp; flag) == 0) {
+    *status |= flag;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// recherche chaîne de type truc&lt;espaces&gt;=
+</FONT></I><I><FONT COLOR="#B22222">// renvoi décalage à effectuer ou 0 si non trouvé
+</FONT></I><I><FONT COLOR="#B22222">/* SECTION OPTIMISEE:
+#define rech_tageq(adr,s) ( \
+  ( (*(adr-1)=='&lt;') || (is_space(*(adr-1))) ) ? \
+    ( (streql(*adr,*s)) ? \
+      (__rech_tageq(adr,s)) \
+      : 0 \
+    ) \
+    : 0\
+  )
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTS_INLINE int rech_tageq(const char* adr,const char* s) { 
+  if ( (*(adr-1)=='&lt;') || (is_space(*(adr-1))) ) {   // &lt;tag &lt; tag etc
+    if (streql(*adr,*s)) {                           // tester premier octet (optimisation)
+      return __rech_tageq(adr,s);
+    }
+  }
+  return 0;
+}
+*/</FONT></I>
+<I><FONT COLOR="#B22222">// Deuxième partie
+</FONT></I>HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">__rech_tageq</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+  p = strfield(adr, s);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (p) {
+    <B><FONT COLOR="#A020F0">while</FONT></B>(is_space(adr[p]))
+      p++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == <B><FONT COLOR="#BC8F8F">'='</FONT></B>) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> p + 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">rech_tageq_all</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+  <B><FONT COLOR="#228B22">char</FONT></B> quot = 0;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *token = NULL;
+  <B><FONT COLOR="#228B22">int</FONT></B> s_len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(s);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (adr == NULL) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">for</FONT></B>(p = 0; adr[p] != 0; p++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (quot == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> || adr[p] == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>) {
+        quot = adr[p];
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == <B><FONT COLOR="#BC8F8F">'='</FONT></B> || is_realspace(adr[p])) {
+        token = NULL;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>) {
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">/* note: bogus for bogus foo = bar */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (token == NULL) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(&amp;adr[p], s, s_len) == 0
+              &amp;&amp; (is_realspace(adr[p + s_len]) || adr[p + s_len] == <B><FONT COLOR="#BC8F8F">'='</FONT></B>)
+            ) {
+            <B><FONT COLOR="#A020F0">for</FONT></B>(p += s_len; is_realspace(adr[p]) || adr[p] == <B><FONT COLOR="#BC8F8F">'='</FONT></B>; p++) ;
+            <B><FONT COLOR="#A020F0">return</FONT></B> p;
+          }
+          token = &amp;adr[p];
+        }
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == quot) {
+      quot = 0;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">rech_endtoken</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> **start) {
+  <B><FONT COLOR="#228B22">char</FONT></B> quote = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#228B22">int</FONT></B> length = 0;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(is_space(*adr))
+    adr++;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*adr == <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> || *adr == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>)
+    quote = *adr++;
+  *start = adr;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*adr != 0 &amp;&amp; *adr != quote &amp;&amp; (quote != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> || !is_space(*adr))) {
+    length++;
+    adr++;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> length;
+}
+
+<I><FONT COLOR="#B22222">// same, but check beginning of adr with s (for &lt;object src=&quot;bar.mov&quot; .. hotspot123=&quot;foo.html&quot;&gt;)
+</FONT></I>HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">__rech_tageqbegdigits</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+  p = strfield(adr, s);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (p) {
+    <B><FONT COLOR="#A020F0">while</FONT></B>(isdigit((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) adr[p]))
+      p++;                      <I><FONT COLOR="#B22222">// jump digits
+</FONT></I>    <B><FONT COLOR="#A020F0">while</FONT></B>(is_space(adr[p]))
+      p++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (adr[p] == <B><FONT COLOR="#BC8F8F">'='</FONT></B>) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> p + 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// tag sans =
+</FONT></I>HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">rech_sampletag</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((*(adr - 1) == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>) || (is_space(*(adr - 1)))) {  <I><FONT COLOR="#B22222">// &lt;tag &lt; tag etc
+</FONT></I>    p = strfield(adr, s);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (p) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!isalnum((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) adr[p])) {   <I><FONT COLOR="#B22222">// &lt;srcbis n'est pas &lt;src
+</FONT></I>        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// teste si le tag contenu dans from est égal à &quot;tag&quot;
+</FONT></I>HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_tag</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *from, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = from + 1;
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(is_space(*a))
+    a++;
+  <B><FONT COLOR="#A020F0">for</FONT></B>( ; (isalnum((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *a) || (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)) &amp;&amp; i + 1 &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(s) ; i++, a++) {
+    s[i] = *a;
+  }
+  s[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> strfield2(s, tag);   <I><FONT COLOR="#B22222">// comparer
+</FONT></I>}
+
+<I><FONT COLOR="#B22222">// teste si un fichier dépasse le quota
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">istoobig</FONT></B>(httrackp * opt, LLint size, LLint maxhtml, LLint maxnhtml,
+             <B><FONT COLOR="#228B22">char</FONT></B> *type) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ok = 1;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (is_hypertext_mime(opt, type, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (maxhtml &gt; 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; maxhtml)
+          ok = 0;
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (maxnhtml &gt; 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; maxnhtml)
+          ok = 0;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (!ok);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">sortTopIndexFnc</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *a_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *b_) {
+  <B><FONT COLOR="#228B22">int</FONT></B> cmp;
+  <B><FONT COLOR="#228B22">const</FONT></B> topindex_chain *<B><FONT COLOR="#228B22">const</FONT></B>*<B><FONT COLOR="#228B22">const</FONT></B> a = (<B><FONT COLOR="#228B22">const</FONT></B> topindex_chain *<B><FONT COLOR="#228B22">const</FONT></B>*) a_;
+  <B><FONT COLOR="#228B22">const</FONT></B> topindex_chain *<B><FONT COLOR="#228B22">const</FONT></B>*<B><FONT COLOR="#228B22">const</FONT></B> b = (<B><FONT COLOR="#228B22">const</FONT></B> topindex_chain *<B><FONT COLOR="#228B22">const</FONT></B>*) b_;
+
+  <I><FONT COLOR="#B22222">/* Category first, then name */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((cmp = (*a)-&gt;level - (*b)-&gt;level) == 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((cmp = strcmpnocase((*a)-&gt;category, (*b)-&gt;category)) == 0) {
+      cmp = strcmpnocase((*a)-&gt;name, (*b)-&gt;name);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> cmp;
+}
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hts_template_format_buf {
+  FILE *fp;
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffer;
+  size_t size;
+  size_t offset;
+} hts_template_format_buf;
+
+<I><FONT COLOR="#B22222">// note: upstream arg list MUST be NULL-terminated for safety
+</FONT></I><I><FONT COLOR="#B22222">// returns a negative value upon error
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_template_formatv</FONT></B>(hts_template_format_buf *buf, 
+                                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, va_list args) {
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FPUTC</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FPUTS</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FPUTC</FONT></B>(C) do { \
+  if (buf-&gt;fp != NULL) { \
+    assertf(buf-&gt;buffer == NULL); \
+    if (fputc(C, buf-&gt;fp) &lt; 0) { \
+      return -1; \
+    } \
+  } else { \
+    assertf(buf-&gt;buffer != NULL); \
+    if (buf-&gt;offset + 1 &lt; buf-&gt;size) { \
+      buf-&gt;buffer[buf-&gt;offset++] = (C); \
+    } else { \
+      return -1; \
+    } \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FPUTS</FONT></B>(S) do { \
+  size_t i; \
+  const char *const str_ = (S); \
+  assertf(str_ != NULL); \
+  for(i = 0 ; str_[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) { \
+    FPUTC(str_[i]); \
+  } \
+} while(0)
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (buf != NULL &amp;&amp; format != NULL) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *arg_expanded[32];
+    size_t i, nbArgs, posArgs;
+    <I><FONT COLOR="#B22222">/* Expand internal code args. */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(nbArgs = 0 ; ( str = va_arg(args, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) ) != NULL ; nbArgs++) {
+      assertf(nbArgs &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(arg_expanded)/<B><FONT COLOR="#A020F0">sizeof</FONT></B>(arg_expanded[0]));
+      arg_expanded[nbArgs] = str;
+    }
+    <I><FONT COLOR="#B22222">/* Expand user-injected format string. */</FONT></I>
+    <B><FONT COLOR="#A020F0">for</FONT></B>(posArgs = 0, i = 0 ; format[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = format[i];
+      <B><FONT COLOR="#A020F0">if</FONT></B> (c == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> cFormat = format[++i];
+        <B><FONT COLOR="#A020F0">switch</FONT></B>(cFormat) {
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'%'</FONT></B>:
+          FPUTC(<B><FONT COLOR="#BC8F8F">'%'</FONT></B>);
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'s'</FONT></B>:
+          <B><FONT COLOR="#A020F0">if</FONT></B> (posArgs &lt; nbArgs) {
+            assertf(arg_expanded[posArgs] != NULL);
+            FPUTS(arg_expanded[posArgs]);
+            posArgs++;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            FPUTS(<B><FONT COLOR="#BC8F8F">&quot;???&quot;</FONT></B>);  <I><FONT COLOR="#B22222">/* error (args overflow) */</FONT></I>
+          }
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#5F9EA0">default</FONT></B>:  <I><FONT COLOR="#B22222">/* ignored */</FONT></I>
+          FPUTC(<B><FONT COLOR="#BC8F8F">'%'</FONT></B>);
+          FPUTC(cFormat);
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        FPUTC(c);
+      }
+    }
+    <I><FONT COLOR="#B22222">/* Terminating NULL. */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buf-&gt;buffer != NULL) {
+      buf-&gt;buffer[buf-&gt;offset] = 0;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  }
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FPUTC</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FPUTS</FONT>
+}
+
+<I><FONT COLOR="#B22222">// note: upstream arg list MUST be NULL-terminated for safety
+</FONT></I><I><FONT COLOR="#B22222">// returns a negative value upon error
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_template_format</FONT></B>(FILE *<B><FONT COLOR="#228B22">const</FONT></B> out, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, ...) {
+  <B><FONT COLOR="#228B22">int</FONT></B> success;
+  hts_template_format_buf buf = { NULL, NULL, 0, 0 };
+  va_list args;
+  buf.fp = out;
+  va_start(args, format);
+  success = hts_template_formatv(&amp;buf, format, args);
+  va_end(args);
+  <B><FONT COLOR="#A020F0">return</FONT></B> success;
+}
+
+<I><FONT COLOR="#B22222">// note: upstream arg list MUST be NULL-terminated for safety
+</FONT></I><I><FONT COLOR="#B22222">// returns a negative value upon error
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_template_format_str</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buffer, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, ...) {
+  <B><FONT COLOR="#228B22">int</FONT></B> success;
+  hts_template_format_buf buf = { NULL, NULL, 0, 0 };
+  va_list args;
+  buf.buffer = buffer;
+  buf.size = size;
+  va_start(args, format);
+  success = hts_template_formatv(&amp;buf, format, args);
+  va_end(args);
+  <B><FONT COLOR="#A020F0">return</FONT></B> success;
+}
+
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_buildtopindex</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *binpath) {
+  FILE *fpo;
+  <B><FONT COLOR="#228B22">int</FONT></B> retval = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK rpath[1024 * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> *toptemplate_header = NULL, *toptemplate_body =
+    NULL, *toptemplate_footer = NULL, *toptemplate_bodycat = NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <I><FONT COLOR="#B22222">// et templates html
+</FONT></I>  toptemplate_header =
+    readfile_or(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), binpath, <B><FONT COLOR="#BC8F8F">&quot;templates/topindex-header.html&quot;</FONT></B>),
+                HTS_INDEX_HEADER);
+  toptemplate_body =
+    readfile_or(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), binpath, <B><FONT COLOR="#BC8F8F">&quot;templates/topindex-body.html&quot;</FONT></B>),
+                HTS_INDEX_BODY);
+  toptemplate_bodycat =
+    readfile_or(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), binpath, <B><FONT COLOR="#BC8F8F">&quot;templates/topindex-bodycat.html&quot;</FONT></B>),
+                HTS_INDEX_BODYCAT);
+  toptemplate_footer =
+    readfile_or(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), binpath, <B><FONT COLOR="#BC8F8F">&quot;templates/topindex-footer.html&quot;</FONT></B>),
+                HTS_INDEX_FOOTER);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (toptemplate_header &amp;&amp; toptemplate_body &amp;&amp; toptemplate_footer
+      &amp;&amp; toptemplate_bodycat) {
+
+    strcpybuff(rpath, path);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[0]) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[strlen(rpath) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+        rpath[strlen(rpath) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+
+    fpo = fopen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), rpath, <B><FONT COLOR="#BC8F8F">&quot;/index.html&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fpo) {
+      find_handle h;
+
+      verif_backblue(opt, concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), rpath, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>)); <I><FONT COLOR="#B22222">// générer gif
+</FONT></I>      <I><FONT COLOR="#B22222">// Header
+</FONT></I>      hts_template_format(fpo, toptemplate_header,
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Mirror and index made by HTTrack Website Copier/&quot;</FONT></B>
+              HTTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B> HTTRACK_AFF_AUTHORS <B><FONT COLOR="#BC8F8F">&quot; --&gt;&quot;</FONT></B>, <I><FONT COLOR="#B22222">/* EOF */</FONT></I> NULL);
+
+      <I><FONT COLOR="#B22222">/* Find valid project names */</FONT></I>
+      h = hts_findfirst(rpath);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (h) {
+        <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain *chain = NULL;
+        <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain *startchain = NULL;
+        String iname = STRING_EMPTY;
+        <B><FONT COLOR="#228B22">int</FONT></B> chainSize = 0;
+
+        <B><FONT COLOR="#A020F0">do</FONT></B> {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (hts_findisdir(h)) {
+            StringCopy(iname, rpath);
+            StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            StringCat(iname, hts_findgetname(h));
+            StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/index.html&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(StringBuff(iname))) {
+              <B><FONT COLOR="#228B22">int</FONT></B> level = 0;
+              <B><FONT COLOR="#228B22">char</FONT></B> *category = NULL;
+              <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain *oldchain = chain;
+
+              <I><FONT COLOR="#B22222">/* Check for an existing category */</FONT></I>
+              StringCopy(iname, rpath);
+              StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+              StringCat(iname, hts_findgetname(h));
+              StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/hts-cache/winprofile.ini&quot;</FONT></B>);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(StringBuff(iname))) {
+                category = hts_getcategory(StringBuff(iname));
+                <B><FONT COLOR="#A020F0">if</FONT></B> (category != NULL) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (*category == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                    freet(category);
+                    category = NULL;
+                  }
+                }
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (category == NULL) {
+                category = strdupt(<B><FONT COLOR="#BC8F8F">&quot;No categories&quot;</FONT></B>);
+                level = 1;
+              }
+
+              chain = calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain), 1);
+              chainSize++;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!startchain) {
+                startchain = chain;
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (chain) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (oldchain) {
+                  oldchain-&gt;next = chain;
+                }
+                chain-&gt;next = NULL;
+                strcpybuff(chain-&gt;name, hts_findgetname(h));
+                chain-&gt;category = category;
+                chain-&gt;level = level;
+              }
+            }
+
+          }
+        } <B><FONT COLOR="#A020F0">while</FONT></B>(hts_findnext(h));
+        hts_findclose(h);
+        StringFree(iname);
+
+        <I><FONT COLOR="#B22222">/* Sort chain */</FONT></I>
+        {
+          <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain **sortedElts =
+            (<B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain **) calloct(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(topindex_chain *),
+                                               chainSize);
+          assertf(sortedElts != NULL);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (sortedElts != NULL) {
+            <B><FONT COLOR="#228B22">int</FONT></B> i;
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *category = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+
+            <I><FONT COLOR="#B22222">/* Build array */</FONT></I>
+            <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain *chain = startchain;
+
+            <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; chainSize; i++) {
+              assertf(chain != NULL);
+              sortedElts[i] = chain;
+              chain = chain-&gt;next;
+            }
+            qsort(sortedElts, chainSize, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(topindex_chain *),
+                  sortTopIndexFnc);
+
+            <I><FONT COLOR="#B22222">/* Build sorted index */</FONT></I>
+            <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; chainSize; i++) {
+              <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK hname[HTS_URLMAXSIZE * 2];
+
+              escape_uri_utf(sortedElts[i]-&gt;name, hname, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hname));
+
+              <I><FONT COLOR="#B22222">/* Changed category */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(category, sortedElts[i]-&gt;category) != 0) {
+                category = sortedElts[i]-&gt;category;
+                hts_template_format(fpo, toptemplate_bodycat, category, <I><FONT COLOR="#B22222">/* EOF */</FONT></I> NULL);
+              }
+              hts_template_format(fpo, toptemplate_body, hname, sortedElts[i]-&gt;name, <I><FONT COLOR="#B22222">/* EOF */</FONT></I> NULL);
+            }
+
+            <I><FONT COLOR="#B22222">/* Wipe elements */</FONT></I>
+            <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; chainSize; i++) {
+              freet(sortedElts[i]-&gt;category);
+              freet(sortedElts[i]);
+              sortedElts[i] = NULL;
+            }
+            freet(sortedElts);
+
+            <I><FONT COLOR="#B22222">/* Return value */</FONT></I>
+            retval = 1;
+          }
+        }
+
+      }
+      <I><FONT COLOR="#B22222">// Footer
+</FONT></I>      hts_template_format(fpo, toptemplate_footer,
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;!-- Mirror and index made by HTTrack Website Copier/&quot;</FONT></B>
+              HTTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B> HTTRACK_AFF_AUTHORS <B><FONT COLOR="#BC8F8F">&quot; --&gt;&quot;</FONT></B>, <I><FONT COLOR="#B22222">/* EOF */</FONT></I> NULL);
+
+      fclose(fpo);
+
+    }
+
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (toptemplate_header)
+    freet(toptemplate_header);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (toptemplate_body)
+    freet(toptemplate_body);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (toptemplate_footer)
+    freet(toptemplate_footer);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (toptemplate_body)
+    freet(toptemplate_body);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> retval;
+}
+
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getcategory</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  String categ = STRING_EMPTY;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(filename)) {
+    FILE *fp = fopen(filename, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+      <B><FONT COLOR="#228B22">int</FONT></B> done = 0;
+
+      <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp) &amp;&amp; !done) {
+        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[1024];
+        <B><FONT COLOR="#228B22">int</FONT></B> n = linput(fp, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (n &gt; 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line, <B><FONT COLOR="#BC8F8F">&quot;category=&quot;</FONT></B>)) {
+            unescapehttp(line + 9, &amp;categ);
+            done = 1;
+          }
+        }
+      }
+      fclose(fp);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> StringBuffRW(categ);
+}
+
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getcategories</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">int</FONT></B> type) {
+  String categ = STRING_EMPTY;
+  String profiles = STRING_EMPTY;
+  <B><FONT COLOR="#228B22">char</FONT></B> *rpath = path;
+  find_handle h;
+  coucal hashCateg = NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[0]) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[strlen(rpath) - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+      rpath[strlen(rpath) - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;  <I><FONT COLOR="#B22222">/* note: patching stored (inhash) value */</FONT></I>
+    }
+  }
+  h = hts_findfirst(rpath);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (h) {
+    String iname = STRING_EMPTY;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (type == 1) {
+      hashCateg = coucal_new(0);
+      coucal_set_name(hashCateg, <B><FONT COLOR="#BC8F8F">&quot;hashCateg&quot;</FONT></B>);
+      StringCat(categ, <B><FONT COLOR="#BC8F8F">&quot;Test category 1&quot;</FONT></B>);
+      StringCat(categ, <B><FONT COLOR="#BC8F8F">&quot;\r\nTest category 2&quot;</FONT></B>);
+    }
+    <B><FONT COLOR="#A020F0">do</FONT></B> {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hts_findisdir(h)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line2[1024];
+
+        StringCopy(iname, rpath);
+        StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+        StringCat(iname, hts_findgetname(h));
+        StringCat(iname, <B><FONT COLOR="#BC8F8F">&quot;/hts-cache/winprofile.ini&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(StringBuff(iname))) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (type == 1) {
+            FILE *fp = fopen(StringBuff(iname), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+              <B><FONT COLOR="#228B22">int</FONT></B> done = 0;
+
+              <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp) &amp;&amp; !done) {
+                <B><FONT COLOR="#228B22">int</FONT></B> n = linput(fp, line2, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line2) - 2);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (n &gt; 0) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line2, <B><FONT COLOR="#BC8F8F">&quot;category=&quot;</FONT></B>)) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (*(line2 + 9)) {
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_read(hashCateg, line2 + 9, NULL)) {
+                        coucal_write(hashCateg, line2 + 9, 0);
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(categ) &gt; 0) {
+                          StringCat(categ, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+                        }
+                        unescapehttp(line2 + 9, &amp;categ);
+                      }
+                    }
+                    done = 1;
+                  }
+                }
+              }
+              line2[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              fclose(fp);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (StringLength(profiles) &gt; 0) {
+              StringCat(profiles, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+            }
+            StringCat(profiles, hts_findgetname(h));
+          }
+        }
+
+      }
+    } <B><FONT COLOR="#A020F0">while</FONT></B>(hts_findnext(h));
+    hts_findclose(h);
+    StringFree(iname);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashCateg) {
+    coucal_delete(&amp;hashCateg);
+    hashCateg = NULL;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (type == 1)
+    <B><FONT COLOR="#A020F0">return</FONT></B> StringBuffRW(categ);
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> StringBuffRW(profiles);
+}
+
+<I><FONT COLOR="#B22222">// Portable directory find functions
+</FONT></I><I><FONT COLOR="#B22222">/*
+// Example:
+find_handle h = hts_findfirst(&quot;/tmp&quot;);
+if (h) {
+  do {
+    if (hts_findisfile(h))
+      printf(&quot;File: %s (%d octets)\n&quot;,hts_findgetname(h),hts_findgetsize(h));
+    else if (hts_findisdir(h))
+      printf(&quot;Dir: %s\n&quot;,hts_findgetname(h));
+  } while(hts_findnext(h));
+  hts_findclose(h);
+}
+*/</FONT></I>
+HTSEXT_API find_handle <B><FONT COLOR="#0000FF">hts_findfirst</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (path) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(path)) {
+      find_handle_struct *find =
+        (find_handle_struct *) calloc(1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(find_handle_struct));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+        memset(find, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(find_handle_struct));
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+        {
+          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK rpath[1024 * 2];
+
+          strcpybuff(rpath, path);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[0]) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (rpath[strlen(rpath) - 1] != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)
+              strcatbuff(rpath, <B><FONT COLOR="#BC8F8F">&quot;\\&quot;</FONT></B>);
+          }
+          strcatbuff(rpath, <B><FONT COLOR="#BC8F8F">&quot;*.*&quot;</FONT></B>);
+          find-&gt;handle = FindFirstFileA(rpath, &amp;find-&gt;hdata);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;handle != INVALID_HANDLE_VALUE)
+            <B><FONT COLOR="#A020F0">return</FONT></B> find;
+        }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        strcpybuff(find-&gt;path, path);
+        {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;path[0]) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;path[strlen(find-&gt;path) - 1] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              strcatbuff(find-&gt;path, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+          }
+        }
+        find-&gt;hdir = opendir(path);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;hdir != NULL) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (hts_findnext(find) == 1)
+            <B><FONT COLOR="#A020F0">return</FONT></B> find;
+        }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        free((<B><FONT COLOR="#228B22">void</FONT></B> *) find);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findnext</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((FindNextFileA(find-&gt;handle, &amp;find-&gt;hdata)))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+    memset(&amp;(find-&gt;filestat), 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(find-&gt;filestat));
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((find-&gt;dirp = readdir(find-&gt;hdir)))
+      <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;dirp-&gt;d_name)
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!STAT
+            (concat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), find-&gt;path, find-&gt;dirp-&gt;d_name), &amp;find-&gt;filestat))
+          <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findclose</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;handle) {
+      FindClose(find-&gt;handle);
+      find-&gt;handle = NULL;
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;hdir) {
+      closedir(find-&gt;hdir);
+      find-&gt;hdir = NULL;
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    free((<B><FONT COLOR="#228B22">void</FONT></B> *) find);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_findgetname</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    <B><FONT COLOR="#A020F0">return</FONT></B> find-&gt;hdata.cFileName;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;dirp)
+      <B><FONT COLOR="#A020F0">return</FONT></B> find-&gt;dirp-&gt;d_name;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findgetsize</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    <B><FONT COLOR="#A020F0">return</FONT></B> find-&gt;hdata.nFileSizeLow;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> find-&gt;filestat.st_size;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findisdir</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!hts_findissystem(find)) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;hdata.dwFileAttributes &amp; FILE_ATTRIBUTE_DIRECTORY)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (S_ISDIR(find-&gt;filestat.st_mode))
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findisfile</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!hts_findissystem(find)) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!(find-&gt;hdata.dwFileAttributes &amp; FILE_ATTRIBUTE_DIRECTORY))
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (S_ISREG(find-&gt;filestat.st_mode))
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findissystem</FONT></B>(find_handle find) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (find) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (find-&gt;hdata.
+        dwFileAttributes &amp; (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN |
+                            FILE_ATTRIBUTE_TEMPORARY))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((!strcmp(find-&gt;hdata.cFileName, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>))
+             || (!strcmp(find-&gt;hdata.cFileName, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>)))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((S_ISCHR(find-&gt;filestat.st_mode))
+        || (S_ISBLK(find-&gt;filestat.st_mode))
+        || (S_ISFIFO(find-&gt;filestat.st_mode))
+        || (S_ISSOCK(find-&gt;filestat.st_mode))
+      )
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((!strcmp(find-&gt;dirp-&gt;d_name, <B><FONT COLOR="#BC8F8F">&quot;..&quot;</FONT></B>))
+             || (!strcmp(find-&gt;dirp-&gt;d_name, <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>)))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htstools.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

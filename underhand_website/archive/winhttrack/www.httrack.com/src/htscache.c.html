@@ -1,0 +1,2234 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htscache.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htscache.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htscache.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       cache system (index and stores files in cache)         */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscache.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbasenet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmd5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;time.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htszlib.h&quot;</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">// routines de mise en cache
+</FONT></I>
+<I><FONT COLOR="#B22222">/*
+  VERSION 1.0 :
+  -----------
+
+.ndx file
+ file with data
+   &lt;string&gt;(date/time) [ &lt;string&gt;(hostname+filename) (datfile_position_ascii) ] * number_of_links
+ file without data
+   &lt;string&gt;(date/time) [ &lt;string&gt;(hostname+filename) (-datfile_position_ascii) ] * number_of_links
+
+.dat file
+ [ file ] * 
+with
+  file= (with data)
+   [ bytes ] * sizeof(htsblk header) [ bytes ] * n(length of file given in htsblk header)
+ file= (without data)
+   [ bytes ] * sizeof(htsblk header)
+with
+ &lt;string&gt;(name) = &lt;length in ascii&gt;+&lt;lf&gt;+&lt;data&gt;
+
+  VERSION 1.1/1.2 :
+  ---------------
+
+.ndx file
+ file with data
+   &lt;string&gt;(&quot;CACHE-1.1&quot;) &lt;string&gt;(date/time) [ &lt;string&gt;(hostname+filename) (datfile_position_ascii) ] * number_of_links
+ file without data
+   &lt;string&gt;(&quot;CACHE-1.1&quot;) &lt;string&gt;(date/time) [ &lt;string&gt;(hostname+filename) (-datfile_position_ascii) ] * number_of_links
+
+.dat file
+   &lt;string&gt;(&quot;CACHE-1.1&quot;) [ [Header_1.1] [bytes] * n(length of file given in header) ] *
+with
+ Header_1.1=
+   &lt;int&gt;(statuscode)
+   &lt;int&gt;(size)
+   &lt;string&gt;(msg)
+   &lt;string&gt;(contenttype)
+   &lt;string&gt;(charset) [version 3]
+   &lt;string&gt;(last-modified)
+   &lt;string&gt;(Etag)
+   &lt;string&gt;location
+   &lt;string&gt;Content-disposition [version 2]
+   &lt;string&gt;hostname [version 4]
+   &lt;string&gt;URI filename [version 4]
+   &lt;string&gt;local filename [version 4]
+   [&lt;string&gt;&quot;SD&quot; &lt;string&gt;(supplemental data)]
+   [&lt;string&gt;&quot;SD&quot; &lt;string&gt;(supplemental data)]
+   ...
+   &lt;string&gt;&quot;HTS&quot; (end of header)
+   &lt;int&gt;(number of bytes of data) (0 if no data written)
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">// Nouveau: si != text/html ne stocke que la taille
+</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_mayadd</FONT></B>(httrackp * opt, cache_back * cache, htsblk * r,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fil,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_save) {
+  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;File checked by cache: %s&quot;</FONT></B>, url_adr);
+  <I><FONT COLOR="#B22222">// ---stockage en cache---
+</FONT></I>  <I><FONT COLOR="#B22222">// stocker dans le cache?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;cache) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cache_writable(cache)) {
+      <I><FONT COLOR="#B22222">// ensure not a temporary filename (should not happend ?!)
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (IS_DELAYED_EXT(url_save)) {
+        hts_log_print(opt, LOG_WARNING,
+                      <B><FONT COLOR="#BC8F8F">&quot;aborted cache validation: %s%s still has temporary name %s&quot;</FONT></B>,
+                      url_adr, url_fil, url_save);
+        <B><FONT COLOR="#A020F0">return</FONT></B>;
+      }
+      <I><FONT COLOR="#B22222">// c'est le seul endroit ou l'on ajoute des elements dans le cache (fichier entier ou header)
+</FONT></I>      <I><FONT COLOR="#B22222">// on stocke tout fichier &quot;ok&quot;, mais également les réponses 404,301,302...
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 1
+           r-&gt;statuscode &gt; 0
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+           <I><FONT COLOR="#B22222">/* We don't store 5XX errors, because it might be a server problem */</FONT></I>
+           (r-&gt;statuscode == HTTP_OK)   <I><FONT COLOR="#B22222">/* stocker réponse standard, plus */</FONT></I>
+           ||(r-&gt;statuscode == 204)     <I><FONT COLOR="#B22222">/* no content */</FONT></I>
+           ||HTTP_IS_REDIRECT(r-&gt;statuscode)    <I><FONT COLOR="#B22222">/* redirect */</FONT></I>
+           ||(r-&gt;statuscode == 401)     <I><FONT COLOR="#B22222">/* authorization */</FONT></I>
+           ||(r-&gt;statuscode == 403)     <I><FONT COLOR="#B22222">/* unauthorized */</FONT></I>
+           ||(r-&gt;statuscode == 404)     <I><FONT COLOR="#B22222">/* not found */</FONT></I>
+           ||(r-&gt;statuscode == 410)     <I><FONT COLOR="#B22222">/* gone */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        ) {                     <I><FONT COLOR="#B22222">/* ne pas stocker si la page générée est une erreur */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!r-&gt;is_file) {
+          <I><FONT COLOR="#B22222">// stocker fichiers (et robots.txt)
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (url_save == NULL || (strnotempty(url_save))
+              || (strcmp(url_fil, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) == 0)) {
+            <I><FONT COLOR="#B22222">// ajouter le fichier au cache
+</FONT></I>            cache_add(opt, cache, r, url_adr, url_fil, url_save,
+                      opt-&gt;all_in_cache, StringBuff(opt-&gt;path_html_utf8));
+            <I><FONT COLOR="#B22222">//
+</FONT></I>            <I><FONT COLOR="#B22222">// store a reference NOT to redo the same test zillions of times!
+</FONT></I>            <I><FONT COLOR="#B22222">// (problem reported by Lars Clausen)
+</FONT></I>            <I><FONT COLOR="#B22222">// we just store statuscode + location (if any)
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (url_save == NULL &amp;&amp; r-&gt;statuscode / 100 &gt;= 3) {
+              <I><FONT COLOR="#B22222">// cached &quot;fast&quot; header doesn't yet exists
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read
+                  (cache-&gt;cached_tests,
+                   concat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), url_adr, url_fil), NULL) == 0) {
+                <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+                sprintf(tempo, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;statuscode);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;location != NULL &amp;&amp; r-&gt;location[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                  strcatbuff(tempo, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+                  strcatbuff(tempo, r-&gt;location);
+                }
+                hts_log_print(opt, LOG_DEBUG,
+                              <B><FONT COLOR="#BC8F8F">&quot;Cached fast-header response: %s%s is %d&quot;</FONT></B>,
+                              url_adr, url_fil, (<B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;statuscode);
+                coucal_add(cache-&gt;cached_tests,
+                            concat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), url_adr, url_fil),
+                            (intptr_t) strdupt(tempo));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  <I><FONT COLOR="#B22222">// ---fin stockage en cache---
+</FONT></I>}
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 1
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_STRING</FONT></B>(headers, headersSize, field, value) do { \
+  if ( (value != NULL) &amp;&amp; (value)[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) { \
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: %s\r\n&quot;</FONT></B>, field, (value != NULL) ? (value) : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>); \
+    (headersSize) += (int) strlen(headers + headersSize); \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_INT</FONT></B>(headers, headersSize, field, value) do { \
+  if ( (value != 0) ) { \
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: &quot;</FONT></B>LLintP<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>, field, (LLint)(value)); \
+    (headersSize) += (int) strlen(headers + headersSize); \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_INT_FORCE</FONT></B>(headers, headersSize, field, value) do { \
+  sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: &quot;</FONT></B>LLintP<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>, field, (LLint)(value)); \
+  (headersSize) += (int) strlen(headers + headersSize); \
+} while(0)
+
+<B><FONT COLOR="#228B22">struct</FONT></B> cache_back_zip_entry {
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> hdrPos;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> size;
+  <B><FONT COLOR="#228B22">int</FONT></B> compressionMethod;
+};
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_READFIELD_STRING</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    strcpybuff(refvalue, value); \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_READFIELD_INT</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    int intval = 0; \
+    sscanf(value, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;intval); \
+    (refvalue) = intval; \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_READFIELD_LLINT</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    LLint intval = 0; \
+    sscanf(value, LLintP, &amp;intval); \
+    (refvalue) = intval; \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+
+<I><FONT COLOR="#B22222">/* Ajout d'un fichier en cache */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_add</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> htsblk * r,
+               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_save,
+               <B><FONT COLOR="#228B22">int</FONT></B> all_in_cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path_prefix) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK filename[HTS_URLMAXSIZE * 4];
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;          <I><FONT COLOR="#B22222">// put data in cache ?
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK headers[8192];
+  <B><FONT COLOR="#228B22">int</FONT></B> headersSize = 0;
+
+  <I><FONT COLOR="#B22222">//int entryBodySize = 0;
+</FONT></I>  <I><FONT COLOR="#B22222">//int entryFilenameSize = 0;
+</FONT></I>  zip_fileinfo fi;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_save_suffix = url_save;
+  <B><FONT COLOR="#228B22">int</FONT></B> zErr;
+
+  <I><FONT COLOR="#B22222">// robots.txt hack
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (url_save == NULL) {
+    dataincache = 0;            <I><FONT COLOR="#B22222">// testing links
+</FONT></I>  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((strnotempty(url_save) == 0)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(url_fil, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) == 0)  <I><FONT COLOR="#B22222">// robots.txt
+</FONT></I>        dataincache = 1;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">return</FONT></B>;                 <I><FONT COLOR="#B22222">// error (except robots.txt)
+</FONT></I>    }
+
+    <I><FONT COLOR="#B22222">/* Data in cache ? */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (is_hypertext_mime(opt, r-&gt;contenttype, url_fil)
+        || (may_be_hypertext_mime(opt, r-&gt;contenttype, url_fil)
+            &amp;&amp; r-&gt;adr != NULL)
+        <I><FONT COLOR="#B22222">/* store error messages! */</FONT></I>
+        || !HTTP_IS_OK(r-&gt;statuscode)
+      ) {
+      dataincache = 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (all_in_cache) {
+      dataincache = 1;
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;size &lt; 0)              <I><FONT COLOR="#B22222">// error
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B>;
+
+  <I><FONT COLOR="#B22222">// data in cache
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache) {
+    assertf(((<B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;size) == r-&gt;size);
+    <I><FONT COLOR="#B22222">//entryBodySize = (int) r-&gt;size;
+</FONT></I>  }
+
+  <I><FONT COLOR="#B22222">/* Fields */</FONT></I>
+  headers[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  headersSize = 0;
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *message;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(r-&gt;msg) &lt; 32) {
+      message = r-&gt;msg;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      message = <B><FONT COLOR="#BC8F8F">&quot;(See X-StatusMessage)&quot;</FONT></B>;
+    }
+    <I><FONT COLOR="#B22222">/* 64 characters MAX for first line */</FONT></I>
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.%c %d %s\r\n&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">'1'</FONT></B>, r-&gt;statuscode,
+            message);
+  }
+  headersSize += (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(headers + headersSize);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (path_prefix != NULL &amp;&amp; path_prefix[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; url_save != NULL
+      &amp;&amp; url_save[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    <B><FONT COLOR="#228B22">int</FONT></B> prefixLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(path_prefix);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url_save, path_prefix, prefixLen) == 0) {
+      url_save_suffix += prefixLen;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Second line MUST ALWAYS be X-In-Cache */</FONT></I>
+  ZIP_FIELD_INT_FORCE(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache&quot;</FONT></B>, dataincache);
+  ZIP_FIELD_INT(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-StatusCode&quot;</FONT></B>, r-&gt;statuscode);
+  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-StatusMessage&quot;</FONT></B>, r-&gt;msg);
+  ZIP_FIELD_INT(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Size&quot;</FONT></B>, r-&gt;size);       <I><FONT COLOR="#B22222">// size
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Content-Type&quot;</FONT></B>, r-&gt;contenttype);       <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Charset&quot;</FONT></B>, r-&gt;charset);      <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Last-Modified&quot;</FONT></B>, r-&gt;lastmodified);     <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Etag&quot;</FONT></B>, r-&gt;etag);      <I><FONT COLOR="#B22222">// Etag
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Location&quot;</FONT></B>, r-&gt;location);      <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Content-Disposition&quot;</FONT></B>, r-&gt;cdispo);     <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Addr&quot;</FONT></B>, url_adr);    <I><FONT COLOR="#B22222">// Original address
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Fil&quot;</FONT></B>, url_fil);     <I><FONT COLOR="#B22222">// Original URI filename
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Save&quot;</FONT></B>, url_save_suffix);    <I><FONT COLOR="#B22222">// Original save filename
+</FONT></I>
+  <I><FONT COLOR="#B22222">//entryFilenameSize = (int) ( strlen(url_adr) + strlen(url_fil));
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Filename */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(url_adr)) {
+    strcpybuff(filename, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    strcpybuff(filename, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  }
+  strcatbuff(filename, url_adr);
+  strcatbuff(filename, url_fil);
+
+  <I><FONT COLOR="#B22222">/* Time */</FONT></I>
+  memset(&amp;fi, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(fi));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;lastmodified[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm buffer;
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm_s = convert_time_rfc822(&amp;buffer, r-&gt;lastmodified);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (tm_s) {
+      fi.tmz_date.tm_sec = (uInt) tm_s-&gt;tm_sec;
+      fi.tmz_date.tm_min = (uInt) tm_s-&gt;tm_min;
+      fi.tmz_date.tm_hour = (uInt) tm_s-&gt;tm_hour;
+      fi.tmz_date.tm_mday = (uInt) tm_s-&gt;tm_mday;
+      fi.tmz_date.tm_mon = (uInt) tm_s-&gt;tm_mon;
+      fi.tmz_date.tm_year = (uInt) tm_s-&gt;tm_year;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Open file - NOTE: headers in &quot;comment&quot; */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipOpenNewFileInZip((zipFile) cache-&gt;zipOutput, filename, &amp;fi,
+                                  <I><FONT COLOR="#B22222">/* 
+                                     Store headers in realtime in the local file directory as extra field
+                                     In case of crash, we'll be able to recover the whole ZIP file by rescanning it
+                                   */</FONT></I>
+                                  headers, (uInt) strlen(headers), NULL, 0, NULL,       <I><FONT COLOR="#B22222">/* comment */</FONT></I>
+                                  Z_DEFLATED, Z_DEFAULT_COMPRESSION)) != Z_OK) {
+    <B><FONT COLOR="#228B22">int</FONT></B> zip_zipOpenNewFileInZip_failed = 0;
+
+    assertf(zip_zipOpenNewFileInZip_failed);
+  }
+
+  <I><FONT COLOR="#B22222">/* Write data in cache */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;is_write == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;size &gt; 0 &amp;&amp; r-&gt;adr != NULL) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr =
+             zipWriteInFileInZip((zipFile) cache-&gt;zipOutput, r-&gt;adr,
+                                 (<B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;size)) != Z_OK) {
+          <B><FONT COLOR="#228B22">int</FONT></B> zip_zipWriteInFileInZip_failed = 0;
+
+          assertf(zip_zipWriteInFileInZip_failed);
+        }
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      FILE *fp;
+
+      <I><FONT COLOR="#B22222">// On recopie le fichier-&gt;.
+</FONT></I>      off_t file_size = fsize_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), url_save));
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (file_size &gt;= 0) {
+        fp = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), url_save), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[32768];
+          size_t nl;
+
+          <B><FONT COLOR="#A020F0">do</FONT></B> {
+            nl = fread(buff, 1, 32768, fp);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (nl &gt; 0) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr =
+                   zipWriteInFileInZip((zipFile) cache-&gt;zipOutput, buff,
+                                       (<B><FONT COLOR="#228B22">int</FONT></B>) nl)) != Z_OK) {
+                <B><FONT COLOR="#228B22">int</FONT></B> zip_zipWriteInFileInZip_failed = 0;
+
+                assertf(zip_zipWriteInFileInZip_failed);
+              }
+            }
+          } <B><FONT COLOR="#A020F0">while</FONT></B>(nl &gt; 0);
+          fclose(fp);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <I><FONT COLOR="#B22222">/* Err FIXME - lost file */</FONT></I>
+        }
+      }                         <I><FONT COLOR="#B22222">/* Empty files are OK */</FONT></I>
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Close */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipCloseFileInZip((zipFile) cache-&gt;zipOutput)) != Z_OK) {
+    <B><FONT COLOR="#228B22">int</FONT></B> zip_zipCloseFileInZip_failed = 0;
+
+    assertf(zip_zipCloseFileInZip_failed);
+  }
+
+  <I><FONT COLOR="#B22222">/* Flush */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipFlush((zipFile) cache-&gt;zipOutput)) != 0) {
+    <B><FONT COLOR="#228B22">int</FONT></B> zip_zipFlush_failed = 0;
+
+    assertf(zip_zipFlush_failed);
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Ajout d'un fichier en cache */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_add</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> htsblk * r,
+               <B><FONT COLOR="#228B22">char</FONT></B> *url_adr, <B><FONT COLOR="#228B22">char</FONT></B> *url_fil, <B><FONT COLOR="#228B22">char</FONT></B> *url_save, <B><FONT COLOR="#228B22">int</FONT></B> all_in_cache) {
+  <B><FONT COLOR="#228B22">int</FONT></B> pos;
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 4];
+  <B><FONT COLOR="#228B22">int</FONT></B> ok = 1;
+  <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;          <I><FONT COLOR="#B22222">// donnée en cache?
+</FONT></I>  FILE *cache_ndx = cache-&gt;ndx;
+  FILE *cache_dat = cache-&gt;dat;
+
+  <I><FONT COLOR="#B22222">/*char digest[32+2]; */</FONT></I>
+  <I><FONT COLOR="#B22222">/*digest[0]='\0'; */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// Longueur url_save==0?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> ((strnotempty(url_save) == 0)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(url_fil, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) == 0)    <I><FONT COLOR="#B22222">// robots.txt
+</FONT></I>      dataincache = 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(url_fil, <B><FONT COLOR="#BC8F8F">&quot;/test&quot;</FONT></B>) == 0)     <I><FONT COLOR="#B22222">// testing links
+</FONT></I>      dataincache = 0;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B>;                   <I><FONT COLOR="#B22222">// erreur (sauf robots.txt)
+</FONT></I>  }
+
+  <I><FONT COLOR="#B22222">/*
+     if (r-&gt;size &lt;= 0)   // taille &lt;= 0 
+     return;          // refusé..
+   */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// Mettre les *donées* en cache ?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (is_hypertext_mime(opt, r-&gt;contenttype, url_fil))  <I><FONT COLOR="#B22222">// html, mise en cache des données et 
+</FONT></I>    dataincache = 1;            <I><FONT COLOR="#B22222">// pas uniquement de l'en tête
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (all_in_cache)
+    dataincache = 1;            <I><FONT COLOR="#B22222">// forcer tout en cache
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* calcul md5 ? */</FONT></I>
+  <I><FONT COLOR="#B22222">/*
+     if (is_hypertext_mime(opt,r-&gt;contenttype)) {    // html, calcul MD5
+     if (r-&gt;adr) {
+     domd5mem(r-&gt;adr,r-&gt;size,digest,1);
+     }
+     } */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// Position
+</FONT></I>  fflush(cache_dat);
+  fflush(cache_ndx);
+  pos = ftell(cache_dat);
+  <I><FONT COLOR="#B22222">// écrire pointeur seek, adresse, fichier
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache)              <I><FONT COLOR="#B22222">// patcher
+</FONT></I>    sprintf(s, <B><FONT COLOR="#BC8F8F">&quot;%d\n&quot;</FONT></B>, pos);    <I><FONT COLOR="#B22222">// ecrire tel que (eh oui évite les \0..)
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B>
+    sprintf(s, <B><FONT COLOR="#BC8F8F">&quot;%d\n&quot;</FONT></B>, -pos);   <I><FONT COLOR="#B22222">// ecrire tel que (eh oui évite les \0..)
+</FONT></I>
+  <I><FONT COLOR="#B22222">// data
+</FONT></I>  <I><FONT COLOR="#B22222">// écrire données en-tête, données fichier
+</FONT></I>  <I><FONT COLOR="#B22222">/*if (!dataincache) {   // patcher
+     r-&gt;size=-r-&gt;size;  // négatif
+     } */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// Construction header
+</FONT></I>  ok = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wint(cache_dat, r-&gt;statuscode) != -1        <I><FONT COLOR="#B22222">// statuscode
+</FONT></I>      &amp;&amp; cache_wLLint(cache_dat, r-&gt;size) != -1 <I><FONT COLOR="#B22222">// size
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;msg) != -1    <I><FONT COLOR="#B22222">// msg
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;contenttype) != -1    <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;charset) != -1        <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;lastmodified) != -1   <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;etag) != -1   <I><FONT COLOR="#B22222">// Etag
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, (r-&gt;location != NULL) ? r-&gt;location : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>) != -1  <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;cdispo) != -1 <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, url_adr) != -1   <I><FONT COLOR="#B22222">// Original address
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, url_fil) != -1   <I><FONT COLOR="#B22222">// Original URI filename
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, url_save) != -1  <I><FONT COLOR="#B22222">// Original save filename
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, r-&gt;headers) != -1        <I><FONT COLOR="#B22222">// Full HTTP Headers
+</FONT></I>      &amp;&amp; cache_wstr(cache_dat, <B><FONT COLOR="#BC8F8F">&quot;HTS&quot;</FONT></B>) != -1     <I><FONT COLOR="#B22222">// end of header
+</FONT></I>    ) {
+    ok = 1;                     <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+  }
+  <I><FONT COLOR="#B22222">// Fin construction header
+</FONT></I>
+  <I><FONT COLOR="#B22222">/*if ((int) fwrite((char*) &amp;r,1,sizeof(htsblk),cache_dat) == sizeof(htsblk)) { */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache) {          <I><FONT COLOR="#B22222">// mise en cache?
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (!r-&gt;adr) {            <I><FONT COLOR="#B22222">/* taille nulle (parfois en cas de 301 */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wLLint(cache_dat, 0) == -1)   <I><FONT COLOR="#B22222">/* 0 bytes */</FONT></I>
+          ok = 0;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;is_write == 0) {    <I><FONT COLOR="#B22222">// en mémoire, recopie directe
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wLLint(cache_dat, r-&gt;size) != -1) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;size &gt; 0) {    <I><FONT COLOR="#B22222">// taille&gt;0
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(r-&gt;adr, 1, r-&gt;size, cache_dat) != r-&gt;size)
+              ok = 0;
+          } <B><FONT COLOR="#A020F0">else</FONT></B>                <I><FONT COLOR="#B22222">// taille=0, ne rien écrire
+</FONT></I>            ok = 0;
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          ok = 0;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// recopier fichier dans cache
+</FONT></I>        FILE *fp;
+
+        <I><FONT COLOR="#B22222">// On recopie le fichier-&gt;.
+</FONT></I>        off_t file_size = fsize_utf8(fconv(catbuff, url_save));
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (file_size &gt;= 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wLLint(cache_dat, file_size) != -1) {
+            fp = FOPEN(fconv(catbuff, url_save), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+              <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[32768];
+              ssize_t nl;
+
+              <B><FONT COLOR="#A020F0">do</FONT></B> {
+                nl = fread(buff, 1, 32768, fp);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (nl &gt; 0) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(buff, 1, nl, cache_dat) != nl) {   <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                    nl = -1;
+                    ok = 0;
+                  }
+                }
+              } <B><FONT COLOR="#A020F0">while</FONT></B>(nl &gt; 0);
+              fclose(fp);
+            } <B><FONT COLOR="#A020F0">else</FONT></B>
+              ok = 0;
+          } <B><FONT COLOR="#A020F0">else</FONT></B>
+            ok = 0;
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          ok = 0;
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wLLint(cache_dat, 0) == -1)     <I><FONT COLOR="#B22222">/* 0 bytes */</FONT></I>
+        ok = 0;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    ok = 0;
+  <I><FONT COLOR="#B22222">/*if (!dataincache) {   // dépatcher
+     r-&gt;size=-r-&gt;size;
+     } */</FONT></I>
+
+  <I><FONT COLOR="#B22222">// index
+</FONT></I>  <I><FONT COLOR="#B22222">// adresse+cr+fichier+cr
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+    buff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    strcatbuff(buff, url_adr);
+    strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+    strcatbuff(buff, url_fil);
+    strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+    cache_wstr(cache_ndx, buff);
+    fwrite(s, 1, strlen(s), cache_ndx);
+  }                             <I><FONT COLOR="#B22222">// si ok=0 on a peut être écrit des données pour rien mais on s'en tape
+</FONT></I>
+  <I><FONT COLOR="#B22222">// en cas de plantage, on aura au moins le cache!
+</FONT></I>  fflush(cache_dat);
+  fflush(cache_ndx);
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+htsblk <B><FONT COLOR="#0000FF">cache_read</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> cache_readex(opt, cache, adr, fil, save, location, NULL, 0);
+}
+
+htsblk <B><FONT COLOR="#0000FF">cache_read_ro</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> cache_readex(opt, cache, adr, fil, save, location, NULL, 1);
+}
+
+htsblk <B><FONT COLOR="#0000FF">cache_read_including_broken</FONT></B>(httrackp * opt, cache_back * cache,
+                                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  htsblk r = cache_read(opt, cache, adr, fil, NULL, NULL);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r.statuscode == -1) {
+    lien_back *itemback = NULL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (back_unserialize_ref(opt, adr, fil, &amp;itemback) == 0) {
+      r = itemback-&gt;r;
+      <I><FONT COLOR="#B22222">/* cleanup */</FONT></I>
+      back_clear_entry(itemback);       <I><FONT COLOR="#B22222">/* delete entry content */</FONT></I>
+      freet(itemback);          <I><FONT COLOR="#B22222">/* delete item */</FONT></I>
+      itemback = NULL;
+      <B><FONT COLOR="#A020F0">return</FONT></B> r;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> htsblk <B><FONT COLOR="#0000FF">cache_readex_old</FONT></B>(httrackp * opt, cache_back * cache,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                               <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly);
+
+<B><FONT COLOR="#228B22">static</FONT></B> htsblk <B><FONT COLOR="#0000FF">cache_readex_new</FONT></B>(httrackp * opt, cache_back * cache,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                               <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly);
+
+<I><FONT COLOR="#B22222">// lecture d'un fichier dans le cache
+</FONT></I><I><FONT COLOR="#B22222">// si save==null alors test unqiquement
+</FONT></I>htsblk <B><FONT COLOR="#0000FF">cache_readex</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                    <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;zipInput != NULL) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> cache_readex_new(opt, cache, adr, fil, save, location, return_save,
+                            readonly);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> cache_readex_old(opt, cache, adr, fil, save, location, return_save,
+                            readonly);
+  }
+}
+
+<I><FONT COLOR="#B22222">// lecture d'un fichier dans le cache
+</FONT></I><I><FONT COLOR="#B22222">// si save==null alors test unqiquement
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> htsblk <B><FONT COLOR="#0000FF">cache_readex_new</FONT></B>(httrackp * opt, cache_back * cache,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *target_save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                               <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK location_default[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK previous_save[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK previous_save_[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  intptr_t hash_pos;
+  <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+  htsblk r;
+
+  hts_init_htsblk(&amp;r);
+  <I><FONT COLOR="#B22222">//memset(&amp;r, 0, sizeof(htsblk)); r.soc=INVALID_SOCKET;
+</FONT></I>  location_default[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  previous_save[0] = previous_save_[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (location) {
+    r.location = location;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r.location = location_default;
+  }
+  strcpybuff(r.location, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  strcpybuff(buff, adr);
+  strcatbuff(buff, fil);
+  hash_pos_return = coucal_read(cache-&gt;hashtable, buff, &amp;hash_pos);
+  <I><FONT COLOR="#B22222">/* avoid errors on data entries */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (adr[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; adr[1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; adr[2] == <B><FONT COLOR="#BC8F8F">'['</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+    hash_pos_return = 0;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    a = NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return != 0) {
+    uLong posInZip;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos &gt; 0) {
+      posInZip = (uLong) hash_pos;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      posInZip = (uLong) - hash_pos;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unzSetOffset((unzFile) cache-&gt;zipInput, posInZip) == Z_OK) {
+      <I><FONT COLOR="#B22222">/* Read header (Max 8KiB) */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (unzOpenCurrentFile((unzFile) cache-&gt;zipInput) == Z_OK) {
+        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK headerBuff[8192 + 2];
+        <B><FONT COLOR="#228B22">int</FONT></B> readSizeHeader;
+
+        <I><FONT COLOR="#B22222">//int totalHeader = 0;
+</FONT></I>        <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;
+
+        <I><FONT COLOR="#B22222">/* For BIG comments */</FONT></I>
+        headerBuff[0]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 1]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 2]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 3] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((readSizeHeader =
+             unzGetLocalExtrafield((unzFile) cache-&gt;zipInput, headerBuff,
+                                   <B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 2)) &gt; 0)
+          <I><FONT COLOR="#B22222">/*if (unzGetCurrentFileInfo((unzFile) cache-&gt;zipInput, NULL,
+             NULL, 0, NULL, 0, headerBuff, sizeof(headerBuff) - 2) == Z_OK ) */</FONT></I>
+        {
+          <B><FONT COLOR="#228B22">int</FONT></B> offset = 0;
+          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[HTS_URLMAXSIZE + 2];
+          <B><FONT COLOR="#228B22">int</FONT></B> lineEof = 0;
+
+          <I><FONT COLOR="#B22222">/*readSizeHeader = (int) strlen(headerBuff); */</FONT></I>
+          headerBuff[readSizeHeader] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">do</FONT></B> {
+            <B><FONT COLOR="#228B22">char</FONT></B> *value;
+
+            line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            offset += binput(headerBuff + offset, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+              lineEof = 1;
+            }
+            value = strchr(line, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (value != NULL) {
+              *value++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (*value == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || *value == <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>)
+                value++;
+              ZIP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache&quot;</FONT></B>, dataincache);
+              ZIP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Statuscode&quot;</FONT></B>, r.statuscode);
+              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-StatusMessage&quot;</FONT></B>, r.msg);      <I><FONT COLOR="#B22222">// msg
+</FONT></I>              ZIP_READFIELD_LLINT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Size&quot;</FONT></B>, r.size);       <I><FONT COLOR="#B22222">// size
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Type&quot;</FONT></B>, r.contenttype); <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Charset&quot;</FONT></B>, r.charset);        <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Last-Modified&quot;</FONT></B>, r.lastmodified);       <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Etag&quot;</FONT></B>, r.etag);        <I><FONT COLOR="#B22222">// Etag
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Location&quot;</FONT></B>, r.location);        <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Disposition&quot;</FONT></B>, r.cdispo);       <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>              <I><FONT COLOR="#B22222">//ZIP_READFIELD_STRING(line, value, &quot;X-Addr&quot;, ..);            // Original address
+</FONT></I>              <I><FONT COLOR="#B22222">//ZIP_READFIELD_STRING(line, value, &quot;X-Fil&quot;, ..);            // Original URI filename
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Save&quot;</FONT></B>, previous_save_);      <I><FONT COLOR="#B22222">// Original save filename
+</FONT></I>            }
+          } <B><FONT COLOR="#A020F0">while</FONT></B>(offset &lt; readSizeHeader &amp;&amp; !lineEof);
+          <I><FONT COLOR="#B22222">//totalHeader = offset;
+</FONT></I>
+          <I><FONT COLOR="#B22222">/* Previous entry */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (previous_save_[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+            <B><FONT COLOR="#228B22">int</FONT></B> pathLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(StringBuff(opt-&gt;path_html_utf8));
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pathLen != 0 &amp;&amp; strncmp(previous_save_, StringBuff(opt-&gt;path_html_utf8), pathLen) != 0) {       <I><FONT COLOR="#B22222">// old (&lt;3.40) buggy format
+</FONT></I>              sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, StringBuff(opt-&gt;path_html_utf8),
+                      previous_save_);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpy(previous_save, previous_save_);
+            }
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (return_save != NULL) {
+            strcpybuff(return_save, previous_save);
+          }
+
+          <I><FONT COLOR="#B22222">/* Complete fields */</FONT></I>
+          r.totalsize = r.size;
+          r.adr = NULL;
+          r.out = NULL;
+          r.fp = NULL;
+
+          <I><FONT COLOR="#B22222">/* Do not get data ? Do some final tests. */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (target_save == NULL) {
+            <I><FONT COLOR="#B22222">// si save==null, ne rien charger (juste en tête)
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (r.statuscode == HTTP_OK &amp;&amp; !is_hypertext_mime(opt, r.contenttype, fil)) {       <I><FONT COLOR="#B22222">// pas HTML, écrire sur disk directement
+</FONT></I>              r.is_write = 1;   <I><FONT COLOR="#B22222">/* supposed to be on disk (informational) */</FONT></I>
+            }
+
+            <I><FONT COLOR="#B22222">/* Ensure the file is present, because returning a reference to a missing file is useless! */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!dataincache) { <I><FONT COLOR="#B22222">/* Data are supposed to be on disk */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!fexist_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save))) {        <I><FONT COLOR="#B22222">// un fichier existe déja
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;norecatch) {
+                  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: could not find %s&quot;</FONT></B>,
+                                previous_save);
+                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found&quot;</FONT></B>);
+                }
+              }
+            }                   <I><FONT COLOR="#B22222">// otherwise, the ZIP file is supposed to be consistent with data.
+</FONT></I>          }
+          <I><FONT COLOR="#B22222">/* Read data ? */</FONT></I>
+          <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">/* ne pas lire uniquement header */</FONT></I>
+            <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DIRECTDISK</FONT>
+            <I><FONT COLOR="#B22222">// Not ro, and pure data (not HTML and friends) to be saved now.
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (!readonly &amp;&amp; r.statuscode == HTTP_OK &amp;&amp; !is_hypertext_mime(opt, r.contenttype, fil) &amp;&amp; strnotempty(target_save)) {      <I><FONT COLOR="#B22222">// pas HTML, écrire sur disk directement
+</FONT></I>              r.is_write = 1;   <I><FONT COLOR="#B22222">// écrire
+</FONT></I>
+              <I><FONT COLOR="#B22222">// Data is supposed to be on disk
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (!dataincache) {
+                r.msg[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+                <I><FONT COLOR="#B22222">// File exists on disk with declared cache name (this is expected!)
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (fexist_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save))) {       <I><FONT COLOR="#B22222">// un fichier existe déja
+</FONT></I>                  <I><FONT COLOR="#B22222">// Expected size ?
+</FONT></I>                  <B><FONT COLOR="#228B22">const</FONT></B> size_t fsize =
+                    fsize_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save));
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fsize == r.size) {
+                    <I><FONT COLOR="#B22222">// Target name is the previous name, and the file looks good: nothing to do!
+</FONT></I>                    <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(previous_save, target_save) == 0) {
+                      <I><FONT COLOR="#B22222">// So far so good
+</FONT></I>                      ok = 1;   <I><FONT COLOR="#B22222">// plus rien à faire
+</FONT></I>                    }
+                    <I><FONT COLOR="#B22222">// Different filenames: rename now!
+</FONT></I>                    <B><FONT COLOR="#A020F0">else</FONT></B> {
+                      <B><FONT COLOR="#228B22">char</FONT></B> catbuff2[CATBUFF_SIZE];
+
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (RENAME
+                          (fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save),
+                           fconv(catbuff2, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff2), target_save)) == 0) {
+                        <I><FONT COLOR="#B22222">// So far so good
+</FONT></I>                        ok = 1; <I><FONT COLOR="#B22222">// plus rien à faire
+</FONT></I>
+                        hts_log_print(opt, LOG_DEBUG,
+                                      <B><FONT COLOR="#BC8F8F">&quot;File '%s' has been renamed since last mirror to '%s' ; applying changes&quot;</FONT></B>,
+                                      previous_save, target_save);
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        r.statuscode = STATUSCODE_INVALID;
+                        strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to rename file on disk&quot;</FONT></B>);
+                      }
+                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    hts_log_print(opt, LOG_WARNING,
+                                  <B><FONT COLOR="#BC8F8F">&quot;warning: file size on disk (&quot;</FONT></B> LLintP
+                                  <B><FONT COLOR="#BC8F8F">&quot;) does not have the expected size (&quot;</FONT></B> LLintP
+                                  <B><FONT COLOR="#BC8F8F">&quot;))&quot;</FONT></B>, (LLint) fsize, (LLint) r.size);
+                  }
+                }
+                <I><FONT COLOR="#B22222">// File exists with the target name and not previous one ?
+</FONT></I>                <I><FONT COLOR="#B22222">// Suppose a broken mirror, with a file being renamed: OK
+</FONT></I>                <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (fexist_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), target_save))) {
+                  <I><FONT COLOR="#B22222">// Expected size ?
+</FONT></I>                  <B><FONT COLOR="#228B22">const</FONT></B> size_t fsize = fsize_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), target_save));
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fsize == r.size) {
+                    <I><FONT COLOR="#B22222">// So far so good
+</FONT></I>                    ok = 1;     <I><FONT COLOR="#B22222">// plus rien à faire
+</FONT></I>                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    hts_log_print(opt, LOG_WARNING,
+                                  <B><FONT COLOR="#BC8F8F">&quot;warning: renamed file size on disk (&quot;</FONT></B> LLintP
+                                  <B><FONT COLOR="#BC8F8F">&quot;) does not have the expected size (&quot;</FONT></B> LLintP
+                                  <B><FONT COLOR="#BC8F8F">&quot;))&quot;</FONT></B>, (LLint) fsize, (LLint) r.size);
+                  }
+                }
+                <I><FONT COLOR="#B22222">// File is present and sane ?
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+                  <I><FONT COLOR="#B22222">// Register file not to wipe it later
+</FONT></I>                  filenote(&amp;opt-&gt;state.strc, target_save, NULL);        <I><FONT COLOR="#B22222">// noter comme connu
+</FONT></I>                  file_notify(opt, adr, fil, target_save, 0, 0, 1);     <I><FONT COLOR="#B22222">// data in cache
+</FONT></I>                }
+                <I><FONT COLOR="#B22222">// Nope
+</FONT></I>                <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  <I><FONT COLOR="#B22222">// Default behavior
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;norecatch) {
+                    r.statuscode = STATUSCODE_INVALID;
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (r.msg[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                      strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found&quot;</FONT></B>);
+                    }
+                  }
+                  <I><FONT COLOR="#B22222">// Do not recatch broken/erased files
+</FONT></I>                  <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    file_notify(opt, adr, fil, target_save, 1, 0, 0);
+                    filecreateempty(&amp;opt-&gt;state.strc, target_save);
+                    <I><FONT COLOR="#B22222">//
+</FONT></I>                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;File deleted by user not recaught&quot;</FONT></B>);
+                  }
+                }
+              }
+              <I><FONT COLOR="#B22222">// Load data from cache (not from a disk file)
+</FONT></I>              <B><FONT COLOR="#A020F0">else</FONT></B> {
+                file_notify(opt, adr, fil, target_save, 1, 1, 1);       <I><FONT COLOR="#B22222">// data in cache
+</FONT></I>                r.out = filecreate(&amp;opt-&gt;state.strc, target_save);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HDEBUG</FONT>
+                printf(<B><FONT COLOR="#BC8F8F">&quot;direct-disk: %s\n&quot;</FONT></B>, save);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r.out != NULL) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[32768 + 4];
+                  LLint size = r.size;
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; 0) {
+                    size_t nl;
+
+                    <B><FONT COLOR="#A020F0">do</FONT></B> {
+                      nl =
+                        unzReadCurrentFile((unzFile) cache-&gt;zipInput, buff,
+                                           (<B><FONT COLOR="#228B22">int</FONT></B>) minimum(size, 32768));
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (nl &gt; 0) {
+                        size -= nl;
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(buff, 1, nl, r.out) != nl) { <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                          <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+                          r.statuscode = STATUSCODE_INVALID;
+                          sprintf(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read To Disk: %s&quot;</FONT></B>,
+                                  strerror(last_errno));
+                        }
+                      }
+                    } <B><FONT COLOR="#A020F0">while</FONT></B>((nl &gt; 0) &amp;&amp; (size &gt; 0) &amp;&amp; (r.statuscode != -1));
+                  }
+
+                  fclose(r.out);
+                  r.out = NULL;
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+                  chmod(target_save, HTS_ACCESS_FILE);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg,
+                             <B><FONT COLOR="#BC8F8F">&quot;Cache Write Error : Unable to Create File&quot;</FONT></B>);
+                  <I><FONT COLOR="#B22222">//printf(&quot;%s\n&quot;,save);
+</FONT></I>                }
+              }
+
+            } <B><FONT COLOR="#A020F0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            {                   <I><FONT COLOR="#B22222">// lire en mémoire
+</FONT></I>
+              <I><FONT COLOR="#B22222">// We need to get bytes on memory, but the previous version is (supposed to be) on disk.
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (!dataincache) {
+                <I><FONT COLOR="#B22222">// Empty previous save name, or file does not exist ?
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (!strnotempty(previous_save) || !fexist_utf8(previous_save)) {       <I><FONT COLOR="#B22222">// Pas de donnée en cache, bizarre car html!!!
+</FONT></I>                  <I><FONT COLOR="#B22222">// Hack: if error page data is missing (pre-3.45 releases), create one. We won't use it anyway.
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (!HTTP_IS_OK(r.statuscode)) {
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> size = 512;
+
+                    r.adr = malloct(size);
+                    sprintf(r.adr,
+                            <B><FONT COLOR="#BC8F8F">&quot;&lt;html&gt;&lt;!-- Missing Error Page ; Generated by HTTrack Website Copier --&gt;&lt;head&gt;&lt;title&gt;HTTP Error %u&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;HTTP Error %u&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;&quot;</FONT></B>,
+                            r.statuscode, r.statuscode);
+                    r.size = strlen(r.adr);
+                    assertf(r.size &lt; size);
+                    strcpy(r.contenttype, <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>);
+                    strcpy(r.charset, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>);
+                    <I><FONT COLOR="#B22222">// Fake total size, too.
+</FONT></I>                    r.totalsize = r.size;
+                    <I><FONT COLOR="#B22222">// Not on disk anymore!
+</FONT></I>                    r.is_write = 0;
+                  }
+                  <I><FONT COLOR="#B22222">// Otherwise, this is a real error.
+</FONT></I>                  <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg,
+                               <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found (empty filename)&quot;</FONT></B>);
+                  }
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">/* Read in memory from disk */</FONT></I>
+                  FILE *<B><FONT COLOR="#228B22">const</FONT></B> fp = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                    r.adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct((<B><FONT COLOR="#228B22">int</FONT></B>) r.size + 4);
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (r.adr != NULL) {
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (r.size &gt; 0
+                          &amp;&amp; fread(r.adr, 1, (<B><FONT COLOR="#228B22">int</FONT></B>) r.size, fp) != r.size) {
+                        <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+                        r.statuscode = STATUSCODE_INVALID;
+                        sprintf(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Read error in cache disk data: %s&quot;</FONT></B>,
+                                strerror(last_errno));
+                      }
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                      r.statuscode = STATUSCODE_INVALID;
+                      strcpybuff(r.msg,
+                                 <B><FONT COLOR="#BC8F8F">&quot;Read error (memory exhausted) from cache&quot;</FONT></B>);
+                    }
+                    fclose(fp);
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg,
+                               <B><FONT COLOR="#BC8F8F">&quot;Read error (unable to open disk file) from cache&quot;</FONT></B>);
+                  }
+                }
+              }
+              <I><FONT COLOR="#B22222">// Data in cache.
+</FONT></I>              <B><FONT COLOR="#A020F0">else</FONT></B> {
+                <I><FONT COLOR="#B22222">// lire fichier (d'un coup)
+</FONT></I>                r.adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct((<B><FONT COLOR="#228B22">int</FONT></B>) r.size + 4);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r.adr != NULL) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (unzReadCurrentFile((unzFile) cache-&gt;zipInput, r.adr, (<B><FONT COLOR="#228B22">int</FONT></B>) r.size) != r.size) {   <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                    freet(r.adr);
+                    r.adr = NULL;
+                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Data&quot;</FONT></B>);
+                  } <B><FONT COLOR="#A020F0">else</FONT></B>
+                    *(r.adr + r.size) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  <I><FONT COLOR="#B22222">//printf(&quot;&gt;%s status %d\n&quot;,back[p].r.contenttype,back[p].r.statuscode);
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Memory Error&quot;</FONT></B>);
+                }
+              }
+            }
+          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          r.statuscode = STATUSCODE_INVALID;
+          strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header Data&quot;</FONT></B>);
+        }
+        unzCloseCurrentFile((unzFile) cache-&gt;zipInput);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        r.statuscode = STATUSCODE_INVALID;
+        strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Open File&quot;</FONT></B>);
+      }
+
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      r.statuscode = STATUSCODE_INVALID;
+      strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Bad Offset&quot;</FONT></B>);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r.statuscode = STATUSCODE_INVALID;
+    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;File Cache Entry Not Found&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!location) {              <I><FONT COLOR="#B22222">/* don't export internal buffer */</FONT></I>
+    r.location = NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<I><FONT COLOR="#B22222">// lecture d'un fichier dans le cache
+</FONT></I><I><FONT COLOR="#B22222">// si save==null alors test unqiquement
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> htsblk <B><FONT COLOR="#0000FF">cache_readex_old</FONT></B>(httrackp * opt, cache_back * cache,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">char</FONT></B> *location,
+                               <B><FONT COLOR="#228B22">char</FONT></B> *return_save, <B><FONT COLOR="#228B22">int</FONT></B> readonly) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+  intptr_t hash_pos;
+  <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK location_default[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK previous_save[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  htsblk r;
+  <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> header_only = 0;
+
+  hts_init_htsblk(&amp;r);
+  <I><FONT COLOR="#B22222">//memset(&amp;r, 0, sizeof(htsblk)); r.soc=INVALID_SOCKET;
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (location) {
+    r.location = location;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r.location = location_default;
+  }
+  strcpybuff(r.location, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+  strcpybuff(buff, adr);
+  strcatbuff(buff, fil);
+  hash_pos_return = coucal_read(cache-&gt;hashtable, buff, &amp;hash_pos);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  buff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  strcatbuff(buff, adr);
+  strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  strcatbuff(buff, fil);
+  strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;use)
+    a = strstr(cache-&gt;use, buff);
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    a = NULL;                   <I><FONT COLOR="#B22222">// forcer erreur
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* avoid errors on data entries */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (adr[0] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; adr[1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; adr[2] == <B><FONT COLOR="#BC8F8F">'['</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+    hash_pos_return = 0;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    a = NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <I><FONT COLOR="#B22222">// en cas de succès
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return != 0) {
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (a != NULL) {              <I><FONT COLOR="#B22222">// OK existe en cache!
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    intptr_t pos;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+    fprintf(stdout, <B><FONT COLOR="#BC8F8F">&quot;..cache: %s%s at &quot;</FONT></B>, adr, fil);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+    pos = hash_pos;             <I><FONT COLOR="#B22222">/* simply */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    a += strlen(buff);
+    sscanf(a, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;pos);      <I><FONT COLOR="#B22222">// lire position
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;%d\n&quot;</FONT></B>, pos);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    fflush(cache-&gt;olddat);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fseek(cache-&gt;olddat, (<B><FONT COLOR="#228B22">long</FONT></B>) ((pos &gt; 0) ? pos : (-pos)), SEEK_SET) == 0) {
+      <I><FONT COLOR="#B22222">/* Importer cache1.0 */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version == 0) {
+        OLD_htsblk old_r;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fread((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;old_r, 1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(old_r), cache-&gt;olddat) == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(old_r)) { <I><FONT COLOR="#B22222">// lire tout (y compris statuscode etc)
+</FONT></I>          r.statuscode = old_r.statuscode;
+          r.size = old_r.size;  <I><FONT COLOR="#B22222">// taille fichier
+</FONT></I>          strcpybuff(r.msg, old_r.msg);
+          strcpybuff(r.contenttype, old_r.contenttype);
+          ok = 1;               <I><FONT COLOR="#B22222">/* import  ok */</FONT></I>
+        }
+        <I><FONT COLOR="#B22222">/* */</FONT></I>
+        <I><FONT COLOR="#B22222">/* Cache 1.1 */</FONT></I>
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#228B22">char</FONT></B> check[256];
+        LLint size_read;
+
+        check[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        cache_rint(cache-&gt;olddat, &amp;r.statuscode);
+        cache_rLLint(cache-&gt;olddat, &amp;r.size);
+        cache_rstr(cache-&gt;olddat, r.msg);
+        cache_rstr(cache-&gt;olddat, r.contenttype);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 3)
+          cache_rstr(cache-&gt;olddat, r.charset);
+        cache_rstr(cache-&gt;olddat, r.lastmodified);
+        cache_rstr(cache-&gt;olddat, r.etag);
+        cache_rstr(cache-&gt;olddat, r.location);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 2)
+          cache_rstr(cache-&gt;olddat, r.cdispo);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 4) {
+          cache_rstr(cache-&gt;olddat, previous_save);     <I><FONT COLOR="#B22222">// adr
+</FONT></I>          cache_rstr(cache-&gt;olddat, previous_save);     <I><FONT COLOR="#B22222">// fil
+</FONT></I>          previous_save[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          cache_rstr(cache-&gt;olddat, previous_save);     <I><FONT COLOR="#B22222">// save
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (return_save != NULL) {
+            strcpybuff(return_save, previous_save);
+          }
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 5) {
+          r.headers = cache_rstr_addr(cache-&gt;olddat);
+        }
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        cache_rstr(cache-&gt;olddat, check);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(check, <B><FONT COLOR="#BC8F8F">&quot;HTS&quot;</FONT></B>) == 0) {        <I><FONT COLOR="#B22222">/* intégrité OK */</FONT></I>
+          ok = 1;
+        }
+        cache_rLLint(cache-&gt;olddat, &amp;size_read);        <I><FONT COLOR="#B22222">/* lire size pour être sûr de la taille déclarée (réécrire) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (size_read &gt; 0) {    <I><FONT COLOR="#B22222">/* si inscrite ici */</FONT></I>
+          r.size = size_read;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">/* pas de données directement dans le cache, fichier présent? */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r.statuscode != HTTP_OK)
+            header_only = 1;    <I><FONT COLOR="#B22222">/* que l'en tête ici! */</FONT></I>
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Remplir certains champs */</FONT></I>
+      r.totalsize = r.size;
+
+      <I><FONT COLOR="#B22222">// lecture du header (y compris le statuscode)
+</FONT></I>      <I><FONT COLOR="#B22222">/*if (fread((char*) &amp;r,1,sizeof(htsblk),cache-&gt;olddat)==sizeof(htsblk)) { // lire tout (y compris statuscode etc) */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+        <I><FONT COLOR="#B22222">// sécurité
+</FONT></I>        r.adr = NULL;
+        r.out = NULL;
+        <I><FONT COLOR="#B22222">////r.location=NULL;  non, fixée lors des 301 ou 302
+</FONT></I>        r.fp = NULL;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((r.statuscode &gt;= 0) &amp;&amp; (r.statuscode &lt;= 999)
+            &amp;&amp; (r.notmodified &gt;= 0) &amp;&amp; (r.notmodified &lt;= 9)) {  <I><FONT COLOR="#B22222">// petite vérif intégrité
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> ((save) &amp;&amp; (!header_only)) {       <I><FONT COLOR="#B22222">/* ne pas lire uniquement header */</FONT></I>
+            <I><FONT COLOR="#B22222">//int to_file=0;
+</FONT></I>
+            r.adr = NULL;
+            r.soc = INVALID_SOCKET;
+            <I><FONT COLOR="#B22222">// // r.location=NULL;
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DIRECTDISK</FONT>
+            <I><FONT COLOR="#B22222">// Court-circuit:
+</FONT></I>            <I><FONT COLOR="#B22222">// Peut-on stocker le fichier directement sur disque?
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (!readonly &amp;&amp; r.statuscode == HTTP_OK &amp;&amp; !is_hypertext_mime(opt, r.contenttype, fil) &amp;&amp; strnotempty(save)) {     <I><FONT COLOR="#B22222">// pas HTML, écrire sur disk directement
+</FONT></I>              <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+
+              r.is_write = 1;   <I><FONT COLOR="#B22222">// écrire
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (fexist_utf8(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), save))) {  <I><FONT COLOR="#B22222">// un fichier existe déja
+</FONT></I>                <I><FONT COLOR="#B22222">//if (fsize_utf8(fconv(save))==r.size) {  // même taille -- NON tant pis (taille mal declaree)
+</FONT></I>                ok = 1;         <I><FONT COLOR="#B22222">// plus rien à faire
+</FONT></I>                filenote(&amp;opt-&gt;state.strc, save, NULL); <I><FONT COLOR="#B22222">// noter comme connu
+</FONT></I>                file_notify(opt, adr, fil, save, 0, 0, 0);
+                <I><FONT COLOR="#B22222">//}
+</FONT></I>              }
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((pos &lt; 0) &amp;&amp; (!ok)) { <I><FONT COLOR="#B22222">// Pas de donnée en cache et fichier introuvable : erreur!
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;norecatch) {
+                  file_notify(opt, adr, fil, save, 1, 0, 0);
+                  filecreateempty(&amp;opt-&gt;state.strc, save);
+                  <I><FONT COLOR="#B22222">//
+</FONT></I>                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;File deleted by user not recaught&quot;</FONT></B>);
+                  ok = 1;       <I><FONT COLOR="#B22222">// ne pas récupérer (et pas d'erreur)
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found&quot;</FONT></B>);
+                  ok = 1;       <I><FONT COLOR="#B22222">// ne pas récupérer
+</FONT></I>                }
+              }
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!ok) {
+                r.out = filecreate(&amp;opt-&gt;state.strc, save);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HDEBUG</FONT>
+                printf(<B><FONT COLOR="#BC8F8F">&quot;direct-disk: %s\n&quot;</FONT></B>, save);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r.out != NULL) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[32768 + 4];
+                  size_t size = (size_t) r.size;
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt; 0) {
+                    size_t nl;
+
+                    <B><FONT COLOR="#A020F0">do</FONT></B> {
+                      nl = fread(buff, 1, minimum(size, 32768), cache-&gt;olddat);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (nl &gt; 0) {
+                        size -= nl;
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(buff, 1, nl, r.out) != nl) { <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                          r.statuscode = STATUSCODE_INVALID;
+                          strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read To Disk&quot;</FONT></B>);
+                        }
+                      }
+                    } <B><FONT COLOR="#A020F0">while</FONT></B>((nl &gt; 0) &amp;&amp; (size &gt; 0) &amp;&amp; (r.statuscode != -1));
+                  }
+
+                  fclose(r.out);
+                  r.out = NULL;
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+                  chmod(save, HTS_ACCESS_FILE);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg,
+                             <B><FONT COLOR="#BC8F8F">&quot;Cache Write Error : Unable to Create File&quot;</FONT></B>);
+                  <I><FONT COLOR="#B22222">//printf(&quot;%s\n&quot;,save);
+</FONT></I>                }
+              }
+
+            } <B><FONT COLOR="#A020F0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            {                   <I><FONT COLOR="#B22222">// lire en mémoire
+</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (pos &lt; 0) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(save)) {        <I><FONT COLOR="#B22222">// Pas de donnée en cache, bizarre car html!!!
+</FONT></I>                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found (2)&quot;</FONT></B>);
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">/* Read in memory from cache */</FONT></I>
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(return_save) &amp;&amp; fexist_utf8(return_save)) {
+                    FILE *fp = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), return_save), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                      r.adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct((size_t) r.size + 4);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (r.adr != NULL) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (r.size &gt; 0
+                            &amp;&amp; fread(r.adr, 1, (size_t) r.size, fp) != r.size) {
+                          r.statuscode = STATUSCODE_INVALID;
+                          strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Read error in cache disk data&quot;</FONT></B>);
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        r.statuscode = STATUSCODE_INVALID;
+                        strcpybuff(r.msg,
+                                   <B><FONT COLOR="#BC8F8F">&quot;Read error (memory exhausted) from cache&quot;</FONT></B>);
+                      }
+                      fclose(fp);
+                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache file not found on disk&quot;</FONT></B>);
+                  }
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                <I><FONT COLOR="#B22222">// lire fichier (d'un coup)
+</FONT></I>                r.adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct((size_t) r.size + 4);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r.adr != NULL) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fread(r.adr, 1, (size_t) r.size, cache-&gt;olddat) != r.size) {      <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                    freet(r.adr);
+                    r.adr = NULL;
+                    r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Data&quot;</FONT></B>);
+                  } <B><FONT COLOR="#A020F0">else</FONT></B>
+                    *(r.adr + r.size) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  <I><FONT COLOR="#B22222">//printf(&quot;&gt;%s status %d\n&quot;,back[p].r.contenttype,back[p].r.statuscode);
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                  r.statuscode = STATUSCODE_INVALID;
+                  strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Memory Error&quot;</FONT></B>);
+                }
+              }
+            }
+          }                     <I><FONT COLOR="#B22222">// si save==null, ne rien charger (juste en tête)
+</FONT></I>        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+          printf(<B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Bad Data&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          r.statuscode = STATUSCODE_INVALID;
+          strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Bad Data&quot;</FONT></B>);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// erreur
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        r.statuscode = STATUSCODE_INVALID;
+        strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header&quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Seek Failed&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      r.statuscode = STATUSCODE_INVALID;
+      strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Seek Failed&quot;</FONT></B>);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;File Cache Not Found&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    r.statuscode = STATUSCODE_INVALID;
+    strcpybuff(r.msg, <B><FONT COLOR="#BC8F8F">&quot;File Cache Entry Not Found&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!location) {              <I><FONT COLOR="#B22222">/* don't export internal buffer */</FONT></I>
+    r.location = NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<I><FONT COLOR="#B22222">/* write (string1-string2)-data in cache */</FONT></I>
+<I><FONT COLOR="#B22222">/* 0 if failed */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_writedata</FONT></B>(FILE * cache_ndx, FILE * cache_dat, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str1,
+                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str2, <B><FONT COLOR="#228B22">char</FONT></B> *outbuff, <B><FONT COLOR="#228B22">int</FONT></B> len) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache_dat) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 4];
+    <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+    <B><FONT COLOR="#228B22">int</FONT></B> pos;
+
+    fflush(cache_dat);
+    fflush(cache_ndx);
+    pos = ftell(cache_dat);
+    <I><FONT COLOR="#B22222">/* first write data */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cache_wint(cache_dat, len) != -1) {     <I><FONT COLOR="#B22222">// length
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(outbuff, 1, len, cache_dat) == len) {  <I><FONT COLOR="#B22222">// data
+</FONT></I>        <I><FONT COLOR="#B22222">/* then write index */</FONT></I>
+        sprintf(s, <B><FONT COLOR="#BC8F8F">&quot;%d\n&quot;</FONT></B>, pos);
+        buff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        strcatbuff(buff, str1);
+        strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+        strcatbuff(buff, str2);
+        strcatbuff(buff, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+        cache_wstr(cache_ndx, buff);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(s, 1, strlen(s), cache_ndx) == strlen(s)) {
+          fflush(cache_dat);
+          fflush(cache_ndx);
+          <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+        }
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* read the data corresponding to (string1-string2) in cache */</FONT></I>
+<I><FONT COLOR="#B22222">/* 0 if failed */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_readdata</FONT></B>(cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str2,
+                   <B><FONT COLOR="#228B22">char</FONT></B> **inbuff, <B><FONT COLOR="#228B22">int</FONT></B> *inlen) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;hashtable) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[HTS_URLMAXSIZE * 4];
+    intptr_t pos;
+
+    strcpybuff(buff, str1);
+    strcatbuff(buff, str2);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(cache-&gt;hashtable, buff, &amp;pos)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fseek(cache-&gt;olddat, (<B><FONT COLOR="#228B22">long</FONT></B>) ((pos &gt; 0) ? pos : (-pos)), SEEK_SET) ==
+          0) {
+        INTsys len;
+
+        cache_rint(cache-&gt;olddat, &amp;len);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *mem_buff = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct(len + 4);   <I><FONT COLOR="#B22222">/* Plus byte 0 */</FONT></I>
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (mem_buff) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fread(mem_buff, 1, len, cache-&gt;olddat) == len) {        <I><FONT COLOR="#B22222">// lire tout (y compris statuscode etc)*/
+</FONT></I>              *inbuff = mem_buff;
+              *inlen = len;
+              <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+            } <B><FONT COLOR="#A020F0">else</FONT></B>
+              freet(mem_buff);
+          }
+        }
+      }
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  *inbuff = NULL;
+  *inlen = 0;
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_rename</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b) {
+  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: rename %s -&gt; %s (%p %p)&quot;</FONT></B>, a, b, a, b);
+  <B><FONT COLOR="#A020F0">return</FONT></B> rename(a, b);
+}
+
+<I><FONT COLOR="#B22222">// renvoyer uniquement en tête, ou NULL si erreur
+</FONT></I><I><FONT COLOR="#B22222">// return NULL upon error, and set -1 to r.statuscode
+</FONT></I>htsblk *<B><FONT COLOR="#0000FF">cache_header</FONT></B>(httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, htsblk * r) {
+  *r = cache_read(opt, cache, adr, fil, NULL, NULL);    <I><FONT COLOR="#B22222">// test uniquement
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;statuscode != -1)
+    <B><FONT COLOR="#A020F0">return</FONT></B> r;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">// Initialisation du cache: créer nouveau, renomer ancien, charger..
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_init</FONT></B>(cache_back * cache, httrackp * opt) {
+  <I><FONT COLOR="#B22222">// ---
+</FONT></I>  <I><FONT COLOR="#B22222">// utilisation du cache: renommer ancien éventuel et charger index
+</FONT></I>  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: enabled=%d, base=%s, ro=%d&quot;</FONT></B>,
+                (<B><FONT COLOR="#228B22">int</FONT></B>) opt-&gt;cache, fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                          StringBuff(opt-&gt;path_log),
+                                          <B><FONT COLOR="#BC8F8F">&quot;hts-cache/&quot;</FONT></B>), (<B><FONT COLOR="#228B22">int</FONT></B>) cache-&gt;ro);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;cache) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;cache init: &quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+      mkdir(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache&quot;</FONT></B>));
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      mkdir(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache&quot;</FONT></B>),
+            HTS_PROTECT_FOLDER);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((fexist(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>)))) {       <I><FONT COLOR="#B22222">// il existe déja un cache précédent.. renommer
+</FONT></I>        <I><FONT COLOR="#B22222">/* Previous cache from the previous cache version */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+        <I><FONT COLOR="#B22222">/* No.. reuse with old httrack releases! */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        <I><FONT COLOR="#B22222">/* Previous cache version */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((fexist(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>))) &amp;&amp; (fexist(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>)))) {     <I><FONT COLOR="#B22222">// il existe déja un cache précédent.. renommer
+</FONT></I>          rename(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                StringBuff(opt-&gt;path_log),
+                                                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>));
+          rename(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                StringBuff(opt-&gt;path_log),
+                                                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+        }
+
+        <I><FONT COLOR="#B22222">/* Remove OLD cache */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>))) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (remove
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>)) != 0) {
+            hts_log_print(opt, LOG_WARNING | LOG_ERRNO,
+                          <B><FONT COLOR="#BC8F8F">&quot;Cache: error while moving previous cache&quot;</FONT></B>);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Rename */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (hts_rename
+            (opt,
+             fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                     <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                   StringBuff(opt-&gt;path_log),
+                                                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>)) != 0) {
+          hts_log_print(opt, LOG_WARNING | LOG_ERRNO,
+                        <B><FONT COLOR="#BC8F8F">&quot;Cache: error while moving previous cache&quot;</FONT></B>);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: successfully renamed&quot;</FONT></B>);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((fexist(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>))) &amp;&amp; (fexist(fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>)))) {        <I><FONT COLOR="#B22222">// il existe déja un cache précédent.. renommer
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;work with former cache\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+
+        rename(fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                              StringBuff(opt-&gt;path_log),
+                                              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>));
+        rename(fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                              StringBuff(opt-&gt;path_log),
+                                              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// un des deux (ou les deux) fichiers cache absents: effacer l'autre éventuel
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;new cache\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+            (fconcat
+             (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+              <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>)))
+          remove(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>));
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: no cache found&quot;</FONT></B>);
+    }
+    hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: size %d&quot;</FONT></B>,
+                  (<B><FONT COLOR="#228B22">int</FONT></B>)
+                  fsize(fconcat
+                        (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                         <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>)));
+
+    <I><FONT COLOR="#B22222">// charger index cache précédent
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> ((!cache-&gt;ro
+         &amp;&amp;
+         fsize(fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>)) &gt; 0)
+        || (cache-&gt;ro
+            &amp;&amp;
+            fsize(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>)) &gt; 0)
+      ) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+        cache-&gt;zipInput =
+          unzOpen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        cache-&gt;zipInput =
+          unzOpen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>));
+      }
+
+      <I><FONT COLOR="#B22222">// Corrupted ZIP file ? Try to repair!
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;zipInput == NULL &amp;&amp; !cache-&gt;ro) {
+        <B><FONT COLOR="#228B22">char</FONT></B> *name;
+        uLong repaired = 0;
+        uLong repairedBytes = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+          name =
+            fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.zip&quot;</FONT></B>);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          name =
+            fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>);
+        }
+        hts_log_print(opt, LOG_WARNING,
+                      <B><FONT COLOR="#BC8F8F">&quot;Cache: damaged cache, trying to repair&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unzRepair
+            (name,
+             fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                     <B><FONT COLOR="#BC8F8F">&quot;hts-cache/repair.zip&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                      StringBuff(opt-&gt;path_log),
+                                                      <B><FONT COLOR="#BC8F8F">&quot;hts-cache/repair.tmp&quot;</FONT></B>),
+             &amp;repaired, &amp;repairedBytes) == Z_OK) {
+          unlink(name);
+          rename(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/repair.zip&quot;</FONT></B>), name);
+          cache-&gt;zipInput = unzOpen(name);
+          hts_log_print(opt, LOG_WARNING,
+                        <B><FONT COLOR="#BC8F8F">&quot;Cache: %d bytes successfully recovered in %d entries&quot;</FONT></B>,
+                        (<B><FONT COLOR="#228B22">int</FONT></B>) repairedBytes, (<B><FONT COLOR="#228B22">int</FONT></B>) repaired);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          hts_log_print(opt, LOG_WARNING, <B><FONT COLOR="#BC8F8F">&quot;Cache: could not repair the cache&quot;</FONT></B>);
+        }
+      }
+      <I><FONT COLOR="#B22222">// Opened ?
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;zipInput != NULL) {
+        <B><FONT COLOR="#228B22">int</FONT></B> zErr;
+
+        <I><FONT COLOR="#B22222">/* Ready directory entries */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = unzGoToFirstFile((unzFile) cache-&gt;zipInput)) == Z_OK) {
+          <B><FONT COLOR="#228B22">char</FONT></B> comment[128];
+          <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK filename[HTS_URLMAXSIZE * 4];
+          <B><FONT COLOR="#228B22">int</FONT></B> entries = 0;
+
+          memset(comment, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment));  <I><FONT COLOR="#B22222">// for truncated reads
+</FONT></I>          <B><FONT COLOR="#A020F0">do</FONT></B> {
+            <B><FONT COLOR="#228B22">int</FONT></B> readSizeHeader = 0;
+
+            filename[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            comment[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (unzOpenCurrentFile((unzFile) cache-&gt;zipInput) == Z_OK) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((readSizeHeader =
+                   unzGetLocalExtrafield((unzFile) cache-&gt;zipInput, comment,
+                                         <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment) - 2)) &gt; 0
+                  &amp;&amp; unzGetCurrentFileInfo((unzFile) cache-&gt;zipInput, NULL,
+                                           filename, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(filename) - 2, NULL,
+                                           0, NULL, 0) == Z_OK) {
+                <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> pos =
+                  (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) unzGetOffset((unzFile) cache-&gt;zipInput);
+                assertf(readSizeHeader &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment));
+                comment[readSizeHeader] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                entries++;
+                <B><FONT COLOR="#A020F0">if</FONT></B> (pos &gt; 0) {
+                  <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;  <I><FONT COLOR="#B22222">// data in cache ?
+</FONT></I>                  <B><FONT COLOR="#228B22">char</FONT></B> *filenameIndex = filename;
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(filenameIndex, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>)) {
+                    filenameIndex += 7;
+                  }
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (comment[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                    <B><FONT COLOR="#228B22">int</FONT></B> maxLine = 2;
+                    <B><FONT COLOR="#228B22">char</FONT></B> *a = comment;
+
+                    <B><FONT COLOR="#A020F0">while</FONT></B>(*a &amp;&amp; maxLine-- &gt; 0) {        <I><FONT COLOR="#B22222">// parse only few first lines
+</FONT></I>                      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[1024];
+
+                      line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                      a += binput(a, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(line, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache:&quot;</FONT></B>)) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (strfield2(line, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache: 1&quot;</FONT></B>)) {
+                          dataincache = 1;
+                        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                          dataincache = 0;
+                        }
+                        <B><FONT COLOR="#A020F0">break</FONT></B>;
+                      }
+                    }
+                  }
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache)
+                    coucal_add(cache-&gt;hashtable, filenameIndex, pos);
+                  <B><FONT COLOR="#A020F0">else</FONT></B>
+                    coucal_add(cache-&gt;hashtable, filenameIndex, -pos);
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  hts_log_print(opt, LOG_WARNING,
+                                <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache meta entry #%d&quot;</FONT></B>,
+                                (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                hts_log_print(opt, LOG_WARNING, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache entry #%d&quot;</FONT></B>,
+                              (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+              }
+              unzCloseCurrentFile((unzFile) cache-&gt;zipInput);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              hts_log_print(opt, LOG_WARNING, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache entry #%d&quot;</FONT></B>,
+                            (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+            }
+          } <B><FONT COLOR="#A020F0">while</FONT></B>(unzGoToNextFile((unzFile) cache-&gt;zipInput) == Z_OK);
+          hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache index loaded: %d entries loaded&quot;</FONT></B>,
+                        (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+          opt-&gt;is_update = 1;   <I><FONT COLOR="#B22222">// signaler comme update
+</FONT></I>
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          hts_log_print(opt, LOG_WARNING,
+                        <B><FONT COLOR="#BC8F8F">&quot;Cache: error trying to read the cache: %s&quot;</FONT></B>,
+                        hts_get_zerror(zErr));
+        }
+
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        hts_log_print(opt, LOG_WARNING,
+                      <B><FONT COLOR="#BC8F8F">&quot;Cache: error trying to open the cache&quot;</FONT></B>);
+      }
+
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((!cache-&gt;ro
+           &amp;&amp;
+           fsize(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>)) &gt;= 0
+           &amp;&amp;
+           fsize(fconcat
+                 (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>)) &gt; 0)
+          || (cache-&gt;ro
+              &amp;&amp;
+              fsize(fconcat
+                    (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                     <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>)) &gt;= 0
+              &amp;&amp;
+              fsize(fconcat
+                    (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                     <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>)) &gt; 0)
+      ) {
+      FILE *oldndx = NULL;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;..load cache\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+        cache-&gt;olddat =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.dat&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+        oldndx =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        cache-&gt;olddat =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+        oldndx =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+      }
+      <I><FONT COLOR="#B22222">// les deux doivent être ouvrables
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((cache-&gt;olddat == NULL) &amp;&amp; (oldndx != NULL)) {
+        fclose(oldndx);
+        oldndx = NULL;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((cache-&gt;olddat != NULL) &amp;&amp; (oldndx == NULL)) {
+        fclose(cache-&gt;olddat);
+        cache-&gt;olddat = NULL;
+      }
+      <I><FONT COLOR="#B22222">// lire index
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (oldndx != NULL) {
+        <B><FONT COLOR="#228B22">int</FONT></B> buffl;
+
+        fclose(oldndx);
+        oldndx = NULL;
+        <I><FONT COLOR="#B22222">// lire ndx, et lastmodified
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+          buffl =
+            fsize(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+          cache-&gt;use =
+            readfile(fconcat
+                     (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                      <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.ndx&quot;</FONT></B>));
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          buffl =
+            fsize(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>));
+          cache-&gt;use =
+            readfile(fconcat
+                     (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                      <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>));
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;use != NULL) {
+          <B><FONT COLOR="#228B22">char</FONT></B> firstline[256];
+          <B><FONT COLOR="#228B22">char</FONT></B> *a = cache-&gt;use;
+
+          a += cache_brstr(a, firstline);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(firstline, <B><FONT COLOR="#BC8F8F">&quot;CACHE-&quot;</FONT></B>, 6) == 0) {   <I><FONT COLOR="#B22222">// Nouvelle version du cache
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(firstline, <B><FONT COLOR="#BC8F8F">&quot;CACHE-1.&quot;</FONT></B>, 8) == 0) {       <I><FONT COLOR="#B22222">// Version 1.1x
+</FONT></I>              cache-&gt;version = (<B><FONT COLOR="#228B22">int</FONT></B>) (firstline[8] - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>);      <I><FONT COLOR="#B22222">// cache 1.x
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &lt;= 5) {
+                a += cache_brstr(a, firstline);
+                strcpybuff(cache-&gt;lastmodified, firstline);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                hts_log_print(opt, LOG_ERROR,
+                              <B><FONT COLOR="#BC8F8F">&quot;Cache: version 1.%d not supported, ignoring current cache&quot;</FONT></B>,
+                              cache-&gt;version);
+                fclose(cache-&gt;olddat);
+                cache-&gt;olddat = NULL;
+                freet(cache-&gt;use);
+                cache-&gt;use = NULL;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {            <I><FONT COLOR="#B22222">// non supporté
+</FONT></I>              hts_log_print(opt, LOG_ERROR,
+                            <B><FONT COLOR="#BC8F8F">&quot;Cache: %s not supported, ignoring current cache&quot;</FONT></B>,
+                            firstline);
+              fclose(cache-&gt;olddat);
+              cache-&gt;olddat = NULL;
+              freet(cache-&gt;use);
+              cache-&gt;use = NULL;
+            }
+            <I><FONT COLOR="#B22222">/* */</FONT></I>
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// Vieille version du cache
+</FONT></I>            <I><FONT COLOR="#B22222">/* */</FONT></I>
+            hts_log_print(opt, LOG_WARNING,
+                          <B><FONT COLOR="#BC8F8F">&quot;Cache: importing old cache format&quot;</FONT></B>);
+            cache-&gt;version = 0; <I><FONT COLOR="#B22222">// cache 1.0
+</FONT></I>            strcpybuff(cache-&gt;lastmodified, firstline);
+          }
+          opt-&gt;is_update = 1;   <I><FONT COLOR="#B22222">// signaler comme update
+</FONT></I>
+          <I><FONT COLOR="#B22222">/* Create hash table for the cache (MUCH FASTER!) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_FAST_CACHE</FONT>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;use) {
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[HTS_URLMAXSIZE * 2];
+            <B><FONT COLOR="#228B22">char</FONT></B> linepos[256];
+            <B><FONT COLOR="#228B22">int</FONT></B> pos;
+
+            <B><FONT COLOR="#A020F0">while</FONT></B>((a != NULL) &amp;&amp; (a &lt; (cache-&gt;use + buffl))) {
+              a = strchr(a + 1, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>);  <I><FONT COLOR="#B22222">/* start of line */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+                a++;
+                <I><FONT COLOR="#B22222">/* read &quot;host/file&quot; */</FONT></I>
+                a += binput(a, line, HTS_URLMAXSIZE);
+                a += binput(a, line + strlen(line), HTS_URLMAXSIZE);
+                <I><FONT COLOR="#B22222">/* read position */</FONT></I>
+                a += binput(a, linepos, 200);
+                sscanf(linepos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;pos);
+                coucal_add(cache-&gt;hashtable, line, pos);
+              }
+            }
+            <I><FONT COLOR="#B22222">/* Not needed anymore! */</FONT></I>
+            freet(cache-&gt;use);
+            cache-&gt;use = NULL;
+          }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        }
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: no cache found in %s&quot;</FONT></B>,
+                    fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                            <B><FONT COLOR="#BC8F8F">&quot;hts-cache/&quot;</FONT></B>));
+    }
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUGCA</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;..create cache\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!cache-&gt;ro) {
+      <I><FONT COLOR="#B22222">// ouvrir caches actuels
+</FONT></I>      structcheck(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log), <B><FONT COLOR="#BC8F8F">&quot;hts-cache/&quot;</FONT></B>));
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (1) {
+        <I><FONT COLOR="#B22222">/* Create ZIP file cache */</FONT></I>
+        cache-&gt;zipOutput =
+          (<B><FONT COLOR="#228B22">void</FONT></B> *)
+          zipOpen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>), 0);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;zipOutput != NULL) {
+          <I><FONT COLOR="#B22222">// supprimer old.lst
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>)))
+            remove(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// renommer
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>)))
+            rename(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                  StringBuff(opt-&gt;path_log),
+                                                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// ouvrir
+</FONT></I>          cache-&gt;lst =
+            fopen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+          strcpybuff(opt-&gt;state.strc.path, StringBuff(opt-&gt;path_html));
+          opt-&gt;state.strc.lst = cache-&gt;lst;
+          <I><FONT COLOR="#B22222">//{
+</FONT></I>          <I><FONT COLOR="#B22222">//filecreate_params tmp;
+</FONT></I>          <I><FONT COLOR="#B22222">//strcpybuff(tmp.path,StringBuff(opt-&gt;path_html));    // chemin
+</FONT></I>          <I><FONT COLOR="#B22222">//tmp.lst=cache-&gt;lst;                 // fichier lst
+</FONT></I>          <I><FONT COLOR="#B22222">//filenote(&quot;&quot;,&amp;tmp);        // initialiser filecreate
+</FONT></I>          <I><FONT COLOR="#B22222">//}
+</FONT></I>
+          <I><FONT COLOR="#B22222">// supprimer old.txt
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>)))
+            remove(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// renommer
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>)))
+            rename(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                  StringBuff(opt-&gt;path_log),
+                                                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// ouvrir
+</FONT></I>          cache-&gt;txt =
+            fopen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;txt) {
+            fprintf(cache-&gt;txt,
+                    <B><FONT COLOR="#BC8F8F">&quot;date\tsize'/'remotesize\tflags(request:Update,Range state:File response:Modified,Chunked,gZipped)\t&quot;</FONT></B>);
+            fprintf(cache-&gt;txt,
+                    <B><FONT COLOR="#BC8F8F">&quot;statuscode\tstatus ('servermsg')\tMIME\tEtag|Date\tURL\tlocalfile\t(from URL)&quot;</FONT></B>
+                    LF);
+          }
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        cache-&gt;dat =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.dat&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+        cache-&gt;ndx =
+          fopen(fconcat
+                (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                 <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.ndx&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+        <I><FONT COLOR="#B22222">// les deux doivent être ouvrables
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((cache-&gt;dat == NULL) &amp;&amp; (cache-&gt;ndx != NULL)) {
+          fclose(cache-&gt;ndx);
+          cache-&gt;ndx = NULL;
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((cache-&gt;dat != NULL) &amp;&amp; (cache-&gt;ndx == NULL)) {
+          fclose(cache-&gt;dat);
+          cache-&gt;dat = NULL;
+        }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;ndx != NULL) {
+          <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+          cache_wstr(cache-&gt;dat, <B><FONT COLOR="#BC8F8F">&quot;CACHE-1.5&quot;</FONT></B>);
+          fflush(cache-&gt;dat);
+          cache_wstr(cache-&gt;ndx, <B><FONT COLOR="#BC8F8F">&quot;CACHE-1.5&quot;</FONT></B>);
+          fflush(cache-&gt;ndx);
+          <I><FONT COLOR="#B22222">//
+</FONT></I>          time_gmt_rfc822(s);   <I><FONT COLOR="#B22222">// date et heure actuelle GMT pour If-Modified-Since..
+</FONT></I>          cache_wstr(cache-&gt;ndx, s);
+          fflush(cache-&gt;ndx);   <I><FONT COLOR="#B22222">// un petit fflush au cas où
+</FONT></I>
+          <I><FONT COLOR="#B22222">// supprimer old.lst
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>)))
+            remove(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// renommer
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>)))
+            rename(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                  StringBuff(opt-&gt;path_log),
+                                                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.lst&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// ouvrir
+</FONT></I>          cache-&gt;lst =
+            fopen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.lst&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+          strcpybuff(opt-&gt;state.strc.path, StringBuff(opt-&gt;path_html));
+          opt-&gt;state.strc.lst = cache-&gt;lst;
+          <I><FONT COLOR="#B22222">//{
+</FONT></I>          <I><FONT COLOR="#B22222">//  filecreate_params tmp;
+</FONT></I>          <I><FONT COLOR="#B22222">//  strcpybuff(tmp.path,StringBuff(opt-&gt;path_html));    // chemin
+</FONT></I>          <I><FONT COLOR="#B22222">//  tmp.lst=cache-&gt;lst;                 // fichier lst
+</FONT></I>          <I><FONT COLOR="#B22222">//  filenote(&quot;&quot;,&amp;tmp);        // initialiser filecreate
+</FONT></I>          <I><FONT COLOR="#B22222">//}
+</FONT></I>
+          <I><FONT COLOR="#B22222">// supprimer old.txt
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>)))
+            remove(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// renommer
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (fexist
+              (fconcat
+               (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>)))
+            rename(fconcat
+                   (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                    <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>), fconcat(OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt),
+                                                  StringBuff(opt-&gt;path_log),
+                                                  <B><FONT COLOR="#BC8F8F">&quot;hts-cache/old.txt&quot;</FONT></B>));
+          <I><FONT COLOR="#B22222">// ouvrir
+</FONT></I>          cache-&gt;txt =
+            fopen(fconcat
+                  (OPT_GET_BUFF(opt), OPT_GET_BUFF_SIZE(opt), StringBuff(opt-&gt;path_log),
+                   <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.txt&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;txt) {
+            fprintf(cache-&gt;txt,
+                    <B><FONT COLOR="#BC8F8F">&quot;date\tsize'/'remotesize\tflags(request:Update,Range state:File response:Modified,Chunked,gZipped)\t&quot;</FONT></B>);
+            fprintf(cache-&gt;txt,
+                    <B><FONT COLOR="#BC8F8F">&quot;statuscode\tstatus ('servermsg')\tMIME\tEtag|Date\tURL\tlocalfile\t(from URL)&quot;</FONT></B>
+                    LF);
+          }
+          <I><FONT COLOR="#B22222">// test
+</FONT></I>          <I><FONT COLOR="#B22222">// cache_writedata(cache-&gt;ndx,cache-&gt;dat,&quot;//[TEST]//&quot;,&quot;test1&quot;,&quot;TEST PIPO&quot;,9);
+</FONT></I>        }                       <I><FONT COLOR="#B22222">// cache-&gt;ndx!=NULL
+</FONT></I>      }                         <I><FONT COLOR="#B22222">//cache-&gt;zipOutput != NULL
+</FONT></I>
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      cache-&gt;lst = cache-&gt;dat = cache-&gt;ndx = NULL;
+    }
+
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Cache: no cache enabled&quot;</FONT></B>);
+  }
+
+}
+
+<I><FONT COLOR="#B22222">// lire un fichier.. (compatible \0)
+</FONT></I><I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">readfile</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> readfile2(fil, NULL);
+}
+
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">readfile2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, LLint * size) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *adr = NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  INTsys len = 0;
+
+  len = fsize(fil);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt;= 0) {               <I><FONT COLOR="#B22222">// exists
+</FONT></I>    FILE *fp;
+
+    fp = fopen(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), fil), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {           <I><FONT COLOR="#B22222">// n'existe pas (!)
+</FONT></I>      adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct(len + 1);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (size != NULL)
+        *size = len;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (adr != NULL) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0 &amp;&amp; fread(adr, 1, len, fp) != len) { <I><FONT COLOR="#B22222">// fichier endommagé ?
+</FONT></I>          freet(adr);
+          adr = NULL;
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          *(adr + len) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      }
+      fclose(fp);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+}
+
+<I><FONT COLOR="#B22222">/* Note: utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">readfile_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *adr = NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">const</FONT></B> off_t len = fsize_utf8(fil);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt;= 0) {               <I><FONT COLOR="#B22222">// exists
+</FONT></I>    FILE *<B><FONT COLOR="#228B22">const</FONT></B> fp = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), fil), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {           <I><FONT COLOR="#B22222">// n'existe pas (!)
+</FONT></I>      adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct(len + 1);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (adr != NULL) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0 &amp;&amp; fread(adr, 1, len, fp) != len) { <I><FONT COLOR="#B22222">// fichier endommagé ?
+</FONT></I>          freet(adr);
+          adr = NULL;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          adr[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        }
+      }
+      fclose(fp);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+}
+
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">readfile_or</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *defaultdata) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *realfile = fil;
+  <B><FONT COLOR="#228B22">char</FONT></B> *ret;
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!fexist(fil))
+    realfile = fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), hts_rootdir(NULL), fil);
+  ret = readfile(realfile);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ret)
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#228B22">char</FONT></B> *adr = malloct(strlen(defaultdata) + 1);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (adr) {
+      strcpybuff(adr, defaultdata);
+      <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">// écriture/lecture d'une chaîne sur un fichier
+</FONT></I><I><FONT COLOR="#B22222">// -1 : erreur, sinon 0
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wstr</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  INTsys i;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  i = (s != NULL) ? ((INTsys) strlen(s)) : 0;
+  sprintf(buff, INTsysP <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>, i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(buff, 1, strlen(buff), fp) != strlen(buff))
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0 &amp;&amp; fwrite(s, 1, i, fp) != i)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rstr</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  INTsys i;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  linput(fp, buff, 256);
+  sscanf(buff, INTsysP, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &lt; 0 || i &gt; 32768)       <I><FONT COLOR="#B22222">/* error, something nasty happened */</FONT></I>
+    i = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) fread(s, 1, i, fp) != i) {
+      <B><FONT COLOR="#228B22">int</FONT></B> fread_cache_failed = 0;
+
+      assertf(fread_cache_failed);
+    }
+  }
+  *(s + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+}
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cache_rstr_addr</FONT></B>(FILE * fp) {
+  INTsys i;
+  <B><FONT COLOR="#228B22">char</FONT></B> *addr = NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  linput(fp, buff, 256);
+  sscanf(buff, INTsysP, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &lt; 0 || i &gt; 32768)       <I><FONT COLOR="#B22222">/* error, something nasty happened */</FONT></I>
+    i = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0) {
+    addr = malloct(i + 1);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (addr != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) fread(addr, 1, i, fp) != i) {
+        <B><FONT COLOR="#228B22">int</FONT></B> fread_cache_failed = 0;
+
+        assertf(fread_cache_failed);
+      }
+      *(addr + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> addr;
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_brstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  <B><FONT COLOR="#228B22">int</FONT></B> off;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  off = binput(adr, buff, 256);
+  adr += off;
+  sscanf(buff, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0)
+    strncpy(s, adr, i);
+  *(s + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  off += i;
+  <B><FONT COLOR="#A020F0">return</FONT></B> off;
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_quickbrstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  <B><FONT COLOR="#228B22">int</FONT></B> off;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  off = binput(adr, buff, 256);
+  adr += off;
+  sscanf(buff, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0)
+    strncpy(s, adr, i);
+  *(s + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  off += i;
+  <B><FONT COLOR="#A020F0">return</FONT></B> off;
+}
+
+<I><FONT COLOR="#B22222">/* idem, mais en int */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_brint</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">int</FONT></B> *i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+  <B><FONT COLOR="#228B22">int</FONT></B> r = cache_brstr(adr, s);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r != -1)
+    sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, i);
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">int</FONT></B> *i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  cache_rstr(fp, s);
+  sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, i);
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">int</FONT></B> i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  sprintf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) i);
+  <B><FONT COLOR="#A020F0">return</FONT></B> cache_wstr(fp, s);
+}
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rLLint</FONT></B>(FILE * fp, LLint * i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  cache_rstr(fp, s);
+  sscanf(s, LLintP, i);
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_wLLint</FONT></B>(FILE * fp, LLint i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  sprintf(s, LLintP, (LLint) i);
+  <B><FONT COLOR="#A020F0">return</FONT></B> cache_wstr(fp, s);
+}
+
+<I><FONT COLOR="#B22222">// -- cache --
+</FONT></I></PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htscache.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

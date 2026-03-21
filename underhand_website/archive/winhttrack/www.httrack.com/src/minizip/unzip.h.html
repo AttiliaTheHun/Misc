@@ -1,0 +1,457 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/unzip.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/unzip.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/unzip.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* unzip.h -- IO for uncompress .zip files using zlib
+   Version 1.1, February 14h, 2010
+   part of the MiniZip project - ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Copyright (C) 1998-2010 Gilles Vollant (minizip) ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Modifications of Unzip for Zip64
+         Copyright (C) 2007-2008 Even Rouault
+
+         Modifications for Zip64 support on both zip and unzip
+         Copyright (C) 2009-2010 Mathias Svensson ( http://result42.com )
+
+         For more info read MiniZip_info.txt
+
+         ---------------------------------------------------------------------------------
+
+        Condition of use and distribution are the same than zlib :
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  ---------------------------------------------------------------------------------
+
+        Changes
+
+        See header of unzip64.c
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_unz64_H</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_unz64_H</FONT>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_ZLIB_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;zlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B>  <FONT COLOR="#B8860B">_ZLIBIOAPI_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;ioapi.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_BZIP2</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;bzlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">Z_BZIP2ED</FONT> 12
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">STRICTUNZIP</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">STRICTZIPUNZIP</FONT>)
+<I><FONT COLOR="#B22222">/* like the STRICT of WIN32, we define a pointer that cannot be converted
+    from (void*) without cast */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> TagunzFile__ { <B><FONT COLOR="#228B22">int</FONT></B> unused; } unzFile__;
+<B><FONT COLOR="#228B22">typedef</FONT></B> unzFile__ *unzFile;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> voidp unzFile;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_OK</FONT>                          (0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_END_OF_LIST_OF_FILE</FONT>         (-100)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_ERRNO</FONT>                       (Z_ERRNO)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_EOF</FONT>                         (0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_PARAMERROR</FONT>                  (-102)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_BADZIPFILE</FONT>                  (-103)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_INTERNALERROR</FONT>               (-104)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_CRCERROR</FONT>                    (-105)
+
+<I><FONT COLOR="#B22222">/* tm_unz contain date/time info */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> tm_unz_s
+{
+    uInt tm_sec;            <I><FONT COLOR="#B22222">/* seconds after the minute - [0,59] */</FONT></I>
+    uInt tm_min;            <I><FONT COLOR="#B22222">/* minutes after the hour - [0,59] */</FONT></I>
+    uInt tm_hour;           <I><FONT COLOR="#B22222">/* hours since midnight - [0,23] */</FONT></I>
+    uInt tm_mday;           <I><FONT COLOR="#B22222">/* day of the month - [1,31] */</FONT></I>
+    uInt tm_mon;            <I><FONT COLOR="#B22222">/* months since January - [0,11] */</FONT></I>
+    uInt tm_year;           <I><FONT COLOR="#B22222">/* years - [1980..2044] */</FONT></I>
+} tm_unz;
+
+<I><FONT COLOR="#B22222">/* unz_global_info structure contain global data about the ZIPfile
+   These data comes from the end of central dir */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_global_info64_s
+{
+    ZPOS64_T number_entry;         <I><FONT COLOR="#B22222">/* total number of entries in
+                                     the central dir on this disk */</FONT></I>
+    uLong size_comment;         <I><FONT COLOR="#B22222">/* size of the global comment of the zipfile */</FONT></I>
+} unz_global_info64;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_global_info_s
+{
+    uLong number_entry;         <I><FONT COLOR="#B22222">/* total number of entries in
+                                     the central dir on this disk */</FONT></I>
+    uLong size_comment;         <I><FONT COLOR="#B22222">/* size of the global comment of the zipfile */</FONT></I>
+} unz_global_info;
+
+<I><FONT COLOR="#B22222">/* unz_file_info contain information about a file in the zipfile */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_file_info64_s
+{
+    uLong version;              <I><FONT COLOR="#B22222">/* version made by                 2 bytes */</FONT></I>
+    uLong version_needed;       <I><FONT COLOR="#B22222">/* version needed to extract       2 bytes */</FONT></I>
+    uLong flag;                 <I><FONT COLOR="#B22222">/* general purpose bit flag        2 bytes */</FONT></I>
+    uLong compression_method;   <I><FONT COLOR="#B22222">/* compression method              2 bytes */</FONT></I>
+    uLong dosDate;              <I><FONT COLOR="#B22222">/* last mod file date in Dos fmt   4 bytes */</FONT></I>
+    uLong crc;                  <I><FONT COLOR="#B22222">/* crc-32                          4 bytes */</FONT></I>
+    ZPOS64_T compressed_size;   <I><FONT COLOR="#B22222">/* compressed size                 8 bytes */</FONT></I>
+    ZPOS64_T uncompressed_size; <I><FONT COLOR="#B22222">/* uncompressed size               8 bytes */</FONT></I>
+    uLong size_filename;        <I><FONT COLOR="#B22222">/* filename length                 2 bytes */</FONT></I>
+    uLong size_file_extra;      <I><FONT COLOR="#B22222">/* extra field length              2 bytes */</FONT></I>
+    uLong size_file_comment;    <I><FONT COLOR="#B22222">/* file comment length             2 bytes */</FONT></I>
+
+    uLong disk_num_start;       <I><FONT COLOR="#B22222">/* disk number start               2 bytes */</FONT></I>
+    uLong internal_fa;          <I><FONT COLOR="#B22222">/* internal file attributes        2 bytes */</FONT></I>
+    uLong external_fa;          <I><FONT COLOR="#B22222">/* external file attributes        4 bytes */</FONT></I>
+
+    tm_unz tmu_date;
+} unz_file_info64;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_file_info_s
+{
+    uLong version;              <I><FONT COLOR="#B22222">/* version made by                 2 bytes */</FONT></I>
+    uLong version_needed;       <I><FONT COLOR="#B22222">/* version needed to extract       2 bytes */</FONT></I>
+    uLong flag;                 <I><FONT COLOR="#B22222">/* general purpose bit flag        2 bytes */</FONT></I>
+    uLong compression_method;   <I><FONT COLOR="#B22222">/* compression method              2 bytes */</FONT></I>
+    uLong dosDate;              <I><FONT COLOR="#B22222">/* last mod file date in Dos fmt   4 bytes */</FONT></I>
+    uLong crc;                  <I><FONT COLOR="#B22222">/* crc-32                          4 bytes */</FONT></I>
+    uLong compressed_size;      <I><FONT COLOR="#B22222">/* compressed size                 4 bytes */</FONT></I>
+    uLong uncompressed_size;    <I><FONT COLOR="#B22222">/* uncompressed size               4 bytes */</FONT></I>
+    uLong size_filename;        <I><FONT COLOR="#B22222">/* filename length                 2 bytes */</FONT></I>
+    uLong size_file_extra;      <I><FONT COLOR="#B22222">/* extra field length              2 bytes */</FONT></I>
+    uLong size_file_comment;    <I><FONT COLOR="#B22222">/* file comment length             2 bytes */</FONT></I>
+
+    uLong disk_num_start;       <I><FONT COLOR="#B22222">/* disk number start               2 bytes */</FONT></I>
+    uLong internal_fa;          <I><FONT COLOR="#B22222">/* internal file attributes        2 bytes */</FONT></I>
+    uLong external_fa;          <I><FONT COLOR="#B22222">/* external file attributes        4 bytes */</FONT></I>
+
+    tm_unz tmu_date;
+} unz_file_info;
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzStringFileNameCompare <B><FONT COLOR="#0000FF">OF</FONT></B> ((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileName1,
+                                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileName2,
+                                                 <B><FONT COLOR="#228B22">int</FONT></B> iCaseSensitivity));
+<I><FONT COLOR="#B22222">/*
+   Compare two filename (fileName1,fileName2).
+   If iCaseSenisivity = 1, comparision is case sensitivity (like strcmp)
+   If iCaseSenisivity = 2, comparision is not case sensitivity (like strcmpi
+                                or strcasecmp)
+   If iCaseSenisivity = 0, case sensitivity is defaut of your operating system
+    (like 1 on Unix, 2 on Windows)
+*/</FONT></I>
+
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT unzOpen <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path));
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT unzOpen64 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *path));
+<I><FONT COLOR="#B22222">/*
+  Open a Zip file. path contain the full pathname (by example,
+     on a Windows XP computer &quot;c:\\zlib\\zlib113.zip&quot; or on an Unix computer
+     &quot;zlib/zlib113.zip&quot;.
+     If the zipfile cannot be opened (file don't exist or in not valid), the
+       return value is NULL.
+     Else, the return value is a unzFile Handle, usable with other function
+       of this unzip package.
+     the &quot;64&quot; function take a const void* pointer, because the path is just the
+       value passed to the open64_file_func callback.
+     Under Windows, if UNICODE is defined, using fill_fopen64_filefunc, the path
+       is a pointer to a wide unicode string (LPCTSTR is LPCWSTR), so const char*
+       does not describe the reality
+*/</FONT></I>
+
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT unzOpen2 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path,
+                                    zlib_filefunc_def* pzlib_filefunc_def));
+<I><FONT COLOR="#B22222">/*
+   Open a Zip file, like unzOpen, but provide a set of file low level API
+      for read/write the zip file (see ioapi.h)
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT unzOpen2_64 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *path,
+                                    zlib_filefunc64_def* pzlib_filefunc_def));
+<I><FONT COLOR="#B22222">/*
+   Open a Zip file, like unz64Open, but provide a set of file low level API
+      for read/write the zip file (see ioapi.h)
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzClose <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Close a ZipFile opened with unzOpen.
+  If there is files inside the .Zip opened with unzOpenCurrentFile (see later),
+    these files MUST be closed with unzCloseCurrentFile before call unzClose.
+  return UNZ_OK if there is no problem. */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetGlobalInfo <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                        unz_global_info *pglobal_info));
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetGlobalInfo64 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                        unz_global_info64 *pglobal_info));
+<I><FONT COLOR="#B22222">/*
+  Write info about the ZipFile in the *pglobal_info structure.
+  No preparation of the structure is needed
+  return UNZ_OK if there is no problem. */</FONT></I>
+
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetGlobalComment <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                           <B><FONT COLOR="#228B22">char</FONT></B> *szComment,
+                                           uLong uSizeBuf));
+<I><FONT COLOR="#B22222">/*
+  Get the global comment string of the ZipFile, in the szComment buffer.
+  uSizeBuf is the size of the szComment buffer.
+  return the number of byte copied or an error code &lt;0
+*/</FONT></I>
+
+
+<I><FONT COLOR="#B22222">/***************************************************************************/</FONT></I>
+<I><FONT COLOR="#B22222">/* Unzip package allow you browse the directory of the zipfile */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGoToFirstFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Set the current file of the zipfile to the first file.
+  return UNZ_OK if there is no problem
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGoToNextFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Set the current file of the zipfile to the next file.
+  return UNZ_OK if there is no problem
+  return UNZ_END_OF_LIST_OF_FILE if the actual file was the latest.
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzLocateFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *szFileName,
+                     <B><FONT COLOR="#228B22">int</FONT></B> iCaseSensitivity));
+<I><FONT COLOR="#B22222">/*
+  Try locate the file szFileName in the zipfile.
+  For the iCaseSensitivity signification, see unzStringFileNameCompare
+
+  return value :
+  UNZ_OK if the file is found. It becomes the current file.
+  UNZ_END_OF_LIST_OF_FILE if the file is not found
+*/</FONT></I>
+
+
+<I><FONT COLOR="#B22222">/* ****************************************** */</FONT></I>
+<I><FONT COLOR="#B22222">/* Ryan supplied functions */</FONT></I>
+<I><FONT COLOR="#B22222">/* unz_file_info contain information about a file in the zipfile */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_file_pos_s
+{
+    uLong pos_in_zip_directory;   <I><FONT COLOR="#B22222">/* offset in zip file directory */</FONT></I>
+    uLong num_of_file;            <I><FONT COLOR="#B22222">/* # of file */</FONT></I>
+} unz_file_pos;
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetFilePos</FONT></B>(
+    unzFile file,
+    unz_file_pos* file_pos);
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToFilePos</FONT></B>(
+    unzFile file,
+    unz_file_pos* file_pos);
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz64_file_pos_s
+{
+    ZPOS64_T pos_in_zip_directory;   <I><FONT COLOR="#B22222">/* offset in zip file directory */</FONT></I>
+    ZPOS64_T num_of_file;            <I><FONT COLOR="#B22222">/* # of file */</FONT></I>
+} unz64_file_pos;
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetFilePos64</FONT></B>(
+    unzFile file,
+    unz64_file_pos* file_pos);
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToFilePos64</FONT></B>(
+    unzFile file,
+    <B><FONT COLOR="#228B22">const</FONT></B> unz64_file_pos* file_pos);
+
+<I><FONT COLOR="#B22222">/* ****************************************** */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetCurrentFileInfo64 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                         unz_file_info64 *pfile_info,
+                         <B><FONT COLOR="#228B22">char</FONT></B> *szFileName,
+                         uLong fileNameBufferSize,
+                         <B><FONT COLOR="#228B22">void</FONT></B> *extraField,
+                         uLong extraFieldBufferSize,
+                         <B><FONT COLOR="#228B22">char</FONT></B> *szComment,
+                         uLong commentBufferSize));
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetCurrentFileInfo <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                         unz_file_info *pfile_info,
+                         <B><FONT COLOR="#228B22">char</FONT></B> *szFileName,
+                         uLong fileNameBufferSize,
+                         <B><FONT COLOR="#228B22">void</FONT></B> *extraField,
+                         uLong extraFieldBufferSize,
+                         <B><FONT COLOR="#228B22">char</FONT></B> *szComment,
+                         uLong commentBufferSize));
+<I><FONT COLOR="#B22222">/*
+  Get Info about the current file
+  if pfile_info!=NULL, the *pfile_info structure will contain somes info about
+        the current file
+  if szFileName!=NULL, the filemane string will be copied in szFileName
+            (fileNameBufferSize is the size of the buffer)
+  if extraField!=NULL, the extra field information will be copied in extraField
+            (extraFieldBufferSize is the size of the buffer).
+            This is the Central-header version of the extra field
+  if szComment!=NULL, the comment string of the file will be copied in szComment
+            (commentBufferSize is the size of the buffer)
+*/</FONT></I>
+
+
+<I><FONT COLOR="#B22222">/** Addition for GDAL : START */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+
+<I><FONT COLOR="#B22222">/** Addition for GDAL : END */</FONT></I>
+
+
+<I><FONT COLOR="#B22222">/***************************************************************************/</FONT></I>
+<I><FONT COLOR="#B22222">/* for reading the content of the current zipfile, you can open it, read data
+   from it, and close it (you can close it before reading all the file)
+   */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzOpenCurrentFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Open for reading data the current file in the zipfile.
+  If there is no error, the return value is UNZ_OK.
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzOpenCurrentFilePassword <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* password));
+<I><FONT COLOR="#B22222">/*
+  Open for reading data the current file in the zipfile.
+  password is a crypting password
+  If there is no error, the return value is UNZ_OK.
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzOpenCurrentFile2 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                           <B><FONT COLOR="#228B22">int</FONT></B>* method,
+                                           <B><FONT COLOR="#228B22">int</FONT></B>* level,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> raw));
+<I><FONT COLOR="#B22222">/*
+  Same than unzOpenCurrentFile, but open for read raw the file (not uncompress)
+    if raw==1
+  *method will receive method of compression, *level will receive level of
+     compression
+  note : you can set level parameter as NULL (if you did not want known level,
+         but you CANNOT set method parameter as NULL
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzOpenCurrentFile3 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                           <B><FONT COLOR="#228B22">int</FONT></B>* method,
+                                           <B><FONT COLOR="#228B22">int</FONT></B>* level,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> raw,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* password));
+<I><FONT COLOR="#B22222">/*
+  Same than unzOpenCurrentFile, but open for read raw the file (not uncompress)
+    if raw==1
+  *method will receive method of compression, *level will receive level of
+     compression
+  note : you can set level parameter as NULL (if you did not want known level,
+         but you CANNOT set method parameter as NULL
+*/</FONT></I>
+
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzCloseCurrentFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Close the file in zip opened with unzOpenCurrentFile
+  Return UNZ_CRCERROR if all the file was read but the CRC is not good
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzReadCurrentFile <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                      voidp buf,
+                      <B><FONT COLOR="#228B22">unsigned</FONT></B> len));
+<I><FONT COLOR="#B22222">/*
+  Read bytes from the current file (opened by unzOpenCurrentFile)
+  buf contain buffer where data must be copied
+  len the size of buf.
+
+  return the number of byte copied if somes bytes are copied
+  return 0 if the end of file was reached
+  return &lt;0 with error code if there is an error
+    (UNZ_ERRNO for IO error, or zLib error for uncompress error)
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> z_off_t ZEXPORT unztell <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT unztell64 <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  Give the current position in uncompressed data
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzeof <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file));
+<I><FONT COLOR="#B22222">/*
+  return 1 if the end of file was reached, 0 elsewhere
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT unzGetLocalExtrafield <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                             voidp buf,
+                                             <B><FONT COLOR="#228B22">unsigned</FONT></B> len));
+<I><FONT COLOR="#B22222">/*
+  Read extra field from the current file (opened by unzOpenCurrentFile)
+  This is the local-header version of the extra field (sometimes, there is
+    more info in the local-header version than in the central-header)
+
+  if buf==NULL, it return the size of the local extra field
+
+  if buf!=NULL, len is the size of the buffer, the extra header is copied in
+    buf.
+  the return value is the number of bytes copied in buf, or (if &lt;0)
+    the error code
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/***************************************************************************/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Get the current file offset */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT <B><FONT COLOR="#0000FF">unzGetOffset64</FONT></B> (unzFile file);
+<B><FONT COLOR="#228B22">extern</FONT></B> uLong ZEXPORT <B><FONT COLOR="#0000FF">unzGetOffset</FONT></B> (unzFile file);
+
+<I><FONT COLOR="#B22222">/* Set the current file offset */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzSetOffset64</FONT></B> (unzFile file, ZPOS64_T pos);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzSetOffset</FONT></B> (unzFile file, uLong pos);
+
+
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B> <I><FONT COLOR="#B22222">/* _unz64_H */</FONT></I>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/unzip.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

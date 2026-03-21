@@ -1,0 +1,291 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htscatchurl.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htscatchurl.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htscatchurl.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: URL catch .h                                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// Fichier intercepteur d'URL .c
+</FONT></I>
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;fcntl.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;arpa/inet.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* définitions globales */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* htslib */</FONT></I>
+<I><FONT COLOR="#B22222">/*#include &quot;htslib.h&quot;*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* catch url */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscatchurl.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">// URL Link catcher
+</FONT></I>
+<I><FONT COLOR="#B22222">// 0- Init the URL catcher with standard port
+</FONT></I>
+<I><FONT COLOR="#B22222">// catch_url_init(&amp;port,&amp;return_host);
+</FONT></I>HTSEXT_API T_SOC <B><FONT COLOR="#0000FF">catch_url_init_std</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port_prox, <B><FONT COLOR="#228B22">char</FONT></B> *adr_prox) {
+  T_SOC soc;
+  <B><FONT COLOR="#228B22">int</FONT></B> try_to_listen_to[] = { 8080, 3128, 80, 81, 82, 8081, 3129, 31337, 0, -1 };
+  <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    soc = catch_url_init(&amp;try_to_listen_to[i], adr_prox);
+    *port_prox = try_to_listen_to[i];
+    i++;
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((soc == INVALID_SOCKET) &amp;&amp; (try_to_listen_to[i] &gt;= 0));
+  <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+}
+
+<I><FONT COLOR="#B22222">// 1- Init the URL catcher
+</FONT></I>
+<I><FONT COLOR="#B22222">// catch_url_init(&amp;port,&amp;return_host);
+</FONT></I>HTSEXT_API T_SOC <B><FONT COLOR="#0000FF">catch_url_init</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port, <I><FONT COLOR="#B22222">/* 128 bytes */</FONT></I> <B><FONT COLOR="#228B22">char</FONT></B> *adr) {
+  T_SOC soc = INVALID_SOCKET;
+  <B><FONT COLOR="#228B22">char</FONT></B> h_loc[256];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethostname(h_loc, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(h_loc)) == 0) {   <I><FONT COLOR="#B22222">// host name
+</FONT></I>    SOCaddr server;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hts_dns_resolve_nocache(h_loc, &amp;server) != NULL) {   <I><FONT COLOR="#B22222">// notre host
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((soc =
+           (T_SOC) socket(SOCaddr_sinfamily(server), SOCK_STREAM,
+                          0)) != INVALID_SOCKET) {
+        SOCaddr_initport(server, *port);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (bind(soc, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) == 0) {
+          SOCaddr server2;
+          SOClen len = SOCaddr_capacity(server2);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (getsockname(soc, &amp;SOCaddr_sockaddr(server2), &amp;len) == 0) {
+            *port = ntohs(SOCaddr_sinport(server));     <I><FONT COLOR="#B22222">// récupérer port
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (listen(soc, 1) &gt;= 0) {
+              SOCaddr_inetntoa(adr, 128, server2);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+              closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+              close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+              soc = INVALID_SOCKET;
+            }
+
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+            closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+            close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            soc = INVALID_SOCKET;
+          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          soc = INVALID_SOCKET;
+        }
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+}
+
+<I><FONT COLOR="#B22222">// 2 - Wait for URL
+</FONT></I>
+<I><FONT COLOR="#B22222">// catch_url
+</FONT></I><I><FONT COLOR="#B22222">// returns 0 if error
+</FONT></I><I><FONT COLOR="#B22222">// url: buffer where URL must be stored - or ip:port in case of failure
+</FONT></I><I><FONT COLOR="#B22222">// data: 32Kb
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">catch_url</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">char</FONT></B> *method, <B><FONT COLOR="#228B22">char</FONT></B> *data) {
+  <B><FONT COLOR="#228B22">int</FONT></B> retour = 0;
+
+  <I><FONT COLOR="#B22222">// connexion (accept)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+    T_SOC soc2;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>((soc2 = (T_SOC) accept(soc, NULL, NULL)) == INVALID_SOCKET) ;
+    <I><FONT COLOR="#B22222">/*
+       #ifdef _WIN32
+       closesocket(soc);
+       #else
+       close(soc);
+       #endif
+     */</FONT></I>
+    soc = soc2;
+    <I><FONT COLOR="#B22222">/* INFOS */</FONT></I>
+    {
+      SOCaddr server2;
+      SOClen len = SOCaddr_capacity(server2);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (getpeername(soc, &amp;SOCaddr_sockaddr(server2), &amp;len) == 0) {
+        <B><FONT COLOR="#228B22">char</FONT></B> dot[256 + 2];
+
+        SOCaddr_inetntoa(dot, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(dot), server2);
+        sprintf(url, <B><FONT COLOR="#BC8F8F">&quot;%s:%d&quot;</FONT></B>, dot, ntohs(SOCaddr_sinport(server2)));
+      }
+    }
+    <I><FONT COLOR="#B22222">/* INFOS */</FONT></I>
+
+    <I><FONT COLOR="#B22222">// réception
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+      <B><FONT COLOR="#228B22">char</FONT></B> line[1000];
+      <B><FONT COLOR="#228B22">char</FONT></B> protocol[256];
+
+      line[0] = protocol[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      socinput(soc, line, 1000);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(line)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(line, <B><FONT COLOR="#BC8F8F">&quot;%s %s %s&quot;</FONT></B>, method, url, protocol) == 3) {
+          lien_adrfil af;
+
+          <I><FONT COLOR="#B22222">// méthode en majuscule
+</FONT></I>          size_t i;
+          <B><FONT COLOR="#228B22">int</FONT></B> r = 0;
+
+          af.adr[0] = af.fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <I><FONT COLOR="#B22222">//
+</FONT></I>          <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; method[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((method[i] &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B>) &amp;&amp; (method[i] &lt;= <B><FONT COLOR="#BC8F8F">'z'</FONT></B>))
+              method[i] -= (<B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>);
+          }
+          <I><FONT COLOR="#B22222">// adresse du lien
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_absolute(url, &amp;af) &gt;= 0) {
+            <I><FONT COLOR="#B22222">// Traitement des en-têtes
+</FONT></I>            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK loc[HTS_URLMAXSIZE * 2];
+            htsblk blkretour;
+
+            hts_init_htsblk(&amp;blkretour);
+            <I><FONT COLOR="#B22222">//memset(&amp;blkretour, 0, sizeof(htsblk));    // effacer
+</FONT></I>            blkretour.location = loc;   <I><FONT COLOR="#B22222">// si non nul, contiendra l'adresse véritable en cas de moved xx
+</FONT></I>            <I><FONT COLOR="#B22222">// Lire en têtes restants
+</FONT></I>            sprintf(data, <B><FONT COLOR="#BC8F8F">&quot;%s %s %s\r\n&quot;</FONT></B>, method, af.fil, protocol);
+            <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(line)) {
+              socinput(soc, line, 1000);
+              treathead(NULL, NULL, NULL, &amp;blkretour, line);    <I><FONT COLOR="#B22222">// traiter
+</FONT></I>              strcatbuff(data, line);
+              strcatbuff(data, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+            }
+            <I><FONT COLOR="#B22222">// CR/LF final de l'en tête inutile car déja placé via la ligne vide juste au dessus
+</FONT></I>            <I><FONT COLOR="#B22222">//strcatbuff(data,&quot;\r\n&quot;);
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (blkretour.totalsize &gt; 0) {
+              <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) min(blkretour.totalsize, 32000);
+              <B><FONT COLOR="#228B22">int</FONT></B> pos = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(data);
+
+              <I><FONT COLOR="#B22222">// Copier le reste (post éventuel)
+</FONT></I>              <B><FONT COLOR="#A020F0">while</FONT></B>((len &gt; 0)
+                    &amp;&amp; ((r = recv(soc, (<B><FONT COLOR="#228B22">char</FONT></B> *) data + pos, len, 0)) &gt; 0)) {
+                pos += r;
+                len -= r;
+                data[pos] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;       <I><FONT COLOR="#B22222">// terminer par NULL
+</FONT></I>              }
+            }
+            <I><FONT COLOR="#B22222">// Envoyer page
+</FONT></I>            sprintf(line, CATCH_RESPONSE);
+            send(soc, line, (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(line), 0);
+            <I><FONT COLOR="#B22222">// OK!
+</FONT></I>            retour = 1;
+          }
+        }
+      }                         <I><FONT COLOR="#B22222">// sinon erreur
+</FONT></I>    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+    <I><FONT COLOR="#B22222">/*
+       WSACleanup();
+     */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> retour;
+}
+
+<I><FONT COLOR="#B22222">// Lecture de ligne sur socket
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">socinput</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> c;
+  <B><FONT COLOR="#228B22">int</FONT></B> j = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> b;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (recv(soc, (<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;b, 1, 0) == 1) {
+      c = b;
+      <B><FONT COLOR="#A020F0">switch</FONT></B> (c) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter CR
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>:
+        c = -1;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">9</FONT></B>:
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">12</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter ces caractères
+</FONT></I>      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+        s[j++] = (<B><FONT COLOR="#228B22">char</FONT></B>) c;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      c = EOF;
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((c != -1) &amp;&amp; (c != EOF) &amp;&amp; (j &lt; (max - 1)));
+  s[j++] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htscatchurl.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

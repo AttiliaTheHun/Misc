@@ -1,0 +1,1338 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htscharset.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htscharset.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htscharset.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Charset conversion functions                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscharset.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;punycode.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stddef.h&gt;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int32 uint32_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int64 uint64_t;
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">SOLARIS</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">sun</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_INTTYPES_H</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">BSD</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__OpenBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__NetBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD_kernel__</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;inttypes.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdint.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdarg.h&gt;</FONT></B>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringAscii</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  size_t i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; size; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) s[i];
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c &gt;= 0x80) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">IS_ALNUM</FONT></B>(C) ( ((C) &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; (C) &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>) || ((C) &gt;= <B><FONT COLOR="#BC8F8F">'a'</FONT></B> &amp;&amp; (C) &lt;= <B><FONT COLOR="#BC8F8F">'z'</FONT></B>) || ((C) &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; (C) &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CHAR_LOWER</FONT></B>(C) ( ((C) &gt;= <B><FONT COLOR="#BC8F8F">'A'</FONT></B> &amp;&amp; (C) &lt;= <B><FONT COLOR="#BC8F8F">'Z'</FONT></B>) ? ((C) + <B><FONT COLOR="#BC8F8F">'a'</FONT></B> - <B><FONT COLOR="#BC8F8F">'A'</FONT></B>) : (C) )
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_equalsAlphanum</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b) {
+  size_t i, j;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, j = 0;; i++, j++) {
+    <I><FONT COLOR="#B22222">/* Skip non-alnum */</FONT></I>
+    <B><FONT COLOR="#A020F0">for</FONT></B>(; a[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; !IS_ALNUM(a[i]); i++) ;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(; b[j] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; !IS_ALNUM(b[j]); j++) ;
+    <I><FONT COLOR="#B22222">/* Compare */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (CHAR_LOWER(a[i]) != CHAR_LOWER(b[j])) {
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+    <I><FONT COLOR="#B22222">/* End of string ? (note: a[i] == b[j]) */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (a[i] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">IS_ALNUM</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">CHAR_LOWER</FONT>
+
+<I><FONT COLOR="#B22222">/* Copy the memory region [s .. s + size - 1 ] as a \0-terminated string. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_stringMemCopy</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *dest = malloc(size + 1);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dest != NULL) {
+    memcpy(dest, s, size);
+    dest[size] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> wincodepage_t wincodepage_t;
+<B><FONT COLOR="#228B22">struct</FONT></B> wincodepage_t {
+  UINT codepage;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name;
+};
+
+<I><FONT COLOR="#B22222">/* See &lt;http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx&gt; */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> wincodepage_t codepages[] = {
+  {37, <B><FONT COLOR="#BC8F8F">&quot;ibm037&quot;</FONT></B>},
+  {437, <B><FONT COLOR="#BC8F8F">&quot;ibm437&quot;</FONT></B>},
+  {500, <B><FONT COLOR="#BC8F8F">&quot;ibm500&quot;</FONT></B>},
+  {708, <B><FONT COLOR="#BC8F8F">&quot;asmo-708&quot;</FONT></B>},
+  {720, <B><FONT COLOR="#BC8F8F">&quot;dos-720&quot;</FONT></B>},
+  {737, <B><FONT COLOR="#BC8F8F">&quot;ibm737&quot;</FONT></B>},
+  {775, <B><FONT COLOR="#BC8F8F">&quot;ibm775&quot;</FONT></B>},
+  {850, <B><FONT COLOR="#BC8F8F">&quot;ibm850&quot;</FONT></B>},
+  {852, <B><FONT COLOR="#BC8F8F">&quot;ibm852&quot;</FONT></B>},
+  {855, <B><FONT COLOR="#BC8F8F">&quot;ibm855&quot;</FONT></B>},
+  {857, <B><FONT COLOR="#BC8F8F">&quot;ibm857&quot;</FONT></B>},
+  {858, <B><FONT COLOR="#BC8F8F">&quot;ibm00858&quot;</FONT></B>},
+  {860, <B><FONT COLOR="#BC8F8F">&quot;ibm860&quot;</FONT></B>},
+  {861, <B><FONT COLOR="#BC8F8F">&quot;ibm861&quot;</FONT></B>},
+  {862, <B><FONT COLOR="#BC8F8F">&quot;dos-862&quot;</FONT></B>},
+  {863, <B><FONT COLOR="#BC8F8F">&quot;ibm863&quot;</FONT></B>},
+  {864, <B><FONT COLOR="#BC8F8F">&quot;ibm864&quot;</FONT></B>},
+  {865, <B><FONT COLOR="#BC8F8F">&quot;ibm865&quot;</FONT></B>},
+  {866, <B><FONT COLOR="#BC8F8F">&quot;cp866&quot;</FONT></B>},
+  {869, <B><FONT COLOR="#BC8F8F">&quot;ibm869&quot;</FONT></B>},
+  {870, <B><FONT COLOR="#BC8F8F">&quot;ibm870&quot;</FONT></B>},
+  {874, <B><FONT COLOR="#BC8F8F">&quot;windows-874&quot;</FONT></B>},
+  {875, <B><FONT COLOR="#BC8F8F">&quot;cp875&quot;</FONT></B>},
+  {932, <B><FONT COLOR="#BC8F8F">&quot;shift_jis&quot;</FONT></B>},
+  {936, <B><FONT COLOR="#BC8F8F">&quot;gb2312&quot;</FONT></B>},
+  {949, <B><FONT COLOR="#BC8F8F">&quot;ks_c_5601-1987&quot;</FONT></B>},
+  {950, <B><FONT COLOR="#BC8F8F">&quot;big5&quot;</FONT></B>},
+  {1026, <B><FONT COLOR="#BC8F8F">&quot;ibm1026&quot;</FONT></B>},
+  {1047, <B><FONT COLOR="#BC8F8F">&quot;ibm01047&quot;</FONT></B>},
+  {1140, <B><FONT COLOR="#BC8F8F">&quot;ibm01140&quot;</FONT></B>},
+  {1141, <B><FONT COLOR="#BC8F8F">&quot;ibm01141&quot;</FONT></B>},
+  {1142, <B><FONT COLOR="#BC8F8F">&quot;ibm01142&quot;</FONT></B>},
+  {1143, <B><FONT COLOR="#BC8F8F">&quot;ibm01143&quot;</FONT></B>},
+  {1144, <B><FONT COLOR="#BC8F8F">&quot;ibm01144&quot;</FONT></B>},
+  {1145, <B><FONT COLOR="#BC8F8F">&quot;ibm01145&quot;</FONT></B>},
+  {1146, <B><FONT COLOR="#BC8F8F">&quot;ibm01146&quot;</FONT></B>},
+  {1147, <B><FONT COLOR="#BC8F8F">&quot;ibm01147&quot;</FONT></B>},
+  {1148, <B><FONT COLOR="#BC8F8F">&quot;ibm01148&quot;</FONT></B>},
+  {1149, <B><FONT COLOR="#BC8F8F">&quot;ibm01149&quot;</FONT></B>},
+  {1200, <B><FONT COLOR="#BC8F8F">&quot;utf-16&quot;</FONT></B>},
+  {1201, <B><FONT COLOR="#BC8F8F">&quot;unicodefffe&quot;</FONT></B>},
+  {1250, <B><FONT COLOR="#BC8F8F">&quot;windows-1250&quot;</FONT></B>},
+  {1251, <B><FONT COLOR="#BC8F8F">&quot;windows-1251&quot;</FONT></B>},
+  {1252, <B><FONT COLOR="#BC8F8F">&quot;windows-1252&quot;</FONT></B>},
+  {1253, <B><FONT COLOR="#BC8F8F">&quot;windows-1253&quot;</FONT></B>},
+  {1254, <B><FONT COLOR="#BC8F8F">&quot;windows-1254&quot;</FONT></B>},
+  {1255, <B><FONT COLOR="#BC8F8F">&quot;windows-1255&quot;</FONT></B>},
+  {1256, <B><FONT COLOR="#BC8F8F">&quot;windows-1256&quot;</FONT></B>},
+  {1257, <B><FONT COLOR="#BC8F8F">&quot;windows-1257&quot;</FONT></B>},
+  {1258, <B><FONT COLOR="#BC8F8F">&quot;windows-1258&quot;</FONT></B>},
+  {1361, <B><FONT COLOR="#BC8F8F">&quot;johab&quot;</FONT></B>},
+  {10000, <B><FONT COLOR="#BC8F8F">&quot;macintosh&quot;</FONT></B>},
+  {10001, <B><FONT COLOR="#BC8F8F">&quot;x-mac-japanese&quot;</FONT></B>},
+  {10002, <B><FONT COLOR="#BC8F8F">&quot;x-mac-chinesetrad&quot;</FONT></B>},
+  {10003, <B><FONT COLOR="#BC8F8F">&quot;x-mac-korean&quot;</FONT></B>},
+  {10004, <B><FONT COLOR="#BC8F8F">&quot;x-mac-arabic&quot;</FONT></B>},
+  {10005, <B><FONT COLOR="#BC8F8F">&quot;x-mac-hebrew&quot;</FONT></B>},
+  {10006, <B><FONT COLOR="#BC8F8F">&quot;x-mac-greek&quot;</FONT></B>},
+  {10007, <B><FONT COLOR="#BC8F8F">&quot;x-mac-cyrillic&quot;</FONT></B>},
+  {10008, <B><FONT COLOR="#BC8F8F">&quot;x-mac-chinesesimp&quot;</FONT></B>},
+  {10010, <B><FONT COLOR="#BC8F8F">&quot;x-mac-romanian&quot;</FONT></B>},
+  {10017, <B><FONT COLOR="#BC8F8F">&quot;x-mac-ukrainian&quot;</FONT></B>},
+  {10021, <B><FONT COLOR="#BC8F8F">&quot;x-mac-thai&quot;</FONT></B>},
+  {10029, <B><FONT COLOR="#BC8F8F">&quot;x-mac-ce&quot;</FONT></B>},
+  {10079, <B><FONT COLOR="#BC8F8F">&quot;x-mac-icelandic&quot;</FONT></B>},
+  {10081, <B><FONT COLOR="#BC8F8F">&quot;x-mac-turkish&quot;</FONT></B>},
+  {10082, <B><FONT COLOR="#BC8F8F">&quot;x-mac-croatian&quot;</FONT></B>},
+  {12000, <B><FONT COLOR="#BC8F8F">&quot;utf-32&quot;</FONT></B>},
+  {12001, <B><FONT COLOR="#BC8F8F">&quot;utf-32be&quot;</FONT></B>},
+  {20000, <B><FONT COLOR="#BC8F8F">&quot;x-chinese_cns&quot;</FONT></B>},
+  {20001, <B><FONT COLOR="#BC8F8F">&quot;x-cp20001&quot;</FONT></B>},
+  {20002, <B><FONT COLOR="#BC8F8F">&quot;x_chinese-eten&quot;</FONT></B>},
+  {20003, <B><FONT COLOR="#BC8F8F">&quot;x-cp20003&quot;</FONT></B>},
+  {20004, <B><FONT COLOR="#BC8F8F">&quot;x-cp20004&quot;</FONT></B>},
+  {20005, <B><FONT COLOR="#BC8F8F">&quot;x-cp20005&quot;</FONT></B>},
+  {20105, <B><FONT COLOR="#BC8F8F">&quot;x-ia5&quot;</FONT></B>},
+  {20106, <B><FONT COLOR="#BC8F8F">&quot;x-ia5-german&quot;</FONT></B>},
+  {20107, <B><FONT COLOR="#BC8F8F">&quot;x-ia5-swedish&quot;</FONT></B>},
+  {20108, <B><FONT COLOR="#BC8F8F">&quot;x-ia5-norwegian&quot;</FONT></B>},
+  {20127, <B><FONT COLOR="#BC8F8F">&quot;us-ascii&quot;</FONT></B>},
+  {20261, <B><FONT COLOR="#BC8F8F">&quot;x-cp20261&quot;</FONT></B>},
+  {20269, <B><FONT COLOR="#BC8F8F">&quot;x-cp20269&quot;</FONT></B>},
+  {20273, <B><FONT COLOR="#BC8F8F">&quot;ibm273&quot;</FONT></B>},
+  {20277, <B><FONT COLOR="#BC8F8F">&quot;ibm277&quot;</FONT></B>},
+  {20278, <B><FONT COLOR="#BC8F8F">&quot;ibm278&quot;</FONT></B>},
+  {20280, <B><FONT COLOR="#BC8F8F">&quot;ibm280&quot;</FONT></B>},
+  {20284, <B><FONT COLOR="#BC8F8F">&quot;ibm284&quot;</FONT></B>},
+  {20285, <B><FONT COLOR="#BC8F8F">&quot;ibm285&quot;</FONT></B>},
+  {20290, <B><FONT COLOR="#BC8F8F">&quot;ibm290&quot;</FONT></B>},
+  {20297, <B><FONT COLOR="#BC8F8F">&quot;ibm297&quot;</FONT></B>},
+  {20420, <B><FONT COLOR="#BC8F8F">&quot;ibm420&quot;</FONT></B>},
+  {20423, <B><FONT COLOR="#BC8F8F">&quot;ibm423&quot;</FONT></B>},
+  {20424, <B><FONT COLOR="#BC8F8F">&quot;ibm424&quot;</FONT></B>},
+  {20833, <B><FONT COLOR="#BC8F8F">&quot;x-ebcdic-koreanextended&quot;</FONT></B>},
+  {20838, <B><FONT COLOR="#BC8F8F">&quot;ibm-thai&quot;</FONT></B>},
+  {20866, <B><FONT COLOR="#BC8F8F">&quot;koi8-r&quot;</FONT></B>},
+  {20871, <B><FONT COLOR="#BC8F8F">&quot;ibm871&quot;</FONT></B>},
+  {20880, <B><FONT COLOR="#BC8F8F">&quot;ibm880&quot;</FONT></B>},
+  {20905, <B><FONT COLOR="#BC8F8F">&quot;ibm905&quot;</FONT></B>},
+  {20924, <B><FONT COLOR="#BC8F8F">&quot;ibm00924&quot;</FONT></B>},
+  {20932, <B><FONT COLOR="#BC8F8F">&quot;euc-jp&quot;</FONT></B>},
+  {20936, <B><FONT COLOR="#BC8F8F">&quot;x-cp20936&quot;</FONT></B>},
+  {20949, <B><FONT COLOR="#BC8F8F">&quot;x-cp20949&quot;</FONT></B>},
+  {21025, <B><FONT COLOR="#BC8F8F">&quot;cp1025&quot;</FONT></B>},
+  {21866, <B><FONT COLOR="#BC8F8F">&quot;koi8-u&quot;</FONT></B>},
+  {28591, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-1&quot;</FONT></B>},
+  {28592, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-2&quot;</FONT></B>},
+  {28593, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-3&quot;</FONT></B>},
+  {28594, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-4&quot;</FONT></B>},
+  {28595, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-5&quot;</FONT></B>},
+  {28596, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-6&quot;</FONT></B>},
+  {28597, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-7&quot;</FONT></B>},
+  {28598, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-8&quot;</FONT></B>},
+  {28599, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-9&quot;</FONT></B>},
+  {28603, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-13&quot;</FONT></B>},
+  {28605, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-15&quot;</FONT></B>},
+  {29001, <B><FONT COLOR="#BC8F8F">&quot;x-europa&quot;</FONT></B>},
+  {38598, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-8-i&quot;</FONT></B>},
+  {50220, <B><FONT COLOR="#BC8F8F">&quot;iso-2022-jp&quot;</FONT></B>},
+  {50221, <B><FONT COLOR="#BC8F8F">&quot;csiso2022jp&quot;</FONT></B>},
+  {50222, <B><FONT COLOR="#BC8F8F">&quot;iso-2022-jp&quot;</FONT></B>},
+  {50225, <B><FONT COLOR="#BC8F8F">&quot;iso-2022-kr&quot;</FONT></B>},
+  {50227, <B><FONT COLOR="#BC8F8F">&quot;x-cp50227&quot;</FONT></B>},
+  {50229, <B><FONT COLOR="#BC8F8F">&quot;iso-2022-cn&quot;</FONT></B>},
+  {51932, <B><FONT COLOR="#BC8F8F">&quot;euc-jp&quot;</FONT></B>},
+  {51936, <B><FONT COLOR="#BC8F8F">&quot;euc-cn&quot;</FONT></B>},
+  {51949, <B><FONT COLOR="#BC8F8F">&quot;euc-kr&quot;</FONT></B>},
+  {52936, <B><FONT COLOR="#BC8F8F">&quot;hz-gb-2312&quot;</FONT></B>},
+  {54936, <B><FONT COLOR="#BC8F8F">&quot;gb18030&quot;</FONT></B>},
+  {57002, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-de&quot;</FONT></B>},
+  {57003, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-be&quot;</FONT></B>},
+  {57004, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-ta&quot;</FONT></B>},
+  {57005, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-te&quot;</FONT></B>},
+  {57006, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-as&quot;</FONT></B>},
+  {57007, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-or&quot;</FONT></B>},
+  {57008, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-ka&quot;</FONT></B>},
+  {57009, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-ma&quot;</FONT></B>},
+  {57010, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-gu&quot;</FONT></B>},
+  {57011, <B><FONT COLOR="#BC8F8F">&quot;x-iscii-pa&quot;</FONT></B>},
+  {65000, <B><FONT COLOR="#BC8F8F">&quot;utf-7&quot;</FONT></B>},
+  {65001, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>},
+  {0, NULL}
+};
+
+<I><FONT COLOR="#B22222">/* Get a Windows codepage, by its name. Return 0 upon error. */</FONT></I>
+UINT <B><FONT COLOR="#0000FF">hts_getCodepage</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name) {
+  <B><FONT COLOR="#228B22">int</FONT></B> id;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(id = 0; codepages[id].name != NULL; id++) {
+    <I><FONT COLOR="#B22222">/* Compare the two strings, lowercase and alphanum only (ISO88591 == iso-8859-1) */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hts_equalsAlphanum(name, codepages[id].name)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> codepages[id].codepage;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Not found */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+LPWSTR <B><FONT COLOR="#0000FF">hts_convertStringToUCS2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> size, UINT cp, <B><FONT COLOR="#228B22">int</FONT></B> *pwsize) {
+  <I><FONT COLOR="#B22222">/* Size in wide chars of the output */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> wsize = MultiByteToWideChar(cp, 0, (LPCSTR) s, size, NULL, 0);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (wsize &gt; 0) {
+    LPSTR uoutput = NULL;
+    LPWSTR woutput = malloc((wsize + 1) * <B><FONT COLOR="#A020F0">sizeof</FONT></B>(WCHAR));
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (woutput != NULL
+        &amp;&amp; MultiByteToWideChar(cp, 0, (LPCSTR) s, size, woutput,
+                               wsize) == wsize) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> usize =
+        WideCharToMultiByte(CP_UTF8, 0, woutput, wsize, NULL, 0, NULL, FALSE);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (usize &gt; 0) {
+        woutput[wsize] = 0x0;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (pwsize != NULL)
+          *pwsize = wsize;
+        <B><FONT COLOR="#A020F0">return</FONT></B> woutput;
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (woutput != NULL)
+      free(woutput);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+LPWSTR <B><FONT COLOR="#0000FF">hts_convertUTF8StringToUCS2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> size, <B><FONT COLOR="#228B22">int</FONT></B> *pwsize) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringToUCS2(s, size, CP_UTF8, pwsize);
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertUCS2StringToCP</FONT></B>(LPWSTR woutput, <B><FONT COLOR="#228B22">int</FONT></B> wsize, UINT cp) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> usize =
+    WideCharToMultiByte(cp, 0, woutput, wsize, NULL, 0, NULL, FALSE);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (usize &gt; 0) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> uoutput = malloc((usize + 1) * <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B>));
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uoutput != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (WideCharToMultiByte
+          (cp, 0, woutput, wsize, uoutput, usize, NULL, FALSE) == usize) {
+        uoutput[usize] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <B><FONT COLOR="#A020F0">return</FONT></B> uoutput;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        free(uoutput);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertUCS2StringToUTF8</FONT></B>(LPWSTR woutput, <B><FONT COLOR="#228B22">int</FONT></B> wsize) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertUCS2StringToCP(woutput, wsize, CP_UTF8);
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringCPToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, UINT cp) {
+  <I><FONT COLOR="#B22222">/* Empty string ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Already UTF-8 ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cp == CP_UTF8 || hts_isStringAscii(s, size)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Other (valid) charset */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (cp != 0) {
+    <I><FONT COLOR="#B22222">/* Size in wide chars of the output */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> wsize;
+    LPWSTR woutput = hts_convertStringToUCS2(s, (<B><FONT COLOR="#228B22">int</FONT></B>) size, cp, &amp;wsize);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (woutput != NULL) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> uoutput = hts_convertUCS2StringToUTF8(woutput, wsize);
+
+      free(woutput);
+      <B><FONT COLOR="#A020F0">return</FONT></B> uoutput;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Error, charset not found! */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringCPFromUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, UINT cp) {
+  <I><FONT COLOR="#B22222">/* Empty string ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Already UTF-8 ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cp == CP_UTF8 || hts_isStringAscii(s, size)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Other (valid) charset */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (cp != 0) {
+    <I><FONT COLOR="#B22222">/* Size in wide chars of the output */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> wsize;
+    LPWSTR woutput = hts_convertStringToUCS2(s, (<B><FONT COLOR="#228B22">int</FONT></B>) size, CP_UTF8, &amp;wsize);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (woutput != NULL) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> uoutput = hts_convertUCS2StringToCP(woutput, wsize, cp);
+
+      free(woutput);
+      <B><FONT COLOR="#A020F0">return</FONT></B> uoutput;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Error, charset not found! */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  <B><FONT COLOR="#228B22">const</FONT></B> UINT cp = hts_getCodepage(charset);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringCPToUTF8(s, size, cp);
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringFromUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  <B><FONT COLOR="#228B22">const</FONT></B> UINT cp = hts_getCodepage(charset);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringCPFromUTF8(s, size, cp);
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringSystemToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringCPToUTF8(s, size, GetACP());
+}
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;errno.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_USEICONV</FONT>) &amp;&amp; ( <FONT COLOR="#B8860B">HTS_USEICONV</FONT> == 0 ) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">DISABLE_ICONV</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">DISABLE_ICONV</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;iconv.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscodepages.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* decode from a codepage to UTF-8 */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">hts_codepageToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *codepage, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <I><FONT COLOR="#B22222">/* find the given codepage */</FONT></I>
+  size_t i;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; table_mappings[i].name != NULL
+      &amp;&amp; !hts_equalsAlphanum(table_mappings[i].name, codepage) ; i++) ;
+
+  <I><FONT COLOR="#B22222">/* found ; decode */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (table_mappings[i].name != NULL) {
+    size_t j, k;
+    <B><FONT COLOR="#228B22">char</FONT></B> *dest = NULL;
+    size_t capa = 0;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAX_UTF</FONT> 8
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0, k = 0 ; s[j] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; j++) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) s[j];
+      <B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 uc = table_mappings[i].table[c];
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t max = k + MAX_UTF;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (capa &lt; max) {
+        <B><FONT COLOR="#A020F0">for</FONT></B>(capa = 16 ; capa &lt; max ; capa &lt;&lt;= 1) ;
+        dest = realloc(dest, capa);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (dest == NULL) {
+          <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+        }
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (dest != NULL) {
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t len = hts_writeUTF8(uc, &amp;dest[k], MAX_UTF);
+        k += len;
+        assertf(k &lt; capa);
+      }
+    }
+    dest[k] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">MAX_UTF</FONT>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringCharset</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *to, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *from) {
+  <I><FONT COLOR="#B22222">/* Empty string ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> strdup(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  }
+  <I><FONT COLOR="#B22222">/* Already on correct charset ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_equalsAlphanum(from, to)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">DISABLE_ICONV</FONT>
+  <I><FONT COLOR="#B22222">/* Find codepage */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#228B22">const</FONT></B> iconv_t cp = iconv_open(to, from);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cp != (iconv_t) - 1) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *inbuf = (<B><FONT COLOR="#228B22">char</FONT></B>*) (uintptr_t) s; <I><FONT COLOR="#B22222">/* ugly iconv api, sheesh */</FONT></I>
+      size_t inbytesleft = size;
+      size_t outbufCapa = 0;
+      <B><FONT COLOR="#228B22">char</FONT></B> *outbuf = NULL;
+      size_t outbytesleft = 0;
+      size_t finalSize;
+
+      <I><FONT COLOR="#B22222">/* Initial size to around the string size */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(outbufCapa = 16; outbufCapa &lt; size + 1; outbufCapa *= 2) ;
+      outbuf = malloc(outbufCapa);
+      outbytesleft = outbufCapa;
+
+      <I><FONT COLOR="#B22222">/* Convert */</FONT></I>
+      <B><FONT COLOR="#A020F0">while</FONT></B>(outbuf != NULL &amp;&amp; inbytesleft != 0) {
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t offset = outbufCapa - outbytesleft;
+        <B><FONT COLOR="#228B22">char</FONT></B> *outbufCurrent = outbuf + offset;
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t ret =
+          iconv(cp, &amp;inbuf, &amp;inbytesleft, &amp;outbufCurrent, &amp;outbytesleft);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ret == (size_t) - 1) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (errno == E2BIG) {
+            <B><FONT COLOR="#228B22">const</FONT></B> size_t used = outbufCapa - outbytesleft;
+
+            outbufCapa *= 2;
+            outbuf = realloc(outbuf, outbufCapa);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (outbuf == NULL) {
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+            outbytesleft = outbufCapa - used;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            free(outbuf);
+            outbuf = NULL;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Final size ? */</FONT></I>
+      finalSize = outbufCapa - outbytesleft;
+
+      <I><FONT COLOR="#B22222">/* Terminating \0 */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (outbuf != NULL &amp;&amp; finalSize + 1 &gt;= outbufCapa) {
+        outbuf = realloc(outbuf, finalSize + 1);
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (outbuf != NULL)
+        outbuf[finalSize] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+      <I><FONT COLOR="#B22222">/* Close codepage */</FONT></I>
+      iconv_close(cp);
+
+      <I><FONT COLOR="#B22222">/* Return result (may be NULL) */</FONT></I>
+      <B><FONT COLOR="#A020F0">return</FONT></B> outbuf;
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <I><FONT COLOR="#B22222">/* Limited codepage decoding support only. */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_isCharsetUTF8(to)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_codepageToUTF8(from, s);
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* Error, charset not found! */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  <I><FONT COLOR="#B22222">/* Empty string ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> strdup(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  }
+  <I><FONT COLOR="#B22222">/* Already UTF-8 ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_isCharsetUTF8(charset) || hts_isStringAscii(s, size)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Find codepage */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringCharset(s, size, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>, charset);
+  }
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringFromUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  <I><FONT COLOR="#B22222">/* Empty string ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> strdup(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  }
+  <I><FONT COLOR="#B22222">/* Already UTF-8 ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_isCharsetUTF8(charset) || hts_isStringAscii(s, size)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_stringMemCopy(s, size);
+  }
+  <I><FONT COLOR="#B22222">/* Find codepage */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_convertStringCharset(s, size, charset, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>);
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+HTS_STATIC <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getCharsetFromContentType</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime) {
+  <I><FONT COLOR="#B22222">/* text/html; charset=utf-8 */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> charset = <B><FONT COLOR="#BC8F8F">&quot;charset&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> *pos = strstr(mime, charset);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+    <I><FONT COLOR="#B22222">/* Skip spaces */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> eq = 0;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(pos += strlen(charset);
+        *pos == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || *pos == <B><FONT COLOR="#BC8F8F">'='</FONT></B> || *pos == <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> || *pos == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>; pos++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*pos == <B><FONT COLOR="#BC8F8F">'='</FONT></B>) {
+        eq = 1;
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (eq == 1) {
+      <B><FONT COLOR="#228B22">int</FONT></B> len;
+
+      <B><FONT COLOR="#A020F0">for</FONT></B>(len = 0;
+          pos[len] == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || pos[len] == <B><FONT COLOR="#BC8F8F">';'</FONT></B> || pos[len] == <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> || *pos == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>;
+          pos++) ;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (len != 0) {
+        <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s = malloc(len + 1);
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; len; i++) {
+          s[i] = pos[i];
+        }
+        s[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <B><FONT COLOR="#A020F0">return</FONT></B> s;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strcasecmp</FONT></B>(a,b) stricmp(a,b)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strncasecmp</FONT></B>(a,b,n) strnicmp(a,b,n)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_space</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> c == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'\t'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'\r'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_space_or_equal</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> is_space(c) || c == <B><FONT COLOR="#BC8F8F">'='</FONT></B>;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_space_or_equal_or_quote</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> c) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> is_space_or_equal(c) || c == <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>;
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_stringLengthUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> bytes = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) s;
+  size_t i, len;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, len = 0; bytes[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = bytes[i];
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (HTS_IS_LEADING_UTF8(c)) {       <I><FONT COLOR="#B22222">/* ASCII or leading byte */</FONT></I>
+      len++;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> len;
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_copyStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, size_t size) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> bytes = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) src;
+  size_t i, mark;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, mark = 0; ( i == 0 || bytes[i + 1] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ) &amp;&amp; i &lt;= size; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = bytes[i];
+
+    dest[i] = c;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (HTS_IS_LEADING_UTF8(c)) {
+      mark = i;
+    }
+  }
+  dest[mark] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> mark;
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_appendStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src,  size_t nBytes) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t size = strlen(dest);
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_copyStringUTF8(dest + size, src, nBytes);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isCharsetUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *charset) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> charset != NULL 
+    &amp;&amp; ( strcasecmp(charset, <B><FONT COLOR="#BC8F8F">&quot;utf-8&quot;</FONT></B>) == 0 
+         || strcasecmp(charset, <B><FONT COLOR="#BC8F8F">&quot;utf8&quot;</FONT></B>) == 0 );
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getCharsetFromMeta</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *html, size_t size) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <I><FONT COLOR="#B22222">/* &lt;META HTTP-EQUIV=&quot;CONTENT-TYPE&quot; CONTENT=&quot;text/html; charset=utf-8&quot; &gt; */</FONT></I>
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; size; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (html[i] == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B> &amp;&amp; strncasecmp(&amp;html[i + 1], <B><FONT COLOR="#BC8F8F">&quot;meta&quot;</FONT></B>, 4) == 0
+        &amp;&amp; is_space(html[i + 5])) {
+      <I><FONT COLOR="#B22222">/* Skip spaces */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i += 5; is_space(html[i]); i++) ;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(&amp;html[i], <B><FONT COLOR="#BC8F8F">&quot;HTTP-EQUIV&quot;</FONT></B>, 10) == 0
+          &amp;&amp; is_space_or_equal(html[i + 10])) {
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i += 10; is_space_or_equal_or_quote(html[i]); i++) ;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(&amp;html[i], <B><FONT COLOR="#BC8F8F">&quot;CONTENT-TYPE&quot;</FONT></B>, 12) == 0) {
+          <B><FONT COLOR="#A020F0">for</FONT></B>(i += 12; is_space_or_equal_or_quote(html[i]); i++) ;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(&amp;html[i], <B><FONT COLOR="#BC8F8F">&quot;CONTENT&quot;</FONT></B>, 7) == 0
+              &amp;&amp; is_space_or_equal(html[i + 7])) {
+            <B><FONT COLOR="#A020F0">for</FONT></B>(i += 7; is_space_or_equal_or_quote(html[i]); i++) ;
+            <I><FONT COLOR="#B22222">/* Skip content-type */</FONT></I>
+            <B><FONT COLOR="#A020F0">for</FONT></B>(;
+                i &lt; size &amp;&amp; html[i] != <B><FONT COLOR="#BC8F8F">';'</FONT></B> &amp;&amp; html[i] != <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B> &amp;&amp; html[i] != <B><FONT COLOR="#BC8F8F">'\''</FONT></B>;
+                i++) ;
+            <I><FONT COLOR="#B22222">/* Expect charset attribute here */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (html[i] == <B><FONT COLOR="#BC8F8F">';'</FONT></B>) {
+              <B><FONT COLOR="#A020F0">for</FONT></B>(i++; is_space(html[i]); i++) ;
+              <I><FONT COLOR="#B22222">/* Look for charset */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strncasecmp(&amp;html[i], <B><FONT COLOR="#BC8F8F">&quot;charset&quot;</FONT></B>, 7) == 0
+                  &amp;&amp; is_space_or_equal(html[i + 7])) {
+                <B><FONT COLOR="#228B22">int</FONT></B> len;
+
+                <B><FONT COLOR="#A020F0">for</FONT></B>(i += 7; is_space_or_equal(html[i]) || html[i] == <B><FONT COLOR="#BC8F8F">'\''</FONT></B>;
+                    i++) ;
+                <I><FONT COLOR="#B22222">/* Charset */</FONT></I>
+                <B><FONT COLOR="#A020F0">for</FONT></B>(len = 0;
+                    i + len &lt; size &amp;&amp; html[i + len] != <B><FONT COLOR="#BC8F8F">'&quot;'</FONT></B>
+                    &amp;&amp; html[i + len] != <B><FONT COLOR="#BC8F8F">'\''</FONT></B> &amp;&amp; html[i + len] != <B><FONT COLOR="#BC8F8F">' '</FONT></B>; len++) ;
+                <I><FONT COLOR="#B22222">/* No error ? */</FONT></I>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (len != 0 &amp;&amp; i &lt; size) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s = malloc(len + 1);
+                  <B><FONT COLOR="#228B22">int</FONT></B> j;
+
+                  <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; len; j++) {
+                    s[j] = html[i + j];
+                  }
+                  s[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">/* UTF-8 helpers */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Number of leading zeros. Returns a value between 0 and 8. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">nlz8</FONT></B>(<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> x) {
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> b = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (x &amp; 0xf0) {
+    x &gt;&gt;= 4;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    b += 4;
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (x &amp; 0x0c) {
+    x &gt;&gt;= 2;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    b += 2;
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (! (x &amp; 0x02) ) {
+    b++;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> b;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Emit the Unicode character 'UC' (internal)
+  See &lt;http://en.wikipedia.org/wiki/UTF-8&gt;
+  7	  U+0000		U+007F		1	0xxxxxxx
+  11	U+0080		U+07FF		2	110xxxxx
+  16	U+0800		U+FFFF		3	1110xxxx
+  21	U+10000		U+1FFFFF	4	11110xxx
+  26	U+200000	U+3FFFFFF	5	111110xx
+  31	U+4000000	U+7FFFFFFF	6	1111110x
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ADD_FIRST_SEQ</FONT></B>(UC, LEN, EMITTER) do {                            \
+  <I><FONT COLOR="#B22222">/* first octet */</FONT></I>                                                     \
+  const unsigned char lead =                                            \
+    <I><FONT COLOR="#B22222">/* leading bits: LEN &quot;1&quot; bits */</FONT></I>                                    \
+    ~ ( ( 1 &lt;&lt; (unsigned) ( 8 - LEN ) ) - 1 )                           \
+    <I><FONT COLOR="#B22222">/* encoded bits */</FONT></I>                                                  \
+    | ( (UC) &gt;&gt; (unsigned) ( ( LEN - 1 ) * 6 ) );                       \
+  EMITTER(lead);                                                        \
+  } while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ADD_NEXT_SEQ</FONT></B>(UC, SHIFT, EMITTER) do {                           \
+  <I><FONT COLOR="#B22222">/* further bytes are encoding 6 bits */</FONT></I>                               \
+  const unsigned char next =                                            \
+    0x80 | ( ( (UC) &gt;&gt; SHIFT ) &amp; 0x3f );                                \
+  EMITTER(next);                                                        \
+  } while(0)
+
+<I><FONT COLOR="#B22222">/* UC is a constant. EMITTER is a macro function taking an unsigned int. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EMIT_UNICODE</FONT></B>(UC, EMITTER) do {          \
+    if ((UC) &lt; 0x80) {                          \
+      EMITTER(((unsigned char) (UC)));          \
+    } else if ((UC) &lt; 0x0800) {                 \
+      ADD_FIRST_SEQ(UC, 2, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 0, EMITTER);             \
+    } else if ((UC) &lt; 0x10000) {                \
+      ADD_FIRST_SEQ(UC, 3, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 6, EMITTER);             \
+      ADD_NEXT_SEQ(UC, 0, EMITTER);             \
+    } else if ((UC) &lt; 0x200000) {               \
+      ADD_FIRST_SEQ(UC, 4, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 12, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 6, EMITTER);             \
+      ADD_NEXT_SEQ(UC, 0, EMITTER);             \
+    } else if ((UC) &lt; 0x4000000) {              \
+      ADD_FIRST_SEQ(UC, 5, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 18, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 12, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 6, EMITTER);             \
+      ADD_NEXT_SEQ(UC, 0, EMITTER);             \
+    } else {                                    \
+      ADD_FIRST_SEQ(UC, 6, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 24, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 18, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 12, EMITTER);            \
+      ADD_NEXT_SEQ(UC, 6, EMITTER);             \
+      ADD_NEXT_SEQ(UC, 0, EMITTER);             \
+    }                                           \
+  } while(0)
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">READ_LOOP</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_LOOP</FONT></B>(C, READER, EMITTER, CLEARED)  \
+  do {                                          \
+    unsigned int uc_ =                          \
+      (C) &amp; ( (1 &lt;&lt; (CLEARED - 1)) - 1 );       \
+    int i_;                                     \
+    <I><FONT COLOR="#B22222">/* loop should be unrolled by compiler */</FONT></I>   \
+    for(i_ = 0 ; i_ &lt; 7 - CLEARED ; i_++) {     \
+      const int c_ = (READER);                  \
+      <I><FONT COLOR="#B22222">/* continuation byte 10xxxxxx */</FONT></I>          \
+      if (c_ != -1 &amp;&amp; ( c_ &gt;&gt; 6 ) == 0x2) {     \
+        uc_ &lt;&lt;= 6;                              \
+        uc_ |= (c_ &amp; 0x3f);                     \
+      } else {                                  \
+        uc_ = (unsigned int) -1;                \
+        break;                                  \
+      }                                         \
+    }                                           \
+    EMITTER(((int) uc_));                       \
+  } while(0)
+
+<I><FONT COLOR="#B22222">/* READER is a macro returning an int (-1 for error).
+   EMITTER is a macro function taking an int (-1 for error). */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_UNICODE</FONT></B>(READER, EMITTER) do {      \
+    const unsigned int f_ =                     \
+      (unsigned int) (READER);                  \
+    <I><FONT COLOR="#B22222">/* 1..8 */</FONT></I>                                  \
+    const unsigned int c_ =                     \
+      nlz8((unsigned char)~f_);                 \
+    <I><FONT COLOR="#B22222">/* ascii */</FONT></I>                                 \
+    switch(c_) {                                \
+    case 0:                                     \
+      EMITTER(((int)f_));                       \
+      break;                                    \
+      <I><FONT COLOR="#B22222">/* 110xxxxx 10xxxxxx */</FONT></I>                   \
+    case 2:                                     \
+      READ_LOOP(f_, READER, EMITTER, 6);        \
+      break;                                    \
+    case 3:                                     \
+      READ_LOOP(f_, READER, EMITTER, 5);        \
+      break;                                    \
+    case 4:                                     \
+      READ_LOOP(f_, READER, EMITTER, 4);        \
+      break;                                    \
+    case 5:                                     \
+      READ_LOOP(f_, READER, EMITTER, 3);        \
+      break;                                    \
+    case 6:                                     \
+      READ_LOOP(f_, READER, EMITTER, 2);        \
+      break;                                    \
+      <I><FONT COLOR="#B22222">/* unexpected continuation/bogus */</FONT></I>       \
+    default:                                    \
+      EMITTER(-1);                              \
+      break;                                    \
+    }                                           \
+  } while(0)
+
+<I><FONT COLOR="#B22222">/* Sample. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  <B><FONT COLOR="#228B22">int</FONT></B> hex = 0;
+  
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_INT</FONT></B>(DEST)                                  \
+  ( ( !hex &amp;&amp; sscanf(argv[i], <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;(DEST)) == 1)      \
+    || (hex &amp;&amp; sscanf(argv[i], <B><FONT COLOR="#BC8F8F">&quot;%x&quot;</FONT></B>, &amp;(DEST)) == 1 ) )
+  
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 1 ; i &lt; argc ; i++) {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> uc, from, to;
+    
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[i], <B><FONT COLOR="#BC8F8F">&quot;--hex&quot;</FONT></B>) == 0) {
+      hex = 1;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[i], <B><FONT COLOR="#BC8F8F">&quot;--decimal&quot;</FONT></B>) == 0) {
+      hex = 0;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[i], <B><FONT COLOR="#BC8F8F">&quot;--decode&quot;</FONT></B>) == 0) {
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RD</FONT> fgetc_unlocked(stdin)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WR</FONT></B>(C) do {                              \
+        if (C != -1) {                          \
+          printf(<B><FONT COLOR="#BC8F8F">&quot;%04x\n&quot;</FONT></B>, C);                  \
+        } else if (!feof(stdin)) {              \
+          fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;read error\n&quot;</FONT></B>);      \
+          exit(EXIT_FAILURE);                   \
+        }                                       \
+      } while(0)
+      <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(stdin)) {
+        READ_UNICODE(RD, WR);
+      }
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RD</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">WR</FONT>
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[i], <B><FONT COLOR="#BC8F8F">&quot;-range&quot;</FONT></B>) == 0
+             &amp;&amp; i + 2 &lt; argc
+             &amp;&amp; (++i, 1)
+             &amp;&amp; READ_INT(from)
+             &amp;&amp; (++i, 1)
+             &amp;&amp; READ_INT(to)
+             ) {
+      <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> i;
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = from ; i &lt; to ; i++) {
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EM</FONT></B>(C) fputc_unlocked(C, stdout)
+        EMIT_UNICODE(i, EM);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">EM</FONT>
+      }
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (READ_INT(uc)) {
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EM</FONT></B>(C) fputc_unlocked(C, stdout)
+      EMIT_UNICODE(uc, EM);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">EM</FONT>
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#A020F0">return</FONT></B> EXIT_FAILURE;
+    }
+  }
+  
+  <B><FONT COLOR="#A020F0">return</FONT></B> EXIT_SUCCESS;
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* IDNA helpers. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">ADD_BYTE</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">INCREASE_CAPA</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">INCREASE_CAPA</FONT></B>() do { \
+  capa = capa &lt; 16 ? 16 : ( capa &lt;&lt; 1 ); \
+  dest = realloc(dest, capa*sizeof(dest[0])); \
+  if (dest == NULL) { \
+    return NULL; \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ADD_BYTE</FONT></B>(C) do { \
+  if (capa == destSize) { \
+    INCREASE_CAPA(); \
+  } \
+  dest[destSize++] = (C); \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FREE_BUFFER</FONT></B>() do { \
+  if (dest != NULL) { \
+    free(dest); \
+    dest = NULL; \
+  } \
+} while(0)
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringUTF8ToIDNA</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *dest = NULL;
+  size_t capa = 0, destSize = 0;
+  size_t i, startSeg;
+  <B><FONT COLOR="#228B22">int</FONT></B> nonAsciiFound;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = startSeg = 0, nonAsciiFound = 0 ; i &lt;= size ; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = i &lt; size ? (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) s[i] : 0;
+    <I><FONT COLOR="#B22222">/* separator (ending, url segment, scheme, path segment, query string) */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c == 0 || c == <B><FONT COLOR="#BC8F8F">'.'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">':'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) {
+      <I><FONT COLOR="#B22222">/* non-empty segment */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (startSeg != i) {
+        <I><FONT COLOR="#B22222">/* IDNA ? */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (nonAsciiFound) {
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t segSize = i - startSeg;
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *segData = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) &amp;s[startSeg];
+          punycode_uint *segInt = NULL;
+          size_t j, utfSeq, segOutputSize;
+
+          punycode_uint output_length;
+          punycode_status status;
+
+          <I><FONT COLOR="#B22222">/* IDNA prefix */</FONT></I>
+          ADD_BYTE(<B><FONT COLOR="#BC8F8F">'x'</FONT></B>);
+          ADD_BYTE(<B><FONT COLOR="#BC8F8F">'n'</FONT></B>);
+          ADD_BYTE(<B><FONT COLOR="#BC8F8F">'-'</FONT></B>);
+          ADD_BYTE(<B><FONT COLOR="#BC8F8F">'-'</FONT></B>);
+          
+          <I><FONT COLOR="#B22222">/* copy utf-8 to integers. note: buffer is sufficient! */</FONT></I>
+          segInt = (punycode_uint*) malloc(segSize*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(punycode_uint));
+          <B><FONT COLOR="#A020F0">if</FONT></B> (segInt == NULL) {
+            FREE_BUFFER();
+            <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+          }
+          <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0, segOutputSize = 0, utfSeq = (size_t) -1
+            ; j &lt;= segSize ; j++) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = j &lt; segSize ? segData[j] : 0;
+
+            <I><FONT COLOR="#B22222">/* character start (ascii, or utf-8 leading sequence) */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (HTS_IS_LEADING_UTF8(c)) {
+              <I><FONT COLOR="#B22222">/* commit sequence ? */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (utfSeq != (size_t) -1) {
+
+                <I><FONT COLOR="#B22222">/* Reader: can read bytes up to j */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RD</FONT> ( utfSeq &lt; j ? segData[utfSeq++] : -1 )
+
+                <I><FONT COLOR="#B22222">/* Writer: upon error, return FFFD (replacement character) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WR</FONT></B>(C) do { \
+  if ((C) != -1) { \
+    <I><FONT COLOR="#B22222">/* copy character */</FONT></I> \
+    assertf(segOutputSize &lt; segSize); \
+    segInt[segOutputSize++] = (C); \
+  } \
+  <I><FONT COLOR="#B22222">/* In case of error, abort. */</FONT></I> \
+  else { \
+    FREE_BUFFER(); \
+    return NULL; \
+  } \
+} while(0)
+
+                <I><FONT COLOR="#B22222">/* Read/Write Unicode character. */</FONT></I>
+                READ_UNICODE(RD, WR);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RD</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">WR</FONT>
+
+                <I><FONT COLOR="#B22222">/* not anymore in sequence */</FONT></I>
+                utfSeq = (size_t) -1;
+              }
+
+              <I><FONT COLOR="#B22222">/* ascii ? */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (c &lt; 0x80) {
+                assertf(segOutputSize &lt; segSize);
+                segInt[segOutputSize] = c;
+                <B><FONT COLOR="#A020F0">if</FONT></B> (c != 0) {
+                  segOutputSize++;
+                }
+              }
+              <I><FONT COLOR="#B22222">/* new UTF8 sequence */</FONT></I>
+              <B><FONT COLOR="#A020F0">else</FONT></B> {
+                utfSeq = j;
+              }
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* encode */</FONT></I>
+          output_length = (punycode_uint) ( capa - destSize );
+          <B><FONT COLOR="#A020F0">while</FONT></B>((status = punycode_encode((punycode_uint) segOutputSize,
+            segInt, NULL, &amp;output_length, &amp;dest[destSize]))
+            == punycode_big_output) {
+              INCREASE_CAPA();
+              output_length = (punycode_uint) ( capa - destSize );
+          }
+
+          <I><FONT COLOR="#B22222">/* cleanup */</FONT></I>
+          free(segInt);
+
+          <I><FONT COLOR="#B22222">/* success ? */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_success) {
+            destSize += output_length;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            FREE_BUFFER();
+            <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+          }
+        }
+        <I><FONT COLOR="#B22222">/* copy ascii segment otherwise */</FONT></I>
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          size_t j;
+          <B><FONT COLOR="#A020F0">for</FONT></B>(j = startSeg ; j &lt; i ; j++) {
+            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = s[j];
+            ADD_BYTE(c);
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* next segment start */</FONT></I>
+      startSeg = i + 1;
+      nonAsciiFound = 0;
+
+      <I><FONT COLOR="#B22222">/* add separator (including terminating \0) */</FONT></I>
+      ADD_BYTE(c);
+    }
+    <I><FONT COLOR="#B22222">/* found non-ascii */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (c &gt;= 0x80) {
+      nonAsciiFound = 1;
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringIDNA</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  size_t i, startSeg;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = startSeg = 0 ; i &lt;= size ; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = i &lt; size ? s[i] : 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c == 0 || c == <B><FONT COLOR="#BC8F8F">'.'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">':'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) {
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t segSize = i - startSeg;
+      <I><FONT COLOR="#B22222">/* IDNA segment ? */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (segSize &gt; 4
+          &amp;&amp; strncasecmp(&amp;s[startSeg], <B><FONT COLOR="#BC8F8F">&quot;xn--&quot;</FONT></B>, 4) == 0) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+      <I><FONT COLOR="#B22222">/* next segment start */</FONT></I>
+      startSeg = i + 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertStringIDNAToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *dest = NULL;
+  size_t capa = 0, destSize = 0;
+  size_t i, startSeg;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = startSeg = 0 ; i &lt;= size ; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = i &lt; size ? s[i] : 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c == 0 || c == <B><FONT COLOR="#BC8F8F">'.'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">':'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'/'</FONT></B> || c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) {
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t segSize = i - startSeg;
+      <I><FONT COLOR="#B22222">/* IDNA segment ? */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (segSize &gt; 4
+          &amp;&amp; strncasecmp(&amp;s[startSeg], <B><FONT COLOR="#BC8F8F">&quot;xn--&quot;</FONT></B>, 4) == 0) {
+        punycode_status status;
+        punycode_uint output_capa;
+        punycode_uint output_length;
+        punycode_uint *output_dest;
+
+        <I><FONT COLOR="#B22222">/* encode. pre-reserve buffer. */</FONT></I>
+        <B><FONT COLOR="#A020F0">for</FONT></B>(output_capa = 16 ; output_capa &lt; segSize 
+          ; output_capa &lt;&lt;= 1) ;
+        output_dest =
+          (punycode_uint*) malloc(output_capa*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(punycode_uint));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (output_dest == NULL) {
+          FREE_BUFFER();
+          <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+        }
+        <B><FONT COLOR="#A020F0">for</FONT></B>(output_length = output_capa 
+          ; (status = punycode_decode((punycode_uint) segSize - 4,
+            &amp;s[startSeg + 4], &amp;output_length, output_dest, NULL))
+            == punycode_big_output 
+          ; ) {
+          output_capa &lt;&lt;= 1;
+          output_dest =
+            (punycode_uint*) realloc(output_dest,
+                                     output_capa*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(punycode_uint));
+          <B><FONT COLOR="#A020F0">if</FONT></B> (output_dest == NULL) {
+            FREE_BUFFER();
+            <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+          }
+          output_length = output_capa;
+        }
+
+        <I><FONT COLOR="#B22222">/* success ? */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_success) {
+          punycode_uint j;
+          <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0 ; j &lt; output_length ; j++) {
+            <B><FONT COLOR="#228B22">const</FONT></B> punycode_uint uc = output_dest[j];
+            <B><FONT COLOR="#A020F0">if</FONT></B> (uc &lt; 0x80) {
+              ADD_BYTE((<B><FONT COLOR="#228B22">char</FONT></B>) uc);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <I><FONT COLOR="#B22222">/* emiter (byte per byte) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EM</FONT></B>(C) do { \
+  if (C != -1) {   \
+    ADD_BYTE(C);   \
+  } else {         \
+    FREE_BUFFER(); \
+    return NULL;   \
+  }                \
+} while(0)
+              <I><FONT COLOR="#B22222">/* Emit codepoint */</FONT></I>
+              EMIT_UNICODE(uc, EM);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">EM</FONT>
+            }
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* cleanup */</FONT></I>
+        free(output_dest);
+
+        <I><FONT COLOR="#B22222">/* error ? */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (status != punycode_success) {
+          FREE_BUFFER();
+          <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        size_t j;
+        <B><FONT COLOR="#A020F0">for</FONT></B>(j = startSeg ; j &lt; i ; j++) {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = s[j];
+          ADD_BYTE(c);
+        }
+      }
+      <I><FONT COLOR="#B22222">/* next segment start */</FONT></I>
+      startSeg = i + 1;
+      <I><FONT COLOR="#B22222">/* add separator (including terminating \0) */</FONT></I>
+      ADD_BYTE(c);
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+}
+
+hts_UCS4* <B><FONT COLOR="#0000FF">hts_convertUTF8StringToUCS4</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size, size_t *nChars) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> data = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) s;
+  size_t i;
+  hts_UCS4 *dest = NULL;
+  size_t capa = 0, destSize = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (nChars != NULL) {
+    *nChars = 0;
+  }
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; size ; ) {
+    hts_UCS4 uc;
+
+    <I><FONT COLOR="#B22222">/* Reader: can read bytes up to j */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RD</FONT> ( i &lt; size ? data[i++] : -1 )
+
+    <I><FONT COLOR="#B22222">/* Writer: upon error, return FFFD (replacement character) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WR</FONT></B>(C) uc = (C) != -1 ? (hts_UCS4) (C) : (hts_UCS4) 0xfffd
+
+    <I><FONT COLOR="#B22222">/* Read Unicode character. */</FONT></I>
+    READ_UNICODE(RD, WR);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RD</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">WR</FONT>
+
+    <I><FONT COLOR="#B22222">/* Emit char */</FONT></I>
+    ADD_BYTE(uc);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (nChars != NULL) {
+      (*nChars)++;
+    }
+  }
+  ADD_BYTE(<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_isStringUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, size_t size) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> data = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) s;
+  size_t i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; size ; ) {
+    <I><FONT COLOR="#B22222">/* Reader: can read bytes up to j */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RD</FONT> ( i &lt; size ? data[i++] : -1 )
+
+    <I><FONT COLOR="#B22222">/* Writer: upon error, return FFFD (replacement character) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WR</FONT></B>(C) if ((C) == -1) { return 0; }
+
+    <I><FONT COLOR="#B22222">/* Read Unicode character. */</FONT></I>
+    READ_UNICODE(RD, WR);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RD</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">WR</FONT>
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_convertUCS4StringToUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 *s, size_t nChars) {
+  size_t i;
+  <B><FONT COLOR="#228B22">char</FONT></B> *dest = NULL;
+  size_t capa = 0, destSize = 0;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; nChars ; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 uc = s[i];
+    <I><FONT COLOR="#B22222">/* emitter (byte per byte) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EM</FONT></B>(C) do { \
+  if (C != -1) {   \
+    ADD_BYTE(C);   \
+  } else {         \
+    FREE_BUFFER(); \
+    return NULL;   \
+  }                \
+} while(0)
+    EMIT_UNICODE(uc, EM);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">EM</FONT>
+  }
+  ADD_BYTE(<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_writeUTF8</FONT></B>(hts_UCS4 uc, <B><FONT COLOR="#228B22">char</FONT></B> *dest, size_t size) {
+  size_t offs = 0;
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">EM</FONT></B>(C) do {       \
+  if (offs + 1 &lt; size) { \
+    dest[offs++] = C;    \
+  } else {               \
+    return 0;            \
+  }                      \
+} while(0)
+  EMIT_UNICODE(uc, EM);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">EM</FONT>
+  <B><FONT COLOR="#A020F0">return</FONT></B> offs; 
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_readUTF8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *src, size_t size, hts_UCS4 *puc) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> data = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) src;
+  size_t i = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> uc = -1;
+
+  <I><FONT COLOR="#B22222">/* Reader: can read bytes up to j */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RD</FONT> ( i &lt; size ? data[i++] : -1 )
+
+  <I><FONT COLOR="#B22222">/* Writer: upon error, return FFFD (replacement character) */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WR</FONT></B>(C) uc = (C)
+
+  <I><FONT COLOR="#B22222">/* Read Unicode character. */</FONT></I>
+  READ_UNICODE(RD, WR);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RD</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">WR</FONT>
+
+  <I><FONT COLOR="#B22222">/* Return */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (uc != -1) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (puc != NULL) {
+      *puc = (hts_UCS4) uc;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> i;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_getUTF8SequenceLength</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> lead) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> f = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) lead;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> c = nlz8(~f);
+  <B><FONT COLOR="#A020F0">switch</FONT></B>(c) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+    <I><FONT COLOR="#B22222">/* ASCII */</FONT></I>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">3</FONT></B>:
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B>:
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">5</FONT></B>:
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">6</FONT></B>:
+    <I><FONT COLOR="#B22222">/* UTF-8 */</FONT></I>
+    <B><FONT COLOR="#A020F0">return</FONT></B> c;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    <I><FONT COLOR="#B22222">/* ERROR */</FONT></I>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+
+size_t <B><FONT COLOR="#0000FF">hts_stringLengthUCS4</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> hts_UCS4 *s) {
+  size_t i;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; s[i] != 0 ; i++) ;
+  <B><FONT COLOR="#A020F0">return</FONT></B> i;
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">ADD_BYTE</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">INCREASE_CAPA</FONT>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htscharset.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

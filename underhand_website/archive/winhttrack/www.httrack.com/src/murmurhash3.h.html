@@ -1,0 +1,159 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/murmurhash3.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:29 GMT -->
+<HEAD>
+<TITLE>./murmurhash3.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./murmurhash3.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">//-----------------------------------------------------------------------------
+</FONT></I><I><FONT COLOR="#B22222">// MurmurHash3 was written by Austin Appleby, and is placed in the public
+</FONT></I><I><FONT COLOR="#B22222">// domain. The author hereby disclaims copyright to this source code.
+</FONT></I>
+<I><FONT COLOR="#B22222">// Note - The x86 and x64 versions do _not_ produce the same results, as the
+</FONT></I><I><FONT COLOR="#B22222">// algorithms are optimized for their respective platforms. You can still
+</FONT></I><I><FONT COLOR="#B22222">// compile and run any of them on any platform, but your performance with the
+</FONT></I><I><FONT COLOR="#B22222">// non-native version will be less than optimal.
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stddef.h&gt;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> __int8 int8_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int8 uint8_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int16 uint16_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int32 uint32_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int64 uint64_t;
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">SOLARIS</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">sun</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_INTTYPES_H</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">BSD</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__OpenBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__NetBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD_kernel__</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;inttypes.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdint.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> uint32_t <B><FONT COLOR="#0000FF">rotl32</FONT></B> ( uint32_t x, int8_t r )
+{
+  <B><FONT COLOR="#A020F0">return</FONT></B> (x &lt;&lt; r) | (x &gt;&gt; (32 - r));
+}
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ROTL32</FONT></B>(x,y)     rotl32(x,y)
+<B><FONT COLOR="#228B22">static</FONT></B> uint32_t <B><FONT COLOR="#0000FF">getblock32</FONT></B> ( <B><FONT COLOR="#228B22">const</FONT></B> uint32_t * p, <B><FONT COLOR="#228B22">int</FONT></B> i )
+{
+  <B><FONT COLOR="#A020F0">return</FONT></B> p[i];
+}
+<B><FONT COLOR="#228B22">static</FONT></B> uint32_t <B><FONT COLOR="#0000FF">fmix32</FONT></B> ( uint32_t h )
+{
+  h ^= h &gt;&gt; 16;
+  h *= 0x85ebca6b;
+  h ^= h &gt;&gt; 13;
+  h *= 0xc2b2ae35;
+  h ^= h &gt;&gt; 16;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> h;
+}
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">BIG_CONSTANT</FONT></B>(x) (x##LLU)
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MurmurHash3_x86_128</FONT></B> ( <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> * key, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> len,
+                                  uint32_t seed, <B><FONT COLOR="#228B22">void</FONT></B> * out ) {
+  <B><FONT COLOR="#228B22">const</FONT></B> uint8_t * data = (<B><FONT COLOR="#228B22">const</FONT></B> uint8_t*)key;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> nblocks = len / 16;
+
+  uint32_t h1 = seed;
+  uint32_t h2 = seed;
+  uint32_t h3 = seed;
+  uint32_t h4 = seed;
+
+  <B><FONT COLOR="#228B22">const</FONT></B> uint32_t c1 = 0x239b961b; 
+  <B><FONT COLOR="#228B22">const</FONT></B> uint32_t c2 = 0xab0e9789;
+  <B><FONT COLOR="#228B22">const</FONT></B> uint32_t c3 = 0x38b34ae5; 
+  <B><FONT COLOR="#228B22">const</FONT></B> uint32_t c4 = 0xa1e38b93;
+
+  <B><FONT COLOR="#228B22">const</FONT></B> uint32_t * blocks = (<B><FONT COLOR="#228B22">const</FONT></B> uint32_t *)(data + nblocks*16);
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = -nblocks; i; i++)
+  {
+    uint32_t k1 = getblock32(blocks,i*4+0);
+    uint32_t k2 = getblock32(blocks,i*4+1);
+    uint32_t k3 = getblock32(blocks,i*4+2);
+    uint32_t k4 = getblock32(blocks,i*4+3);
+
+    k1 *= c1; k1  = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
+
+    h1 = ROTL32(h1,19); h1 += h2; h1 = h1*5+0x561ccd1b;
+
+    k2 *= c2; k2  = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
+
+    h2 = ROTL32(h2,17); h2 += h3; h2 = h2*5+0x0bcaa747;
+
+    k3 *= c3; k3  = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
+
+    h3 = ROTL32(h3,15); h3 += h4; h3 = h3*5+0x96cd1c35;
+
+    k4 *= c4; k4  = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
+
+    h4 = ROTL32(h4,13); h4 += h1; h4 = h4*5+0x32ac3b17;
+  }
+
+  {
+  <B><FONT COLOR="#228B22">const</FONT></B> uint8_t * tail = (<B><FONT COLOR="#228B22">const</FONT></B> uint8_t*)(data + nblocks*16);
+
+  uint32_t k1 = 0;
+  uint32_t k2 = 0;
+  uint32_t k3 = 0;
+  uint32_t k4 = 0;
+
+  <B><FONT COLOR="#A020F0">switch</FONT></B>(len &amp; 15)
+  {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">15</FONT></B>: k4 ^= tail[14] &lt;&lt; 16;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">14</FONT></B>: k4 ^= tail[13] &lt;&lt; 8;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>: k4 ^= tail[12] &lt;&lt; 0;
+           k4 *= c4; k4  = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">12</FONT></B>: k3 ^= tail[11] &lt;&lt; 24;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">11</FONT></B>: k3 ^= tail[10] &lt;&lt; 16;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>: k3 ^= tail[ 9] &lt;&lt; 8;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">9</FONT></B>: k3 ^= tail[ 8] &lt;&lt; 0;
+           k3 *= c3; k3  = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">8</FONT></B>: k2 ^= tail[ 7] &lt;&lt; 24;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">7</FONT></B>: k2 ^= tail[ 6] &lt;&lt; 16;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">6</FONT></B>: k2 ^= tail[ 5] &lt;&lt; 8;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">5</FONT></B>: k2 ^= tail[ 4] &lt;&lt; 0;
+           k2 *= c2; k2  = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">4</FONT></B>: k1 ^= tail[ 3] &lt;&lt; 24;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">3</FONT></B>: k1 ^= tail[ 2] &lt;&lt; 16;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">2</FONT></B>: k1 ^= tail[ 1] &lt;&lt; 8;
+  <B><FONT COLOR="#A020F0">case</FONT></B>  <B><FONT COLOR="#5F9EA0">1</FONT></B>: k1 ^= tail[ 0] &lt;&lt; 0;
+           k1 *= c1; k1  = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
+  };
+
+
+  h1 ^= len; h2 ^= len; h3 ^= len; h4 ^= len;
+
+  h1 += h2; h1 += h3; h1 += h4;
+  h2 += h1; h3 += h1; h4 += h1;
+
+  h1 = fmix32(h1);
+  h2 = fmix32(h2);
+  h3 = fmix32(h3);
+  h4 = fmix32(h4);
+
+  h1 += h2; h1 += h3; h1 += h4;
+  h2 += h1; h3 += h1; h4 += h1;
+
+  ((uint32_t*)out)[0] = h1;
+  ((uint32_t*)out)[1] = h2;
+  ((uint32_t*)out)[2] = h3;
+  ((uint32_t*)out)[3] = h4;
+  }
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/murmurhash3.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:29 GMT -->
+</HTML>

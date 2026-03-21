@@ -1,0 +1,163 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsback.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsback.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsback.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       backing system (multiple socket download)              */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTSBACK_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSBACK_DEFH</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_XGETHOST</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsthread.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Forward definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> struct_back struct_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> cache_back cache_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_back lien_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsblk</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsblk htsblk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// create/destroy
+</FONT></I>struct_back *<B><FONT COLOR="#0000FF">back_new</FONT></B>(httrackp *opt, <B><FONT COLOR="#228B22">int</FONT></B> back_max);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_free</FONT></B>(struct_back ** sback);
+
+<I><FONT COLOR="#B22222">// backing
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BACK_ADD_TEST</FONT> <B><FONT COLOR="#BC8F8F">&quot;(dummy)&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BACK_ADD_TEST2</FONT> <B><FONT COLOR="#BC8F8F">&quot;(dummy2)&quot;</FONT></B>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_index</FONT></B>(httrackp * opt, struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *sav);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_available</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> struct_back * sback);
+LLint <B><FONT COLOR="#0000FF">back_incache</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_done_incache</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> struct_back * sback);
+HTS_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_exist</FONT></B>(struct_back * sback, httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *sav);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_nsoc</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_nsoc_overall</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_add</FONT></B>(struct_back * sback, httrackp * opt, cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+             <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+             <B><FONT COLOR="#228B22">int</FONT></B> test);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_add_if_not_exists</FONT></B>(struct_back * sback, httrackp * opt,
+                           cache_back * cache, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil, <B><FONT COLOR="#228B22">int</FONT></B> test);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_stack_available</FONT></B>(struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_search</FONT></B>(httrackp * opt, struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_search_quick</FONT></B>(struct_back * sback);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_clean</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_cleanup_background</FONT></B>(httrackp * opt, cache_back * cache,
+                            struct_back * sback);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_wait</FONT></B>(struct_back * sback, httrackp * opt, cache_back * cache,
+               TStamp stat_timestart);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_letlive</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_searchlive</FONT></B>(httrackp * opt, struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *search_addr);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_connxfr</FONT></B>(htsblk * src, htsblk * dst);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_move</FONT></B>(lien_back * src, lien_back * dst);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_copy_static</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> lien_back * src, lien_back * dst);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_serialize</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">const</FONT></B> lien_back * src);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_unserialize</FONT></B>(FILE * fp, lien_back ** dst);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_serialize_ref</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> lien_back * src);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_unserialize_ref</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                         lien_back ** dst);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_set_finished</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_set_locked</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_set_unlocked</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_delete</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_index_unlock</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_clear_entry</FONT></B>(lien_back * back);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_flush_output</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_delete_all</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_maydelete</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_maydeletehttp</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_trylive</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_finalize</FONT></B>(httrackp * opt, cache_back * cache, struct_back * sback,
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> p);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_info</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">int</FONT></B> i, <B><FONT COLOR="#228B22">int</FONT></B> j, FILE * fp);
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_infostr</FONT></B>(struct_back * sback, <B><FONT COLOR="#228B22">int</FONT></B> i, <B><FONT COLOR="#228B22">int</FONT></B> j, <B><FONT COLOR="#228B22">char</FONT></B> *s);
+LLint <B><FONT COLOR="#0000FF">back_transferred</FONT></B>(LLint add, struct_back * sback);
+
+<I><FONT COLOR="#B22222">// hostback
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_XGETHOST</FONT>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_solve</FONT></B>(httrackp * opt, lien_back * sback);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">host_wait</FONT></B>(httrackp * opt, lien_back * sback);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_checksize</FONT></B>(httrackp * opt, lien_back * eback, <B><FONT COLOR="#228B22">int</FONT></B> check_only_totalsize);
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">back_checkmirror</FONT></B>(httrackp * opt);
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsback.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

@@ -1,0 +1,250 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/ioapi.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/ioapi.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/ioapi.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ioapi.h -- IO base function header for compress/uncompress .zip
+   part of the MiniZip project - ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Copyright (C) 1998-2010 Gilles Vollant (minizip) ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Modifications for Zip64 support
+         Copyright (C) 2009-2010 Mathias Svensson ( http://result42.com )
+
+         For more info read MiniZip_info.txt
+
+         Changes
+
+    Oct-2009 - Defined ZPOS64_T to fpos_t on windows and u_int64_t on linux. (might need to find a better why for this)
+    Oct-2009 - Change to fseeko64, ftello64 and fopen64 so large files would work on linux.
+               More if/def section may be needed to support other platforms
+    Oct-2009 - Defined fxxxx64 calls to normal fopen/ftell/fseek so they would compile on windows.
+                          (but you should use iowin32.c for windows instead)
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_ZLIBIOAPI64_H</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_ZLIBIOAPI64_H</FONT>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (!<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN32</FONT>)) &amp;&amp; (!<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">WIN32</FONT>)) &amp;&amp; (!<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__APPLE__</FONT>))
+
+  <I><FONT COLOR="#B22222">// Linux needs this to support file operation on files larger then 4+GB
+</FONT></I>  <I><FONT COLOR="#B22222">// But might need better if/def to select just the platforms that needs them.
+</FONT></I>
+        #ifndef __USE_FILE_OFFSET64
+                #define __USE_FILE_OFFSET64
+        #endif
+        #ifndef __USE_LARGEFILE64
+                #define __USE_LARGEFILE64
+        #endif
+        #ifndef _LARGEFILE64_SOURCE
+                #define _LARGEFILE64_SOURCE
+        #endif
+        #ifndef _FILE_OFFSET_BIT
+                #define _FILE_OFFSET_BIT 64
+        #endif
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;zlib.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">USE_FILE32API</FONT>)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">fopen64</FONT> fopen
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ftello64</FONT> ftell
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">fseeko64</FONT> fseek
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__FreeBSD__</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">fopen64</FONT> fopen
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ftello64</FONT> ftello
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">fseeko64</FONT> fseeko
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_MSC_VER</FONT>
+ #define fopen64 fopen
+ #<B><FONT COLOR="#A020F0">if</FONT></B> (_MSC_VER &gt;= 1400) &amp;&amp; (!(defined(NO_MSCVER_FILE64_FUNC)))
+  #define ftello64 _ftelli64
+  #define fseeko64 _fseeki64
+ #<B><FONT COLOR="#A020F0">else</FONT></B> <I><FONT COLOR="#B22222">// old MSC
+</FONT></I>  #define ftello64 ftell
+  #define fseeko64 fseek
+ #endif
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* As reported by sammyx, z_crc_t and z_const are not defined in pre-1.2.70 releases of zlib */</FONT></I>
+<I><FONT COLOR="#B22222">/* See &lt;https://github.com/madler/zlib/commit/6c9bd474aa08312ef2e2e9655a80e18db24a1680#diff-d466aa66f7e453e0c8a7719229cff391R391&gt; */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">ZLIB_VERNUM</FONT> &lt; 0x1270
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">Z_U4</FONT>
+   <B><FONT COLOR="#228B22">typedef</FONT></B> Z_U4 z_crc_t;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+   <B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> z_crc_t;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">ZLIB_CONST</FONT>) &amp;&amp; !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">z_const</FONT>)
+#  <B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">z_const</FONT> const
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#  <B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">z_const</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/*
+#ifndef ZPOS64_T
+  #ifdef _WIN32
+                #define ZPOS64_T fpos_t
+  #else
+    #include &lt;stdint.h&gt;
+    #define ZPOS64_T uint64_t
+  #endif
+#endif
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_MINIZIP64_CONF_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;mz64conf.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* a type choosen by DEFINE */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_64BIT_INT_CUSTOM</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B>  64BIT_INT_CUSTOM_TYPE ZPOS64_T;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAS_STDINT_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;stdint.h&quot;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> uint64_t ZPOS64_T;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Maximum unsigned 32-bit value used as placeholder for zip64 */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAXU32</FONT> 0xffffffff
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_MSC_VER</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__BORLANDC__</FONT>)
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int64 ZPOS64_T;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZPOS64_T;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_SEEK_CUR</FONT> (1)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_SEEK_END</FONT> (2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_SEEK_SET</FONT> (0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_MODE_READ</FONT>      (1)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_MODE_WRITE</FONT>     (2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_MODE_READWRITEFILTER</FONT> (3)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_MODE_EXISTING</FONT> (4)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZLIB_FILEFUNC_MODE_CREATE</FONT>   (8)
+
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">ZCALLBACK</FONT>
+ #<B><FONT COLOR="#A020F0">if</FONT></B> (defined(WIN32) || defined(_WIN32) || defined (WINDOWS) || defined (_WINDOWS)) &amp;&amp; defined(CALLBACK) &amp;&amp; defined (USEWINDOWS_CALLBACK)
+   #define ZCALLBACK CALLBACK
+ #<B><FONT COLOR="#A020F0">else</FONT></B>
+   #define ZCALLBACK
+ #endif
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">voidpf</FONT></B>   (ZCALLBACK *open_file_func)      OF((voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">uLong</FONT></B>    (ZCALLBACK *read_file_func)      OF((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">uLong</FONT></B>    (ZCALLBACK *write_file_func)     OF((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B>      (ZCALLBACK *flush_file_func)     OF((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B>      (ZCALLBACK *close_file_func)     OF((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B>      (ZCALLBACK *testerror_file_func) OF((voidpf opaque, voidpf stream));
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">long</FONT></B>     (ZCALLBACK *tell_file_func)      OF((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">long</FONT></B>     (ZCALLBACK *seek_file_func)      OF((voidpf opaque, voidpf stream, uLong offset, <B><FONT COLOR="#228B22">int</FONT></B> origin));
+
+
+<I><FONT COLOR="#B22222">/* here is the &quot;old&quot; 32 bits structure structure */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> zlib_filefunc_def_s
+{
+    open_file_func      zopen_file;
+    read_file_func      zread_file;
+    write_file_func     zwrite_file;
+    flush_file_func     zflush_file;
+    tell_file_func      ztell_file;
+    seek_file_func      zseek_file;
+    close_file_func     zclose_file;
+    testerror_file_func zerror_file;
+    voidpf              opaque;
+} zlib_filefunc_def;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">ZPOS64_T</FONT></B> (ZCALLBACK *tell64_file_func)    OF((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">long</FONT></B>     (ZCALLBACK *seek64_file_func)    OF((voidpf opaque, voidpf stream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin));
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">voidpf</FONT></B>   (ZCALLBACK *open64_file_func)    OF((voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode));
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> zlib_filefunc64_def_s
+{
+    open64_file_func    zopen64_file;
+    read_file_func      zread_file;
+    write_file_func     zwrite_file;
+    flush_file_func     zflush_file;
+    tell64_file_func    ztell64_file;
+    seek64_file_func    zseek64_file;
+    close_file_func     zclose_file;
+    testerror_file_func zerror_file;
+    voidpf              opaque;
+} zlib_filefunc64_def;
+
+<B><FONT COLOR="#228B22">void</FONT></B> fill_fopen64_filefunc <B><FONT COLOR="#0000FF">OF</FONT></B>((zlib_filefunc64_def* pzlib_filefunc_def));
+<B><FONT COLOR="#228B22">void</FONT></B> fill_fopen_filefunc <B><FONT COLOR="#0000FF">OF</FONT></B>((zlib_filefunc_def* pzlib_filefunc_def));
+
+<I><FONT COLOR="#B22222">/* now internal definition, only for zip.c and unzip.h */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> zlib_filefunc64_32_def_s
+{
+    zlib_filefunc64_def zfile_func64;
+    open_file_func      zopen32_file;
+    tell_file_func      ztell32_file;
+    seek_file_func      zseek32_file;
+} zlib_filefunc64_32_def;
+
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZREAD64</FONT></B>(filefunc,filestream,buf,size)     ((*((filefunc).zfile_func64.zread_file))   ((filefunc).zfile_func64.opaque,filestream,buf,size))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZWRITE64</FONT></B>(filefunc,filestream,buf,size)    ((*((filefunc).zfile_func64.zwrite_file))  ((filefunc).zfile_func64.opaque,filestream,buf,size))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZFLUSH64</FONT></B>(filefunc,filestream)             ((*((filefunc).zfile_func64.zflush_file))  ((filefunc).zfile_func64.opaque,filestream))
+<I><FONT COLOR="#B22222">//#define ZTELL64(filefunc,filestream)            ((*((filefunc).ztell64_file)) ((filefunc).opaque,filestream))
+</FONT></I><I><FONT COLOR="#B22222">//#define ZSEEK64(filefunc,filestream,pos,mode)   ((*((filefunc).zseek64_file)) ((filefunc).opaque,filestream,pos,mode))
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZCLOSE64</FONT></B>(filefunc,filestream)             ((*((filefunc).zfile_func64.zclose_file))  ((filefunc).zfile_func64.opaque,filestream))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZERROR64</FONT></B>(filefunc,filestream)             ((*((filefunc).zfile_func64.zerror_file))  ((filefunc).zfile_func64.opaque,filestream))
+
+voidpf call_zopen64 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>*filename,<B><FONT COLOR="#228B22">int</FONT></B> mode));
+<B><FONT COLOR="#228B22">long</FONT></B>    call_zseek64 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,voidpf filestream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin));
+ZPOS64_T call_ztell64 <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,voidpf filestream));
+
+<B><FONT COLOR="#228B22">void</FONT></B>    <B><FONT COLOR="#0000FF">fill_zlib_filefunc64_32_def_from_filefunc32</FONT></B>(zlib_filefunc64_32_def* p_filefunc64_32,<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc_def* p_filefunc32);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZOPEN64</FONT></B>(filefunc,filename,mode)         (call_zopen64((&amp;(filefunc)),(filename),(mode)))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZTELL64</FONT></B>(filefunc,filestream)            (call_ztell64((&amp;(filefunc)),(filestream)))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZSEEK64</FONT></B>(filefunc,filestream,pos,mode)   (call_zseek64((&amp;(filefunc)),(filestream),(pos),(mode)))
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/ioapi.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

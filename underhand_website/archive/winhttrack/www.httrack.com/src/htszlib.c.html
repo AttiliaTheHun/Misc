@@ -1,0 +1,196 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htszlib.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htszlib.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htszlib.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Unpacking subroutines using Jean-loup Gailly's Zlib    */</FONT></I>
+<I><FONT COLOR="#B22222">/*       for http compressed data                               */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htszlib.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_USEZLIB</FONT>
+<I><FONT COLOR="#B22222">/* zlib */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+#include &lt;zlib.h&gt;
+#include &quot;htszlib.h&quot;
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+  Unpack file into a new file
+  Return value: size of the new file, or -1 if an error occured
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/* Note: utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_zunpack</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *filename, <B><FONT COLOR="#228B22">char</FONT></B> *newfile) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = -1;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (filename != NULL &amp;&amp; newfile != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (filename[0] &amp;&amp; newfile[0]) {
+      <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+      FILE *<B><FONT COLOR="#228B22">const</FONT></B> in = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), filename), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fd = in != NULL ? fileno(in) : -1;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> dup_fd = fd != -1 ? dup(fd) : -1;
+      <I><FONT COLOR="#B22222">// Note: we must dup to be able to flose cleanly.
+</FONT></I>      <B><FONT COLOR="#228B22">const</FONT></B> gzFile gz = dup_fd != -1 ? gzdopen(dup_fd, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>) : NULL;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (gz) {
+        FILE *<B><FONT COLOR="#228B22">const</FONT></B> fpout = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), newfile), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+        <B><FONT COLOR="#228B22">int</FONT></B> size = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fpout) {
+          <B><FONT COLOR="#228B22">int</FONT></B> nr;
+
+          <B><FONT COLOR="#A020F0">do</FONT></B> {
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[1024];
+
+            nr = gzread(gz, buff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(buff));
+            <B><FONT COLOR="#A020F0">if</FONT></B> (nr &gt; 0) {
+              size += nr;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(buff, 1, nr, fpout) != nr)
+                nr = size = -1;
+            }
+          } <B><FONT COLOR="#A020F0">while</FONT></B>(nr &gt; 0);
+          fclose(fpout);
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          size = -1;
+        gzclose(gz);
+        ret = (<B><FONT COLOR="#228B22">int</FONT></B>) size;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (in != NULL) {
+        fclose(in);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_extract_meta</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  unzFile zFile = unzOpen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, <B><FONT COLOR="#BC8F8F">&quot;hts-cache/new.zip&quot;</FONT></B>));
+  zipFile zFileOut = zipOpen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), path, <B><FONT COLOR="#BC8F8F">&quot;hts-cache/meta.zip&quot;</FONT></B>), 0);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (zFile != NULL &amp;&amp; zFileOut != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unzGoToFirstFile(zFile) == Z_OK) {
+      zip_fileinfo fi;
+      unz_file_info ufi;
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK filename[HTS_URLMAXSIZE * 4];
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK comment[8192];
+
+      memset(comment, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment));      <I><FONT COLOR="#B22222">// for truncated reads
+</FONT></I>      memset(&amp;fi, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(fi));
+      memset(&amp;ufi, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ufi));
+      <B><FONT COLOR="#A020F0">do</FONT></B> {
+        <B><FONT COLOR="#228B22">int</FONT></B> readSizeHeader;
+
+        filename[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        comment[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unzOpenCurrentFile(zFile) == Z_OK) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((readSizeHeader =
+               unzGetLocalExtrafield(zFile, comment, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment) - 2)) &gt; 0
+              &amp;&amp; unzGetCurrentFileInfo(zFile, &amp;ufi, filename,
+                                       <B><FONT COLOR="#A020F0">sizeof</FONT></B>(filename) - 2, NULL, 0, NULL,
+                                       0) == Z_OK) {
+            comment[readSizeHeader] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            fi.dosDate = ufi.dosDate;
+            fi.internal_fa = ufi.internal_fa;
+            fi.external_fa = ufi.external_fa;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (zipOpenNewFileInZip(zFileOut, filename, &amp;fi, NULL, 0, NULL, 0, NULL,    <I><FONT COLOR="#B22222">/* comment */</FONT></I>
+                                    Z_DEFLATED, Z_DEFAULT_COMPRESSION) == Z_OK) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (zipWriteInFileInZip(zFileOut, comment, (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(comment))
+                  != Z_OK) {
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (zipCloseFileInZip(zFileOut) != Z_OK) {
+              }
+            }
+          }
+          unzCloseCurrentFile(zFile);
+        }
+      } <B><FONT COLOR="#A020F0">while</FONT></B>(unzGoToNextFile(zFile) == Z_OK);
+    }
+    zipClose(zFileOut, <B><FONT COLOR="#BC8F8F">&quot;Meta-data extracted by HTTrack/&quot;</FONT></B> HTTRACK_VERSION);
+    unzClose(zFile);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_get_zerror</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> err) {
+  <B><FONT COLOR="#A020F0">switch</FONT></B> (err) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_OK</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;no error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_END_OF_LIST_OF_FILE</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;end of list of file&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_ERRNO</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) strerror(errno);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_PARAMERROR</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;parameter error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_BADZIPFILE</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;bad zip file&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_INTERNALERROR</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;internal error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">UNZ_CRCERROR</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;crc error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;unknown error&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htszlib.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

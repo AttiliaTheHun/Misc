@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"{% if theme %} class="{{ theme }}"{% endif %}>
+
+  <head>
+    
+    <meta charset="utf-8">
+    <meta name="theme-color" content="black">
+
+
+    <script>
+      document.documentElement.classList.add('js');
+      const theme = localStorage.getItem('theme') || 'default';
+      const mode = localStorage.getItem('mode') || 'system';
+      
+      if (theme !== 'default') {
+        document.documentElement.classList.add(theme);
+      }
+      
+      if (mode !== 'system') {
+        document.documentElement.classList.add(mode);
+      }
+    </script>
+
+    <title>{% if title %}{{ title | escape }} | {% endif %}{{ site.title | escape }}</title>
+
+    <meta name="description" content="{% if description %}{{ description | strip_html | strip_newlines | truncate: 160 }}{% else %}{{ site.description }}{% endif %}">
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {%- if noindex -%}
+    <meta name="robots" content="noindex, nofollow">
+    {%- endif -%}
+
+    {%- if canonical -%}
+    <link rel="canonical" href="{{ canonical }}">
+    {%- else -%}
+    <link rel="canonical" href="{{ env.baseUrl }}{{ page.url }}">
+    {%- endif -%}
+
+    <link rel="icon" type="image/svg+xml" href="/assets/images/icons/favicon.png">
+       <link rel="shortcut icon" href="/assets/images/icons/favicon.png" type="image/x-icon">
+    <link rel="expect" href="#header" blocking="render" />
+
+    <style>
+      {% getBundle "css" %}
+    </style>
+
+    <link rel="stylesheet" href="/assets/css/main.css" media="all">
+    {%- if stylesheet -%}
+    {%- for sheet in stylesheet -%}
+    <link rel="stylesheet" href="{{ sheet }}" media="all">
+    {%- endfor -%}
+    {%- endif -%}
+    <link rel="stylesheet" href="/assets/css/docs.css" media="all">
+
+    <script src="/assets/js/app.js" type="module"></script>
+    {%- if javascript -%}
+    {%- for script in javascript -%}
+    <script src="{{ script }}" type="module"></script>
+    {%- endfor -%}
+    {%- endif -%}
+  </head>
+
+  <body {% if class %} class="{{ class }}"{% endif %}>
+
+    <header id="header" class="grid">
+      <nav class="flex no-wrap justify-between align-items-center">
+        <a class="font-size-xl font-size-lg@md font-weight-xxl uppercase line-height-flush undecorated button --simple  --primary pt-0 pb-0 pb-xs@md" href="/">
+          {% render "svg/grease.svg" %}
+          <span class="sr-only@sm">Grease</span>
+        </a>
+        <div class="inline-flex gap-xs shrink align-items-center">
+          <ul class="docs-nav-group unlisted inline-flex gap-xs shrink align-items-center">
+            <li class="hidden@smm"><a href="/" class="button --subtle --primary shadow-md">Home</a></li>
+            <li class="hidden@smm"><a href="/deck/" class="button --subtle --primary shadow-md">Deck</a></li>
+            <li class="hidden@smm"><a href="/events/" class="button --subtle --primary shadow-md">Events</a></li>
+            <li class="hidden@smm"><a href="/gods/" class="button --subtle --primary shadow-md">Gods</a></li>
+            <li class="hidden@smm"><a href="/links/" class="button --subtle --primary shadow-md">Links</a></li>
+            <li class="hidden@smm"><a href="/archive/" class="button --subtle --primary shadow-md">Archive</a></li>
+            <li class="hidden@smm"><a href="https://disboard.org/server/643706781427695616" class="button --subtle --primary shadow-md" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-discord" viewBox="0 0 16 16"><path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8 8 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032q.003.022.021.037a13.3 13.3 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019q.463-.63.818-1.329a.05.05 0 0 0-.01-.059l-.018-.011a9 9 0 0 1-1.248-.595.05.05 0 0 1-.02-.066l.015-.019q.127-.095.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.007q.121.1.248.195a.05.05 0 0 1-.004.085 8 8 0 0 1-1.249.594.05.05 0 0 0-.03.03.05.05 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.2 13.2 0 0 0 4.001-2.02.05.05 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.03.03 0 0 0-.02-.019m-8.198 7.307c-.789 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612m5.316 0c-.788 0-1.438-.724-1.438-1.612s.637-1.613 1.438-1.613c.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612"/></svg></a></li>
+          </ul>
+          </div>
+    </nav>
+   </header>
+
+    <animate-on-scroll>
+      <random-shapes class="grease-marks bleed" quantity="10" jitter="20"></random-shapes>
+      <main class="grid">
+        {{ content }}
+      </main>
+    </animate-on-scroll>
+  </body>
+  <footer>
+    Made by AttilaTheHun &copy; 2026 <br>
+    <a id="font-switch" href="#/" onClick="toggleFont()">View in ancient</a>
+  </footer>
+  <script src="/assets/js/index.js"></script>
+</html>

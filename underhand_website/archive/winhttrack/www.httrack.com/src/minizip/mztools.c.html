@@ -1,0 +1,309 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/mztools.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/mztools.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/mztools.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/*
+  Additional tools for Minizip
+  Code: Xavier Roche '2004
+  License: Same as ZLIB (www.gzip.org)
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Code */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;zlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;unzip.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;mztools.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_8</FONT></B>(adr)  ((unsigned char)*(adr))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_16</FONT></B>(adr) ( READ_8(adr) | (READ_8(adr+1) &lt;&lt; 8) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">READ_32</FONT></B>(adr) ( READ_16(adr) | (READ_16((adr)+2) &lt;&lt; 16) )
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_8</FONT></B>(buff, n) do { \
+  *((unsigned char*)(buff)) = (unsigned char) ((n) &amp; 0xff); \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_16</FONT></B>(buff, n) do { \
+  WRITE_8((unsigned char*)(buff), n); \
+  WRITE_8(((unsigned char*)(buff)) + 1, (n) &gt;&gt; 8); \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">WRITE_32</FONT></B>(buff, n) do { \
+  WRITE_16((unsigned char*)(buff), (n) &amp; 0xffff); \
+  WRITE_16((unsigned char*)(buff) + 2, (n) &gt;&gt; 16); \
+} while(0)
+
+<B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzRepair</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileOut,
+                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileOutTmp, uLong* nRecovered,
+                      uLong* bytesRecovered)
+{
+  <B><FONT COLOR="#228B22">int</FONT></B> err = Z_OK;
+  FILE* fpZip = fopen(file, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+  FILE* fpOut = fopen(fileOut, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+  FILE* fpOutCD = fopen(fileOutTmp, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fpZip != NULL &amp;&amp;  fpOut != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> entries = 0;
+    uLong totalBytes = 0;
+    <B><FONT COLOR="#228B22">char</FONT></B> header[30];
+    <B><FONT COLOR="#228B22">char</FONT></B> filename[1024];
+    <B><FONT COLOR="#228B22">char</FONT></B> extra[1024];
+    <B><FONT COLOR="#228B22">int</FONT></B> offset = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> offsetCD = 0;
+    <B><FONT COLOR="#A020F0">while</FONT></B> ( fread(header, 1, 30, fpZip) == 30 ) {
+      <B><FONT COLOR="#228B22">int</FONT></B> currentOffset = offset;
+
+      <I><FONT COLOR="#B22222">/* File entry */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (READ_32(header) == 0x04034b50) {
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> version = READ_16(header + 4);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> gpflag = READ_16(header + 6);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> method = READ_16(header + 8);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> filetime = READ_16(header + 10);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> filedate = READ_16(header + 12);
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> crc = READ_32(header + 14); <I><FONT COLOR="#B22222">/* crc */</FONT></I>
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> cpsize = READ_32(header + 18); <I><FONT COLOR="#B22222">/* compressed size */</FONT></I>
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> uncpsize = READ_32(header + 22); <I><FONT COLOR="#B22222">/* uncompressed sz */</FONT></I>
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fnsize = READ_16(header + 26); <I><FONT COLOR="#B22222">/* file name length */</FONT></I>
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> extsize = READ_16(header + 28); <I><FONT COLOR="#B22222">/* extra field length */</FONT></I>
+        filename[0] = extra[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <I><FONT COLOR="#B22222">/* Header */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(header, 1, 30, fpOut) == 30) {
+          offset += 30;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          err = Z_ERRNO;
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+
+        <I><FONT COLOR="#B22222">/* Filename */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fnsize &gt; 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fnsize &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(filename)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fread(filename, 1, fnsize, fpZip) == fnsize) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(filename, 1, fnsize, fpOut) == fnsize) {
+                offset += fnsize;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              err = Z_ERRNO;
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            err = Z_ERRNO;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          err = Z_STREAM_ERROR;
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+
+        <I><FONT COLOR="#B22222">/* Extra field */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (extsize &gt; 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (extsize &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(extra)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fread(extra, 1, extsize, fpZip) == extsize) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(extra, 1, extsize, fpOut) == extsize) {
+                offset += extsize;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              err = Z_ERRNO;
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            err = Z_ERRNO;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Data */</FONT></I>
+        {
+          <B><FONT COLOR="#228B22">int</FONT></B> dataSize = cpsize;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dataSize == 0) {
+            dataSize = uncpsize;
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (dataSize &gt; 0) {
+            <B><FONT COLOR="#228B22">char</FONT></B>* data = malloc(dataSize);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (data != NULL) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>)fread(data, 1, dataSize, fpZip) == dataSize) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>)fwrite(data, 1, dataSize, fpOut) == dataSize) {
+                  offset += dataSize;
+                  totalBytes += dataSize;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  err = Z_ERRNO;
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+              }
+              free(data);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (err != Z_OK) {
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              err = Z_MEM_ERROR;
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Central directory entry */</FONT></I>
+        {
+          <B><FONT COLOR="#228B22">char</FONT></B> header[46];
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* comment = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t comsize = strlen(comment);
+          WRITE_32(header, 0x02014b50);
+          WRITE_16(header + 4, version);
+          WRITE_16(header + 6, version);
+          WRITE_16(header + 8, gpflag);
+          WRITE_16(header + 10, method);
+          WRITE_16(header + 12, filetime);
+          WRITE_16(header + 14, filedate);
+          WRITE_32(header + 16, crc);
+          WRITE_32(header + 20, cpsize);
+          WRITE_32(header + 24, uncpsize);
+          WRITE_16(header + 28, fnsize);
+          WRITE_16(header + 30, extsize);
+          WRITE_16(header + 32, comsize);
+          WRITE_16(header + 34, 0);     <I><FONT COLOR="#B22222">/* disk # */</FONT></I>
+          WRITE_16(header + 36, 0);     <I><FONT COLOR="#B22222">/* int attrb */</FONT></I>
+          WRITE_32(header + 38, 0);     <I><FONT COLOR="#B22222">/* ext attrb */</FONT></I>
+          WRITE_32(header + 42, currentOffset);
+          <I><FONT COLOR="#B22222">/* Header */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(header, 1, 46, fpOutCD) == 46) {
+            offsetCD += 46;
+
+            <I><FONT COLOR="#B22222">/* Filename */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fnsize &gt; 0) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(filename, 1, fnsize, fpOutCD) == fnsize) {
+                offsetCD += fnsize;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              err = Z_STREAM_ERROR;
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+
+            <I><FONT COLOR="#B22222">/* Extra field */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (extsize &gt; 0) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(extra, 1, extsize, fpOutCD) == extsize) {
+                offsetCD += extsize;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            }
+
+            <I><FONT COLOR="#B22222">/* Comment field */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (comsize &gt; 0) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(comment, 1, comsize, fpOutCD) == comsize) {
+                offsetCD += comsize;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                err = Z_ERRNO;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+            }
+
+
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            err = Z_ERRNO;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* Success */</FONT></I>
+        entries++;
+
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* Final central directory  */</FONT></I>
+    {
+      <B><FONT COLOR="#228B22">int</FONT></B> entriesZip = entries;
+      <B><FONT COLOR="#228B22">char</FONT></B> header[22];
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* comment = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>; <I><FONT COLOR="#B22222">// &quot;ZIP File recovered by zlib/minizip/mztools&quot;;
+</FONT></I>      <B><FONT COLOR="#228B22">const</FONT></B> size_t comsize = strlen(comment);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (entriesZip &gt; 0xffff) {
+        entriesZip = 0xffff;
+      }
+      WRITE_32(header, 0x06054b50);
+      WRITE_16(header + 4, 0);    <I><FONT COLOR="#B22222">/* disk # */</FONT></I>
+      WRITE_16(header + 6, 0);    <I><FONT COLOR="#B22222">/* disk # */</FONT></I>
+      WRITE_16(header + 8, entriesZip);   <I><FONT COLOR="#B22222">/* hack */</FONT></I>
+      WRITE_16(header + 10, entriesZip);  <I><FONT COLOR="#B22222">/* hack */</FONT></I>
+      WRITE_32(header + 12, offsetCD);    <I><FONT COLOR="#B22222">/* size of CD */</FONT></I>
+      WRITE_32(header + 16, offset);      <I><FONT COLOR="#B22222">/* offset to CD */</FONT></I>
+      WRITE_16(header + 20, comsize);     <I><FONT COLOR="#B22222">/* comment */</FONT></I>
+
+      <I><FONT COLOR="#B22222">/* Header */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(header, 1, 22, fpOutCD) == 22) {
+
+        <I><FONT COLOR="#B22222">/* Comment field */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (comsize &gt; 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(comment, 1, comsize, fpOutCD) != comsize) {
+            err = Z_ERRNO;
+          }
+        }
+
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        err = Z_ERRNO;
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* Final merge (file + central directory) */</FONT></I>
+    fclose(fpOutCD);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err == Z_OK) {
+      fpOutCD = fopen(fileOutTmp, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fpOutCD != NULL) {
+        <B><FONT COLOR="#228B22">int</FONT></B> nRead;
+        <B><FONT COLOR="#228B22">char</FONT></B> buffer[8192];
+        <B><FONT COLOR="#A020F0">while</FONT></B> ( (nRead = (<B><FONT COLOR="#228B22">int</FONT></B>)fread(buffer, 1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(buffer), fpOutCD)) &gt; 0) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>)fwrite(buffer, 1, nRead, fpOut) != nRead) {
+            err = Z_ERRNO;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+        fclose(fpOutCD);
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* Close */</FONT></I>
+    fclose(fpZip);
+    fclose(fpOut);
+
+    <I><FONT COLOR="#B22222">/* Wipe temporary file */</FONT></I>
+    (<B><FONT COLOR="#228B22">void</FONT></B>)remove(fileOutTmp);
+
+    <I><FONT COLOR="#B22222">/* Number of recovered entries */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err == Z_OK) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (nRecovered != NULL) {
+        *nRecovered = entries;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (bytesRecovered != NULL) {
+        *bytesRecovered = totalBytes;
+      }
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    err = Z_STREAM_ERROR;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/mztools.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

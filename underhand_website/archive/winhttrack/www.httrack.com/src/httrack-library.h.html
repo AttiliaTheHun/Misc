@@ -1,0 +1,368 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/httrack-library.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./httrack-library.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./httrack-library.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: HTTrack definition file for library usage              */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTTRACK_DEFLIB</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTTRACK_DEFLIB</FONT>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;inttypes.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdarg.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_strc_int2bytes2</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_strc_int2bytes2</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> strc_int2bytes2 strc_int2bytes2;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_DEFSTRUCT_hts_log_type</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_DEFSTRUCT_hts_log_type</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> hts_log_type {
+  LOG_PANIC,
+  LOG_ERROR,
+  LOG_WARNING,
+  LOG_NOTICE,
+  LOG_INFO,
+  LOG_DEBUG,
+  LOG_TRACE,
+  LOG_ERRNO = 1 &lt;&lt; 8
+} hts_log_type;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hts_stat_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hts_stat_struct hts_stat_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Assert error callback. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsErrorCallback</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsErrorCallback</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*htsErrorCallback) (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">int</FONT></B> line);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Helpers for plugging callbacks
+requires: htsdefines.h */</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+Add a function callback 'FUNCTION' to the option structure 'OPT' callback member 'MEMBER', 
+with an optional (may be NULL) argument 'ARGUMENT'
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CHAIN_FUNCTION</FONT></B>(OPT, MEMBER, FUNCTION, ARGUMENT) do { \
+  t_hts_callbackarg *carg = (t_hts_callbackarg*) hts_malloc(sizeof(t_hts_callbackarg)); \
+  carg-&gt;userdef = ( ARGUMENT ); \
+  carg-&gt;prev.fun = (void*) ( OPT )-&gt;callbacks_fun-&gt; MEMBER .fun; \
+  carg-&gt;prev.carg = ( OPT )-&gt;callbacks_fun-&gt; MEMBER .carg; \
+  ( OPT )-&gt;callbacks_fun-&gt; MEMBER .fun = ( FUNCTION ); \
+  ( OPT )-&gt;callbacks_fun-&gt; MEMBER .carg = carg; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/* The following helpers are useful only if you know that an existing callback migh be existing before before the call to CHAIN_FUNCTION()
+If your functions were added just after hts_create_opt(), no need to make the previous function check */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Get the user-defined pointer initially passed to CHAIN_FUNCTION(), given the callback's carg argument */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CALLBACKARG_USERDEF</FONT></B>(CARG) ( ( (CARG) != NULL ) ? (CARG)-&gt;userdef : NULL )
+
+<I><FONT COLOR="#B22222">/* Get the previously existing function before the call to CHAIN_FUNCTION(), given the callback's carg argument */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CALLBACKARG_PREV_FUN</FONT></B>(CARG, NAME) ( (t_hts_htmlcheck_ ##NAME) ( ( (CARG) != NULL ) ? (CARG)-&gt;prev.fun : NULL ) )
+
+<I><FONT COLOR="#B22222">/* Get the previously existing function argument before the call to CHAIN_FUNCTION(), given the callback's carg argument */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CALLBACKARG_PREV_CARG</FONT></B>(CARG) ( ( (CARG) != NULL ) ? (CARG)-&gt;prev.carg : NULL )
+
+<I><FONT COLOR="#B22222">/* Functions */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Initialization */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htsthread_wait</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">/* Main functions */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_main2</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv, httrackp * opt);
+
+<I><FONT COLOR="#B22222">/* Options handling */</FONT></I>
+HTSEXT_API httrackp *<B><FONT COLOR="#0000FF">hts_create_opt</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_free_opt</FONT></B>(httrackp * opt);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">hts_sizeof_opt</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> hts_stat_struct* <B><FONT COLOR="#0000FF">hts_get_stats</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">set_wrappers</FONT></B>(httrackp * opt);   <I><FONT COLOR="#B22222">/* LEGACY */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">plug_wrapper</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *moduleName,
+                            <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *argv);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_set_error_callback</FONT></B>(htsErrorCallback handler);
+HTSEXT_API htsErrorCallback <B><FONT COLOR="#0000FF">hts_get_error_callback</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">/* Logging */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_log</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *prefix, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_log_print</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> type, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format,
+                              ...) HTS_PRINTF_FUN(3, 4);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_log_vprint</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> type, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format,
+                               va_list args);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_set_log_vprint_callback</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> (*callback)(httrackp * opt, 
+                                           <B><FONT COLOR="#228B22">int</FONT></B> type, 
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, va_list args));
+
+<I><FONT COLOR="#B22222">/* Infos */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_get_version_info</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_is_available</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">hts_version</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> hts_stat_struct* <B><FONT COLOR="#0000FF">hts_get_stats</FONT></B>(httrackp * opt);
+
+<I><FONT COLOR="#B22222">/* Wrapper functions */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htswrap_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);      <I><FONT COLOR="#B22222">// DEPRECATED - DUMMY FUNCTION
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htswrap_free</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);      <I><FONT COLOR="#B22222">// DEPRECATED - DUMMY FUNCTION
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htswrap_add</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name, <B><FONT COLOR="#228B22">void</FONT></B> *fct);
+HTSEXT_API uintptr_t <B><FONT COLOR="#0000FF">htswrap_read</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">htswrap_set_userdef</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">void</FONT></B> *userdef);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">htswrap_get_userdef</FONT></B>(httrackp * opt);
+
+<I><FONT COLOR="#B22222">/* Internal library allocators, if a different libc is being used by the client */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_strdup</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *string);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">hts_malloc</FONT></B>(size_t size);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#0000FF">hts_realloc</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> data, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_free</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *data);
+
+<I><FONT COLOR="#B22222">/* Other functions */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_resetvar</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);      <I><FONT COLOR="#B22222">// DEPRECATED - DUMMY FUNCTION
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_buildtopindex</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *binpath);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getcategories</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">int</FONT></B> type);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_getcategory</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+
+<I><FONT COLOR="#B22222">/* Catch-URL */</FONT></I>
+HTSEXT_API T_SOC <B><FONT COLOR="#0000FF">catch_url_init_std</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port_prox, <B><FONT COLOR="#228B22">char</FONT></B> *adr_prox);
+HTSEXT_API T_SOC <B><FONT COLOR="#0000FF">catch_url_init</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> *port, <B><FONT COLOR="#228B22">char</FONT></B> *adr);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">catch_url</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">char</FONT></B> *method, <B><FONT COLOR="#228B22">char</FONT></B> *data);
+
+<I><FONT COLOR="#B22222">/* State */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_is_parsing</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> flag);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_is_testing</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_is_exiting</FONT></B>(httrackp * opt);
+
+<I><FONT COLOR="#B22222">/*HTSEXT_API int hts_setopt(httrackp* opt); DEPRECATED ; see copy_htsopt() */</FONT></I>
+
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_addurl</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **url);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_resetaddurl</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">copy_htsopt</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> httrackp * from, httrackp * to);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_errmsg</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_setpause</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_request_stop</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> force);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_cancel_file_push</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_cancel_test</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_cancel_parsing</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_cancel_test</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_cancel_parsing</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_has_stopped</FONT></B>(httrackp * opt);
+
+<I><FONT COLOR="#B22222">/* Tools */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">structcheck</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">structcheck_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">dir_exists</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">infostatuscode</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *msg, <B><FONT COLOR="#228B22">int</FONT></B> statuscode);
+HTSEXT_API TStamp <B><FONT COLOR="#0000FF">mtime_local</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">qsec2str</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *st, TStamp t);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">int2char</FONT></B>(strc_int2bytes2 * strc, <B><FONT COLOR="#228B22">int</FONT></B> n);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">int2bytes</FONT></B>(strc_int2bytes2 * strc, LLint n);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">int2bytessec</FONT></B>(strc_int2bytes2 * strc, <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> n);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> **<B><FONT COLOR="#0000FF">int2bytes2</FONT></B>(strc_int2bytes2 * strc, LLint n);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_identification</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_identification_const</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_normalized</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_normalized_const</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_toport</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">jump_toport_const</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fil_normalized</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *source, <B><FONT COLOR="#228B22">char</FONT></B> *dest);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">adr_normalized</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *source, <B><FONT COLOR="#228B22">char</FONT></B> *dest);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_rootdir</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *file);
+
+<I><FONT COLOR="#B22222">/* Escaping URLs */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">unescape_amp</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s);
+
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_spc_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_in_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_uri</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_uri_utf</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_check_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">append_escape_spc_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">append_escape_in_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">append_escape_uri</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">append_escape_uri_utf</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">append_escape_check_url</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">inplace_escape_spc_url</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">inplace_escape_in_url</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">inplace_escape_uri</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">inplace_escape_uri_utf</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">inplace_escape_check_url</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">escape_check_url_addr</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> src, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">make_content_id</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> fil, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">x_escape_http</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t max_size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> mode);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">escape_remove_control</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_for_html_print</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+HTSEXT_API size_t <B><FONT COLOR="#0000FF">escape_for_html_print_full</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s, <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> dest, <B><FONT COLOR="#228B22">const</FONT></B> size_t size);
+
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">unescape_http</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> catbuff, <B><FONT COLOR="#228B22">const</FONT></B> size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> s);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">unescape_http_unharm</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> catbuff, <B><FONT COLOR="#228B22">const</FONT></B> size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> no_high);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">antislash_unescaped</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">escape_remove_control</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">get_httptype</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                             <B><FONT COLOR="#228B22">int</FONT></B> flag);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_knowntype</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_userknowntype</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">is_dyntype</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">get_ext</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">may_unknown</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *st);
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">guess_httptype</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil);
+
+<I><FONT COLOR="#B22222">/* Ugly string tools */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">concat</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fconcat</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fconv</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fslash</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a);
+
+<I><FONT COLOR="#B22222">/* Debugging */</FONT></I>
+HTSEXT_API <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_debug</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> level);
+
+<I><FONT COLOR="#B22222">/* Portable directory API */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_find_handle_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_find_handle_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> find_handle_struct find_handle_struct;
+<B><FONT COLOR="#228B22">typedef</FONT></B> find_handle_struct *find_handle;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_topindex_chain</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_topindex_chain</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain topindex_chain;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain {
+  <B><FONT COLOR="#228B22">int</FONT></B> level;                    <I><FONT COLOR="#B22222">/* sort level */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *category;               <I><FONT COLOR="#B22222">/* category */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> name[2048];              <I><FONT COLOR="#B22222">/* path */</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> topindex_chain *next;  <I><FONT COLOR="#B22222">/* next element */</FONT></I>
+};
+HTSEXT_API find_handle <B><FONT COLOR="#0000FF">hts_findfirst</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *path);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findnext</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findclose</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_findgetname</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findgetsize</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findisdir</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findisfile</FONT></B>(find_handle find);
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_findissystem</FONT></B>(find_handle find);
+
+<I><FONT COLOR="#B22222">/* UTF-8 aware FILE API */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FILEAPI</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FOPEN</FONT> hts_fopen_utf8
+HTSEXT_API FILE *<B><FONT COLOR="#0000FF">hts_fopen_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mode);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STAT</FONT> hts_stat_utf8
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _stat STRUCT_STAT;
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_stat_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path, STRUCT_STAT * buf);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNLINK</FONT> hts_unlink_utf8
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_unlink_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pathname);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RENAME</FONT> hts_rename_utf8
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_rename_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *oldpath, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *newpath);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">MKDIR</FONT></B>(F) hts_mkdir_utf8(F)
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_mkdir_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pathname);
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UTIME</FONT></B>(A,B) hts_utime_utf8(A,B)
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _utimbuf STRUCT_UTIMBUF;
+HTSEXT_API <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_utime_utf8</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename,
+                              <B><FONT COLOR="#228B22">const</FONT></B> STRUCT_UTIMBUF * times);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FOPEN</FONT> fopen
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STAT</FONT> stat
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> stat STRUCT_STAT;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNLINK</FONT> unlink
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RENAME</FONT> rename
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">MKDIR</FONT></B>(F) mkdir(F, HTS_ACCESS_FOLDER)
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> utimbuf STRUCT_UTIMBUF;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UTIME</FONT></B>(A,B) utime(A,B)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FILEAPI</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Macro aimed to break at build-time if a size is not a sizeof() strictly 
+ *  greater than sizeof(char*). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">COMPILE_TIME_CHECK_SIZE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">COMPILE_TIME_CHECK_SIZE</FONT></B>(A) (void) ((void (*)(char[A - sizeof(char*) - 1])) NULL)
+
+<I><FONT COLOR="#B22222">/** Macro aimed to break at compile-time if a size is not a sizeof() strictly 
+ *  greater than sizeof(char*). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RUNTIME_TIME_CHECK_SIZE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RUNTIME_TIME_CHECK_SIZE</FONT></B>(A) assertf((A) != sizeof(void*))
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">fconv</FONT></B>(A,B,C) (COMPILE_TIME_CHECK_SIZE(B), fconv(A,B,C))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">concat</FONT></B>(A,B,C,D) (COMPILE_TIME_CHECK_SIZE(B), concat(A,B,C,D))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">fconcat</FONT></B>(A,B,C,D) (COMPILE_TIME_CHECK_SIZE(B), fconcat(A,B,C,D))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">fslash</FONT></B>(A,B,C) (COMPILE_TIME_CHECK_SIZE(B), fslash(A,B,C))
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/httrack-library.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

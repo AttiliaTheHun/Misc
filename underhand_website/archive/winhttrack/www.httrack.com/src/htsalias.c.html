@@ -1,0 +1,601 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsalias.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+<HEAD>
+<TITLE>./htsalias.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsalias.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsalias.c subroutines:                                */</FONT></I>
+<I><FONT COLOR="#B22222">/*       alias for command-line options and config files        */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsalias.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">_NOT_NULL</FONT></B>(a) ( (a!=NULL) ? (a) : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B> )
+
+<I><FONT COLOR="#B22222">// COPY OF cmdl_ins in htsmain.c
+</FONT></I><I><FONT COLOR="#B22222">// Insert a command in the argc/argv
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">cmdl_ins</FONT></B>(token,argc,argv,buff,ptr) \
+  { \
+  int i; \
+  for(i=argc;i&gt;0;i--)\
+  argv[i]=argv[i-1];\
+  } \
+  argv[0]=(buff+ptr); \
+  strcpybuff(argv[0],token); \
+  ptr += (int) (strlen(argv[0])+1); \
+  argc++
+<I><FONT COLOR="#B22222">// END OF COPY OF cmdl_ins in htsmain.c
+</FONT></I>
+<I><FONT COLOR="#B22222">/*
+  Aliases for command-line and config file definitions
+  These definitions can be used:
+  in command line:
+  --sockets=8       --cache=0
+  --sockets 8       --cache off
+                    --nocache
+  -c8               -C0
+  in config file:
+  sockets=8         cache=0
+  set sockets 8     cache off
+
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/*
+  single : no options
+  param  : this option allows a number parameter (1, for example) and can be mixed with other options (R1C1c8)
+  param1 : this option must be alone, and needs one distinct parameter (-P &lt;path&gt;)
+  param0 : this option must be alone, but the parameter should be put together (+*.gif)
+*/</FONT></I>
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *hts_optalias[][4] = {
+  <I><FONT COLOR="#B22222">/*   {&quot;&quot;,&quot;&quot;,&quot;&quot;,&quot;&quot;}, */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;path&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-O&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;output path&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;mirror&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-w&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;mirror-wizard&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-W&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;get-files&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-g&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;quiet&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;mirrorlinks&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-Y&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;proxy&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-P&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;proxy name:port&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;bind&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%b&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;hostname to bind&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;httpproxy-ftp&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%f&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;depth&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;recurse-levels&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;ext-depth&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%e&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;max-files&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-m&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;max-size&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-M&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;max-time&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-E&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;max-rate&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-A&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;max-pause&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-G&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;sockets&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;number of simultaneous connections allowed&quot;</FONT></B>},
+    {<B><FONT COLOR="#BC8F8F">&quot;socket&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;number of simultaneous connections allowed&quot;</FONT></B>},
+    {<B><FONT COLOR="#BC8F8F">&quot;connection&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;number of simultaneous connections allowed&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;connection-per-second&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%c&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;number of connection per second allowed&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;timeout&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-T&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;retries&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-R&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;number of retries for non-fatal errors&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;min-rate&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-J&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;host-control&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-H&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;extended-parsing&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%P&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;near&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-n&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;delayed-type-check&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%N&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;cached-delayed-type-check&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%D&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;delayed-type-check-always&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%N2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;disable-security-limits&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%!&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;test&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-t&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;list&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%L&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;urllist&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%S&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;language&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%l&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;lang&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%l&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;accept&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%a&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;headers&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%X&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;structure&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-N&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;user-structure&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-N&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;long-names&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-L&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;keep-links&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-K&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;mime-html&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%M&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;mht&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%M&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;replace-external&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-x&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;disable-passwords&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%x&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;disable-password&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%x&quot;</FONT></B>,
+                                               <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;include-query-string&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;generate-errors&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-o&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;do-not-generate-errors&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-o0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;purge-old&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-X&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;cookies&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-b&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;check-type&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-u&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;assume&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%A&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;mimetype&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%A&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;parse-java&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-j&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;protocol&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-@i&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;robots&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-s&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;http-10&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;http-1.0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;keep-alive&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%k&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;build-top-index&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%i&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;disable-compression&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%z&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;tolerant&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%B&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;updatehack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%s&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;sizehack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%s&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;urlhack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%u&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;user-agent&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-F&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;user-agent identity&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;referer&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%R&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;default referer URL&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;from&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%E&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;from email address&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;footer&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%F&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-C&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;number of retries for non-fatal errors&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;store-all-in-cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-k&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;do-not-recatch&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%n&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;do-not-log&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-Q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;extra-log&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-z&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-log&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-Z&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;verbose&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-v&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;file-log&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-f&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;single-log&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-f2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;index&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-I&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;search-index&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%I&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;priority&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-headers&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%H&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;userdef-cmd&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-V&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;callback&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%W&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;plug an external callback&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;wrapper&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%W&quot;</FONT></B>,
+                                                               <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>,
+                                                               <B><FONT COLOR="#BC8F8F">&quot;plug an external callback&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;structure&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-N&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;user-defined structure&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;usercommand&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-V&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;user-defined command&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;display&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%v&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;show files transferred and other funny realtime information&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;dos83&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-L0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;iso9660&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-L2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;disable-module&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%w&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;no-background-on-suspend&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-y0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;background-on-suspend&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-y&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;utf8-conversion&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%T&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;no-utf8-conversion&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%T0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* DEPRECATED */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;stay-on-same-dir&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-S&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;stay on the same directory - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;can-go-down&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-D&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;can only go down into subdirs - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;can-go-up&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-U&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;can only go to upper directories- DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;can-go-up-and-down&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-B&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;can both go up&amp;down into the directory structure - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;stay-on-same-address&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-a&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;stay on the same address - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;stay-on-same-domain&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-d&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;stay on the same principal domain - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;stay-on-same-tld&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-l&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;stay on the same TLD (eg: .com) - DEPRECATED&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;go-everywhere&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-e&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;go everywhere on the web - DEPRECATED&quot;</FONT></B>},
+
+  <I><FONT COLOR="#B22222">/* Badly documented */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-testfilters&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;debug: test filters&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;advanced-flushlogs&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#f&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;advanced-maxfilters&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#F&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;maximum number of scan rules&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;version&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-scanstdin&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#K&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;advanced-maxlinks&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#L&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;maximum number of links (0 to disable limit)&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;advanced-progressinfo&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#p&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;deprecated&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;catch-url&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#P&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;catch complex URL through proxy&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/*{&quot;debug-oldftp&quot;,&quot;-#R&quot;,&quot;single&quot;,&quot;&quot;}, */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-xfrstats&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#T&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;advanced-wait&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#u&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-ratestats&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#Z&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;fast-engine&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#X&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;Enable fast routines&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-overflows&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#X0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;Attempt to detect buffer overflows&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#C&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;List files in the cache&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;extract-cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#C&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;Extract meta-data&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;debug-parsing&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#d&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;debug: test parser&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;repair-cache&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#R&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;repair the damaged cache ZIP file&quot;</FONT></B>},
+    {<B><FONT COLOR="#BC8F8F">&quot;repair&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#R&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+
+  <I><FONT COLOR="#B22222">/* STANDARD ALIASES */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;spider&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p0C0I0t&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;testsite&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p0C0I0t&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;testlinks&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r1p0C0I0t&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;test&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r1p0C0I0t&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+                                              <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;bookmark&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r1p0C0I0t&quot;</FONT></B>,
+                                                    <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;mirror&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-w&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;testscan&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p0C0I0Q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;scan&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p0C0I0Q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+    {<B><FONT COLOR="#BC8F8F">&quot;check&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p0C0I0Q&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;skeleton&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-p1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;preserve&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%p&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;get&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-qg&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;update&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-iC2&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;continue&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-iC1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;restart&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-iC1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;continue&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-i&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},     <I><FONT COLOR="#B22222">/* for help alias */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;sucker&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-r999&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;help&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;documentation&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;doc&quot;</FONT></B>,
+                                                                        <B><FONT COLOR="#BC8F8F">&quot;-h&quot;</FONT></B>,
+                                                                        <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+                                                                        <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;wide&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c32&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;tiny&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;ultrawide&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-c48&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;http10&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%h&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;filelist&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%L&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}, {<B><FONT COLOR="#BC8F8F">&quot;list&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%L&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;filterlist&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-%S&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/* END OF ALIASES */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Filters */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;allow&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;allow filter&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;deny&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;deny filter&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* URLs */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;add&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;add URLs&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Internal */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;catchurl&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;--catchurl&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;catch complex URL through proxy&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;updatehttrack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;--updatehttrack&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>,
+   <B><FONT COLOR="#BC8F8F">&quot;update HTTrack Website Copier&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;clean&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;--clean&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;clean up log files and cache&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;tide&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;--clean&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;clean up log files and cache&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;autotest&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;-#T&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;single&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>},
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+
+  {<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>}
+};
+
+<I><FONT COLOR="#B22222">/* 
+  Check for alias in command-line 
+  argc,argv     as in main()
+  n_arg         argument position
+  return_argv   a char[2][] where to put result
+  return_error  buffer in case of syntax error
+
+  return value: number of arguments treated (0 if error)
+*/</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">optalias_check</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> *argv, <B><FONT COLOR="#228B22">int</FONT></B> n_arg,
+                   <B><FONT COLOR="#228B22">int</FONT></B> *return_argc, <B><FONT COLOR="#228B22">char</FONT></B> **return_argv, <B><FONT COLOR="#228B22">char</FONT></B> *return_error) {
+  return_error[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  *return_argc = 1;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argv[n_arg][0] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)
+    <B><FONT COLOR="#A020F0">if</FONT></B> (argv[n_arg][1] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>) {
+      <B><FONT COLOR="#228B22">char</FONT></B> command[1000];
+      <B><FONT COLOR="#228B22">char</FONT></B> param[1000];
+      <B><FONT COLOR="#228B22">char</FONT></B> addcommand[256];
+
+      <I><FONT COLOR="#B22222">/* */</FONT></I>
+      <B><FONT COLOR="#228B22">char</FONT></B> *position;
+      <B><FONT COLOR="#228B22">int</FONT></B> need_param = 1;
+
+      <I><FONT COLOR="#B22222">//int return_param=0;
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> pos;
+
+      command[0] = param[0] = addcommand[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+      <I><FONT COLOR="#B22222">/* --sockets=8 */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((position = strchr(argv[n_arg], <B><FONT COLOR="#BC8F8F">'='</FONT></B>))) {
+        <I><FONT COLOR="#B22222">/* Copy command */</FONT></I>
+        strncatbuff(command, argv[n_arg] + 2,
+                    (<B><FONT COLOR="#228B22">int</FONT></B>) (position - (argv[n_arg] + 2)));
+        <I><FONT COLOR="#B22222">/* Copy parameter */</FONT></I>
+        strcpybuff(param, position + 1);
+      }
+      <I><FONT COLOR="#B22222">/* --nocache */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(argv[n_arg] + 2, <B><FONT COLOR="#BC8F8F">&quot;no&quot;</FONT></B>, 2) == 0) {
+        strcpybuff(command, argv[n_arg] + 4);
+        strcpybuff(param, <B><FONT COLOR="#BC8F8F">&quot;0&quot;</FONT></B>);
+      }
+      <I><FONT COLOR="#B22222">/* --sockets 8 */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(argv[n_arg] + 2, <B><FONT COLOR="#BC8F8F">&quot;wide-&quot;</FONT></B>, 5) == 0) {
+          strcpybuff(addcommand, <B><FONT COLOR="#BC8F8F">&quot;c32&quot;</FONT></B>);
+          strcpybuff(command, strchr(argv[n_arg] + 2, <B><FONT COLOR="#BC8F8F">'-'</FONT></B>) + 1);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(argv[n_arg] + 2, <B><FONT COLOR="#BC8F8F">&quot;tiny-&quot;</FONT></B>, 5) == 0) {
+          strcpybuff(addcommand, <B><FONT COLOR="#BC8F8F">&quot;c1&quot;</FONT></B>);
+          strcpybuff(command, strchr(argv[n_arg] + 2, <B><FONT COLOR="#BC8F8F">'-'</FONT></B>) + 1);
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          strcpybuff(command, argv[n_arg] + 2);
+        need_param = 2;
+      }
+
+      <I><FONT COLOR="#B22222">/* Now solve the alias */</FONT></I>
+      pos = optalias_find(command);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (pos &gt;= 0) {
+        <I><FONT COLOR="#B22222">/* Copy real name */</FONT></I>
+        strcpybuff(command, hts_optalias[pos][1]);
+        <I><FONT COLOR="#B22222">/* With parameters? */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, 5) == 0) {
+          <I><FONT COLOR="#B22222">/* Copy parameters? */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (need_param == 2) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((n_arg + 1 &gt;= argc) || (argv[n_arg + 1][0] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)) {   <I><FONT COLOR="#B22222">/* no supplemental parameter */</FONT></I>
+              sprintf(return_error,
+                      <B><FONT COLOR="#BC8F8F">&quot;Syntax error:\n\tOption %s needs to be followed by a parameter: %s &lt;param&gt;\n\t%s\n&quot;</FONT></B>,
+                      command, command, _NOT_NULL(optalias_help(command)));
+              <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+            }
+            strcpybuff(param, argv[n_arg + 1]);
+            need_param = 2;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          need_param = 1;
+
+        <I><FONT COLOR="#B22222">/* Final result */</FONT></I>
+
+        <I><FONT COLOR="#B22222">/* Must be alone (-P /tmp) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>) == 0) {
+          strcpybuff(return_argv[0], command);
+          strcpybuff(return_argv[1], param);
+          *return_argc = 2;     <I><FONT COLOR="#B22222">/* 2 parameters returned */</FONT></I>
+        }
+        <I><FONT COLOR="#B22222">/* Alone with parameter (+*.gif) */</FONT></I>
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>) == 0) {
+          <I><FONT COLOR="#B22222">/* Command */</FONT></I>
+          strcpybuff(return_argv[0], command);
+          strcatbuff(return_argv[0], param);
+        }
+        <I><FONT COLOR="#B22222">/* Together (-c8) */</FONT></I>
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <I><FONT COLOR="#B22222">/* Command */</FONT></I>
+          strcpybuff(return_argv[0], command);
+          <I><FONT COLOR="#B22222">/* Parameters accepted */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>, 5) == 0) {
+            <I><FONT COLOR="#B22222">/* --cache=off or --index=on */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(param, <B><FONT COLOR="#BC8F8F">&quot;off&quot;</FONT></B>) == 0)
+              strcatbuff(return_argv[0], <B><FONT COLOR="#BC8F8F">&quot;0&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(param, <B><FONT COLOR="#BC8F8F">&quot;on&quot;</FONT></B>) == 0) {
+              <I><FONT COLOR="#B22222">// on is the default
+</FONT></I>              <I><FONT COLOR="#B22222">// strcatbuff(return_argv[0],&quot;1&quot;);
+</FONT></I>            } <B><FONT COLOR="#A020F0">else</FONT></B>
+              strcatbuff(return_argv[0], param);
+          }
+          *return_argc = 1;     <I><FONT COLOR="#B22222">/* 1 parameter returned */</FONT></I>
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        sprintf(return_error, <B><FONT COLOR="#BC8F8F">&quot;Unknown option: %s\n&quot;</FONT></B>, command);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+      <B><FONT COLOR="#A020F0">return</FONT></B> need_param;
+    }
+
+  <I><FONT COLOR="#B22222">/* Check -O &lt;path&gt; */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">int</FONT></B> pos;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = optreal_find(argv[n_arg])) &gt;= 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((strcmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>) == 0)
+          || (strcmp(hts_optalias[pos][2], <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>) == 0)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((n_arg + 1 &gt;= argc) || (argv[n_arg + 1][0] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)) {       <I><FONT COLOR="#B22222">/* no supplemental parameter */</FONT></I>
+          sprintf(return_error,
+                  <B><FONT COLOR="#BC8F8F">&quot;Syntax error:\n\tOption %s needs to be followed by a parameter: %s &lt;param&gt;\n\t%s\n&quot;</FONT></B>,
+                  argv[n_arg], argv[n_arg],
+                  _NOT_NULL(optalias_help(argv[n_arg])));
+          <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+        }
+        <I><FONT COLOR="#B22222">/* Copy parameters */</FONT></I>
+        strcpybuff(return_argv[0], argv[n_arg]);
+        strcpybuff(return_argv[1], argv[n_arg + 1]);
+        <I><FONT COLOR="#B22222">/* And return */</FONT></I>
+        *return_argc = 2;       <I><FONT COLOR="#B22222">/* 2 parameters returned */</FONT></I>
+        <B><FONT COLOR="#A020F0">return</FONT></B> 2;               <I><FONT COLOR="#B22222">/* 2 parameters used */</FONT></I>
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Copy and return other unknown option */</FONT></I>
+  strcpybuff(return_argv[0], argv[n_arg]);
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<I><FONT COLOR="#B22222">/* Finds the &lt;token&gt; option alias and returns the index, or -1 if failed */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">optalias_find</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *token) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (token[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(hts_optalias[i][0][0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(token, hts_optalias[i][0]) == 0) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> i;
+      }
+      i++;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">/* Finds the &lt;token&gt; real option and returns the index, or -1 if failed */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">optreal_find</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *token) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (token[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(hts_optalias[i][0][0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(token, hts_optalias[i][1]) == 0) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> i;
+      }
+      i++;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">optreal_value</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> p) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_optalias[p][1];
+}
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">optalias_value</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> p) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_optalias[p][0];
+}
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">opttype_value</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> p) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_optalias[p][2];
+}
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">opthelp_value</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> p) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hts_optalias[p][3];
+}
+
+<I><FONT COLOR="#B22222">/* Help for option &lt;token&gt;, empty if not available, or NULL if unknown &lt;token&gt; */</FONT></I>
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">optalias_help</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *token) {
+  <B><FONT COLOR="#228B22">int</FONT></B> pos = optalias_find(token);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pos &gt;= 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> hts_optalias[pos][3];
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">/* Include a file to the current command line */</FONT></I>
+<I><FONT COLOR="#B22222">/* example:
+  set sockets 8
+  index on
+  allow *.gif
+  deny ad.*
+*/</FONT></I>
+<I><FONT COLOR="#B22222">/* Note: NOT utf-8 */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">optinclude_file</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name, <B><FONT COLOR="#228B22">int</FONT></B> *argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv, <B><FONT COLOR="#228B22">char</FONT></B> *x_argvblk,
+                    <B><FONT COLOR="#228B22">int</FONT></B> *x_ptr) {
+  FILE *fp;
+
+  fp = fopen(name, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+    <B><FONT COLOR="#228B22">char</FONT></B> line[256];
+    <B><FONT COLOR="#228B22">int</FONT></B> insert_after = 1;       <I><FONT COLOR="#B22222">/* first, insert after program filename */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *a, *b;
+      <B><FONT COLOR="#228B22">int</FONT></B> result;
+
+      <I><FONT COLOR="#B22222">/* read line */</FONT></I>
+      linput(fp, line, 250);
+      hts_lowcase(line);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(line)) {
+        <I><FONT COLOR="#B22222">/* no comment line: # // ; */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(<B><FONT COLOR="#BC8F8F">&quot;#/;&quot;</FONT></B>, line[0]) == NULL) {
+          <I><FONT COLOR="#B22222">/* right trim */</FONT></I>
+          a = line + strlen(line) - 1;
+          <B><FONT COLOR="#A020F0">while</FONT></B>(is_realspace(*a))
+            *(a--) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <I><FONT COLOR="#B22222">/* jump &quot;set &quot; and spaces */</FONT></I>
+          a = line;
+          <B><FONT COLOR="#A020F0">while</FONT></B>(is_realspace(*a))
+            a++;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(a, <B><FONT COLOR="#BC8F8F">&quot;set&quot;</FONT></B>, 3) == 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (is_realspace(*(a + 3))) {
+              a += 4;
+            }
+          }
+          <B><FONT COLOR="#A020F0">while</FONT></B>(is_realspace(*a))
+            a++;
+          <I><FONT COLOR="#B22222">/* delete = (&quot;sockets=8&quot;) */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((b = strchr(a, <B><FONT COLOR="#BC8F8F">'='</FONT></B>)))
+            *b = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+
+          <I><FONT COLOR="#B22222">/* isolate option and parameter */</FONT></I>
+          b = a;
+          <B><FONT COLOR="#A020F0">while</FONT></B>((!is_realspace(*b)) &amp;&amp; (*b))
+            b++;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*b) {
+            *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            b++;
+          }
+          <I><FONT COLOR="#B22222">/* a is now the option, b the parameter */</FONT></I>
+
+          {
+            <B><FONT COLOR="#228B22">int</FONT></B> return_argc;
+            <B><FONT COLOR="#228B22">char</FONT></B> return_error[256];
+            <B><FONT COLOR="#228B22">char</FONT></B> _tmp_argv[4][HTS_CDLMAXSIZE];
+            <B><FONT COLOR="#228B22">char</FONT></B> *tmp_argv[4];
+
+            tmp_argv[0] = _tmp_argv[0];
+            tmp_argv[1] = _tmp_argv[1];
+            tmp_argv[2] = _tmp_argv[2];
+            tmp_argv[3] = _tmp_argv[3];
+            strcpybuff(_tmp_argv[0], <B><FONT COLOR="#BC8F8F">&quot;--&quot;</FONT></B>);
+            strcatbuff(_tmp_argv[0], a);
+            strcpybuff(_tmp_argv[1], b);
+
+            result =
+              optalias_check(2, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> *) tmp_argv, 0, &amp;return_argc,
+                             (tmp_argv + 2), return_error);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!result) {
+              printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, return_error);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <B><FONT COLOR="#228B22">int</FONT></B> insert_after_argc;
+
+              <I><FONT COLOR="#B22222">/* Insert parameters BUT so that they can be in the same order */</FONT></I>
+              <I><FONT COLOR="#B22222">/* temporary argc: Number of parameters after minus insert_after_argc */</FONT></I>
+              insert_after_argc = (*argc) - insert_after;
+              cmdl_ins((tmp_argv[2]), insert_after_argc, (argv + insert_after),
+                       x_argvblk, (*x_ptr));
+              *argc = insert_after_argc + insert_after;
+              insert_after++;
+              <I><FONT COLOR="#B22222">/* Second one */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (return_argc &gt; 1) {
+                insert_after_argc = (*argc) - insert_after;
+                cmdl_ins((tmp_argv[3]), insert_after_argc,
+                         (argv + insert_after), x_argvblk, (*x_ptr));
+                *argc = insert_after_argc + insert_after;
+                insert_after++;
+              }
+              <I><FONT COLOR="#B22222">/* increment to nbr of used parameters */</FONT></I>
+              <I><FONT COLOR="#B22222">/* insert_after+=result; */</FONT></I>
+            }
+          }
+        }
+
+      }
+    }
+    fclose(fp);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* Get home directory, '.' if failed */</FONT></I>
+<I><FONT COLOR="#B22222">/* example: /home/smith */</FONT></I>
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_gethome</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *home = getenv(<B><FONT COLOR="#BC8F8F">&quot;HOME&quot;</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (home)
+    <B><FONT COLOR="#A020F0">return</FONT></B> home;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>;
+}
+
+<I><FONT COLOR="#B22222">/* Convert ~/foo into /home/smith/foo */</FONT></I>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">expand_home</FONT></B>(String * str) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (StringSub(*str, 1) == <B><FONT COLOR="#BC8F8F">'~'</FONT></B>) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+    strcpybuff(tempo, hts_gethome());
+    strcatbuff(tempo, StringBuff(*str) + 1);
+    StringCopy(*str, tempo);
+  }
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsalias.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+</HTML>

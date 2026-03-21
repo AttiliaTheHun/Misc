@@ -1,0 +1,490 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/punycode.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:34 GMT -->
+<HEAD>
+<TITLE>./punycode.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./punycode.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/*
+punycode.c from RFC 3492
+http://www.nicemice.net/idn/
+Adam M. Costello
+http://www.nicemice.net/amc/
+
+This is ANSI C code (C89) implementing Punycode (RFC 3492).
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;punycode.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/******************/</FONT></I>
+<I><FONT COLOR="#B22222">/* Implementation */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/*** Bootstring parameters for Punycode ***/</FONT></I>
+
+<B><FONT COLOR="#228B22">enum</FONT></B> { base = 36, tmin = 1, tmax = 26, skew = 38, damp = 700,
+  initial_bias = 72, initial_n = 0x80, delimiter = 0x2D
+};
+
+<I><FONT COLOR="#B22222">/* basic(cp) tests whether cp is a basic code point: */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">basic</FONT></B>(cp) ((punycode_uint)(cp) &lt; 0x80)
+
+<I><FONT COLOR="#B22222">/* delim(cp) tests whether cp is a delimiter: */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">delim</FONT></B>(cp) ((cp) == delimiter)
+
+<I><FONT COLOR="#B22222">/* decode_digit(cp) returns the numeric value of a basic code */</FONT></I>
+<I><FONT COLOR="#B22222">/* point (for use in representing integers) in the range 0 to */</FONT></I>
+<I><FONT COLOR="#B22222">/* base-1, or base if cp is does not represent a value.       */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> punycode_uint <B><FONT COLOR="#0000FF">decode_digit</FONT></B>(punycode_uint cp) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> cp - 48 &lt; 10 ? cp - 22 : cp - 65 &lt; 26 ? cp - 65 : cp - 97 &lt;
+    26 ? cp - 97 : base;
+}
+
+<I><FONT COLOR="#B22222">/* encode_digit(d,flag) returns the basic code point whose value      */</FONT></I>
+<I><FONT COLOR="#B22222">/* (when used for representing integers) is d, which needs to be in   */</FONT></I>
+<I><FONT COLOR="#B22222">/* the range 0 to base-1.  The lowercase form is used unless flag is  */</FONT></I>
+<I><FONT COLOR="#B22222">/* nonzero, in which case the uppercase form is used.  The behavior   */</FONT></I>
+<I><FONT COLOR="#B22222">/* is undefined if flag is nonzero and digit d has no uppercase form. */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> <B><FONT COLOR="#0000FF">encode_digit</FONT></B>(punycode_uint d, <B><FONT COLOR="#228B22">int</FONT></B> flag) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> d + 22 + 75 * (d &lt; 26) - ((flag != 0) &lt;&lt; 5);
+  <I><FONT COLOR="#B22222">/*  0..25 map to ASCII a..z or A..Z */</FONT></I>
+  <I><FONT COLOR="#B22222">/* 26..35 map to ASCII 0..9         */</FONT></I>
+}
+
+<I><FONT COLOR="#B22222">/* flagged(bcp) tests whether a basic code point is flagged */</FONT></I>
+<I><FONT COLOR="#B22222">/* (uppercase).  The behavior is undefined if bcp is not a  */</FONT></I>
+<I><FONT COLOR="#B22222">/* basic code point.                                        */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">flagged</FONT></B>(bcp) ((punycode_uint)(bcp) - 65 &lt; 26)
+
+<I><FONT COLOR="#B22222">/* encode_basic(bcp,flag) forces a basic code point to lowercase */</FONT></I>
+<I><FONT COLOR="#B22222">/* if flag is zero, uppercase if flag is nonzero, and returns    */</FONT></I>
+<I><FONT COLOR="#B22222">/* the resulting code point.  The code point is unchanged if it  */</FONT></I>
+<I><FONT COLOR="#B22222">/* is caseless.  The behavior is undefined if bcp is not a basic */</FONT></I>
+<I><FONT COLOR="#B22222">/* code point.                                                   */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> <B><FONT COLOR="#0000FF">encode_basic</FONT></B>(punycode_uint bcp, <B><FONT COLOR="#228B22">int</FONT></B> flag) {
+  bcp -= (bcp - 97 &lt; 26) &lt;&lt; 5;
+  <B><FONT COLOR="#A020F0">return</FONT></B> bcp + ((!flag &amp;&amp; (bcp - 65 &lt; 26)) &lt;&lt; 5);
+}
+
+<I><FONT COLOR="#B22222">/*** Platform-specific constants ***/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* maxint is the maximum value of a punycode_uint variable: */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> punycode_uint maxint = -1;
+
+<I><FONT COLOR="#B22222">/* Because maxint is unsigned, -1 becomes the maximum value. */</FONT></I>
+
+<I><FONT COLOR="#B22222">/*** Bias adaptation function ***/</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> punycode_uint <B><FONT COLOR="#0000FF">adapt</FONT></B>(punycode_uint delta, punycode_uint numpoints,
+                           <B><FONT COLOR="#228B22">int</FONT></B> firsttime) {
+  punycode_uint k;
+
+  delta = firsttime ? delta / damp : delta &gt;&gt; 1;
+  <I><FONT COLOR="#B22222">/* delta &gt;&gt; 1 is a faster way of doing delta / 2 */</FONT></I>
+  delta += delta / numpoints;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(k = 0; delta &gt; ((base - tmin) * tmax) / 2; k += base) {
+    delta /= base - tmin;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> k + (base - tmin + 1) * delta / (delta + skew);
+}
+
+<I><FONT COLOR="#B22222">/*** Main encode function ***/</FONT></I>
+
+<B><FONT COLOR="#228B22">enum</FONT></B> punycode_status <B><FONT COLOR="#0000FF">punycode_encode</FONT></B>(punycode_uint input_length,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> punycode_uint input[],
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> case_flags[],
+                                     punycode_uint * output_length,
+                                     <B><FONT COLOR="#228B22">char</FONT></B> output[]) {
+  punycode_uint n, delta, h, b, out, max_out, bias, j, m, q, k, t;
+
+  <I><FONT COLOR="#B22222">/* Initialize the state: */</FONT></I>
+
+  n = initial_n;
+  delta = out = 0;
+  max_out = *output_length;
+  bias = initial_bias;
+
+  <I><FONT COLOR="#B22222">/* Handle the basic code points: */</FONT></I>
+  <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; input_length; ++j) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (basic(input[j])) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (max_out - out &lt; 2)
+        <B><FONT COLOR="#A020F0">return</FONT></B> punycode_big_output;
+      output[out++] =
+        case_flags ? encode_basic(input[j], case_flags[j]) : input[j];
+    }
+    <I><FONT COLOR="#B22222">/* else if (input[j] &lt; n) return punycode_bad_input; */</FONT></I>
+    <I><FONT COLOR="#B22222">/* (not needed for Punycode with unsigned code points) */</FONT></I>
+  }
+
+  h = b = out;
+
+  <I><FONT COLOR="#B22222">/* h is the number of code points that have been handled, b is the  */</FONT></I>
+  <I><FONT COLOR="#B22222">/* number of basic code points, and out is the number of characters */</FONT></I>
+  <I><FONT COLOR="#B22222">/* that have been output.                                           */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (b &gt; 0)
+    output[out++] = delimiter;
+
+  <I><FONT COLOR="#B22222">/* Main encoding loop: */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(h &lt; input_length) {
+    <I><FONT COLOR="#B22222">/* All non-basic code points &lt; n have been     */</FONT></I>
+    <I><FONT COLOR="#B22222">/* handled already.  Find the next larger one: */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(m = maxint, j = 0; j &lt; input_length; ++j) {
+      <I><FONT COLOR="#B22222">/* if (basic(input[j])) continue; */</FONT></I>
+      <I><FONT COLOR="#B22222">/* (not needed for Punycode) */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (input[j] &gt;= n &amp;&amp; input[j] &lt; m)
+        m = input[j];
+    }
+
+    <I><FONT COLOR="#B22222">/* Increase delta enough to advance the decoder's    */</FONT></I>
+    <I><FONT COLOR="#B22222">/* &lt;n,i&gt; state to &lt;m,0&gt;, but guard against overflow: */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (m - n &gt; (maxint - delta) / (h + 1))
+      <B><FONT COLOR="#A020F0">return</FONT></B> punycode_overflow;
+    delta += (m - n) * (h + 1);
+    n = m;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; input_length; ++j) {
+      <I><FONT COLOR="#B22222">/* Punycode does not need to check whether input[j] is basic: */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (input[j] &lt; n <I><FONT COLOR="#B22222">/* || basic(input[j]) */</FONT></I> ) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (++delta == 0)
+          <B><FONT COLOR="#A020F0">return</FONT></B> punycode_overflow;
+      }
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (input[j] == n) {
+        <I><FONT COLOR="#B22222">/* Represent delta as a generalized variable-length integer: */</FONT></I>
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(q = delta, k = base;; k += base) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (out &gt;= max_out)
+            <B><FONT COLOR="#A020F0">return</FONT></B> punycode_big_output;
+          t = k &lt;= bias <I><FONT COLOR="#B22222">/* + tmin */</FONT></I> ? tmin :   <I><FONT COLOR="#B22222">/* +tmin not needed */</FONT></I>
+            k &gt;= bias + tmax ? tmax : k - bias;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (q &lt; t)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          output[out++] = encode_digit(t + (q - t) % (base - t), 0);
+          q = (q - t) / (base - t);
+        }
+
+        output[out++] = encode_digit(q, case_flags &amp;&amp; case_flags[j]);
+        bias = adapt(delta, h + 1, h == b);
+        delta = 0;
+        ++h;
+      }
+    }
+
+    ++delta, ++n;
+  }
+
+  *output_length = out;
+  <B><FONT COLOR="#A020F0">return</FONT></B> punycode_success;
+}
+
+<I><FONT COLOR="#B22222">/*** Main decode function ***/</FONT></I>
+
+<B><FONT COLOR="#228B22">enum</FONT></B> punycode_status <B><FONT COLOR="#0000FF">punycode_decode</FONT></B>(punycode_uint input_length,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> input[],
+                                     punycode_uint * output_length,
+                                     punycode_uint output[],
+                                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> case_flags[]) {
+  punycode_uint n, out, i, max_out, bias, b, j, in, oldi, w, k, digit, t;
+
+  <I><FONT COLOR="#B22222">/* Initialize the state: */</FONT></I>
+
+  n = initial_n;
+  out = i = 0;
+  max_out = *output_length;
+  bias = initial_bias;
+
+  <I><FONT COLOR="#B22222">/* Handle the basic code points:  Let b be the number of input code */</FONT></I>
+  <I><FONT COLOR="#B22222">/* points before the last delimiter, or 0 if there is none, then    */</FONT></I>
+  <I><FONT COLOR="#B22222">/* copy the first b code points to the output.                      */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(b = j = 0; j &lt; input_length; ++j)
+    <B><FONT COLOR="#A020F0">if</FONT></B> (delim(input[j]))
+      b = j;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (b &gt; max_out)
+    <B><FONT COLOR="#A020F0">return</FONT></B> punycode_big_output;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; b; ++j) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (case_flags)
+      case_flags[out] = flagged(input[j]);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!basic(input[j]))
+      <B><FONT COLOR="#A020F0">return</FONT></B> punycode_bad_input;
+    output[out++] = input[j];
+  }
+
+  <I><FONT COLOR="#B22222">/* Main decoding loop:  Start just after the last delimiter if any  */</FONT></I>
+  <I><FONT COLOR="#B22222">/* basic code points were copied; start at the beginning otherwise. */</FONT></I>
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(in = b &gt; 0 ? b + 1 : 0; in &lt; input_length; ++out) {
+
+    <I><FONT COLOR="#B22222">/* in is the index of the next character to be consumed, and */</FONT></I>
+    <I><FONT COLOR="#B22222">/* out is the number of code points in the output array.     */</FONT></I>
+
+    <I><FONT COLOR="#B22222">/* Decode a generalized variable-length integer into delta,  */</FONT></I>
+    <I><FONT COLOR="#B22222">/* which gets added to i.  The overflow checking is easier   */</FONT></I>
+    <I><FONT COLOR="#B22222">/* if we increase i as we go, then subtract off its starting */</FONT></I>
+    <I><FONT COLOR="#B22222">/* value at the end to obtain delta.                         */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(oldi = i, w = 1, k = base;; k += base) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (in &gt;= input_length)
+        <B><FONT COLOR="#A020F0">return</FONT></B> punycode_bad_input;
+      digit = decode_digit(input[in++]);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (digit &gt;= base)
+        <B><FONT COLOR="#A020F0">return</FONT></B> punycode_bad_input;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (digit &gt; (maxint - i) / w)
+        <B><FONT COLOR="#A020F0">return</FONT></B> punycode_overflow;
+      i += digit * w;
+      t = k &lt;= bias <I><FONT COLOR="#B22222">/* + tmin */</FONT></I> ? tmin :       <I><FONT COLOR="#B22222">/* +tmin not needed */</FONT></I>
+        k &gt;= bias + tmax ? tmax : k - bias;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (digit &lt; t)
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (w &gt; maxint / (base - t))
+        <B><FONT COLOR="#A020F0">return</FONT></B> punycode_overflow;
+      w *= (base - t);
+    }
+
+    bias = adapt(i - oldi, out + 1, oldi == 0);
+
+    <I><FONT COLOR="#B22222">/* i was supposed to wrap around from out+1 to 0,   */</FONT></I>
+    <I><FONT COLOR="#B22222">/* incrementing n each time, so we'll fix that now: */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (i / (out + 1) &gt; maxint - n)
+      <B><FONT COLOR="#A020F0">return</FONT></B> punycode_overflow;
+    n += i / (out + 1);
+    i %= (out + 1);
+
+    <I><FONT COLOR="#B22222">/* Insert n at position i of the output: */</FONT></I>
+
+    <I><FONT COLOR="#B22222">/* not needed for Punycode: */</FONT></I>
+    <I><FONT COLOR="#B22222">/* if (decode_digit(n) &lt;= base) return punycode_invalid_input; */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (out &gt;= max_out)
+      <B><FONT COLOR="#A020F0">return</FONT></B> punycode_big_output;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (case_flags) {
+      memmove(case_flags + i + 1, case_flags + i, out - i);
+      <I><FONT COLOR="#B22222">/* Case of last character determines uppercase flag: */</FONT></I>
+      case_flags[i] = flagged(input[in - 1]);
+    }
+
+    memmove(output + i + 1, output + i, (out - i) * <B><FONT COLOR="#A020F0">sizeof</FONT></B> *output);
+    output[i++] = n;
+  }
+
+  *output_length = out;
+  <B><FONT COLOR="#A020F0">return</FONT></B> punycode_success;
+}
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">PUNYCODE_COSTELLO_RFC3492_INCLUDE_TEST</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PUNYCODE_COSTELLO_RFC3492_INCLUDE_TEST</FONT>
+
+<I><FONT COLOR="#B22222">/******************************************************************/</FONT></I>
+<I><FONT COLOR="#B22222">/* Wrapper for testing (would normally go in a separate .c file): */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;assert.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* For testing, we'll just set some compile-time limits rather than */</FONT></I>
+<I><FONT COLOR="#B22222">/* use malloc(), and set a compile-time option rather than using a  */</FONT></I>
+<I><FONT COLOR="#B22222">/* command-line option.                                             */</FONT></I>
+
+<B><FONT COLOR="#228B22">enum</FONT></B> {
+  unicode_max_length = 256,
+  ace_max_length = 256
+};
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">usage</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> **argv) {
+  fprintf(stderr,
+          <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%s -e reads code points and writes a Punycode string.\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;%s -d reads a Punycode string and writes code points.\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;Input and output are plain text in the native character set.\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;Code points are in the form u+hex separated by whitespace.\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;Although the specification allows Punycode strings to contain\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;any characters from the ASCII repertoire, this test code\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;supports only the printable characters, and needs the Punycode\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;string to be followed by a newline.\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;The case of the u in u+hex is the force-to-uppercase flag.\n&quot;</FONT></B>,
+          argv[0], argv[0]);
+  exit(EXIT_FAILURE);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fail</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg) {
+  fputs(msg, stderr);
+  exit(EXIT_FAILURE);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> too_big[] =
+  <B><FONT COLOR="#BC8F8F">&quot;input or output is too large, recompile with larger limits\n&quot;</FONT></B>;
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> invalid_input[] = <B><FONT COLOR="#BC8F8F">&quot;invalid input\n&quot;</FONT></B>;
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> overflow[] = <B><FONT COLOR="#BC8F8F">&quot;arithmetic overflow\n&quot;</FONT></B>;
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> io_error[] = <B><FONT COLOR="#BC8F8F">&quot;I/O error\n&quot;</FONT></B>;
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* The following string is used to convert printable */</FONT></I>
+<I><FONT COLOR="#B22222">/* characters between ASCII and the native charset:  */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">PUNYCODE_COSTELLO_RFC3492_INCLUDE_MAIN</FONT>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> print_ascii[] =
+  <B><FONT COLOR="#BC8F8F">&quot;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n&quot;</FONT></B>
+  <B><FONT COLOR="#BC8F8F">&quot; !\&quot;#$%&amp;'()*+,-./&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;0123456789:;&lt;=&gt;?&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;@ABCDEFGHIJKLMNO&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;PQRSTUVWXYZ[\\]^_&quot;</FONT></B>
+  <B><FONT COLOR="#BC8F8F">&quot;`abcdefghijklmno&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;pqrstuvwxyz{|}~\n&quot;</FONT></B>;
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv) {
+  <B><FONT COLOR="#228B22">enum</FONT></B> punycode_status status;
+  <B><FONT COLOR="#228B22">int</FONT></B> r;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> input_length, output_length, j;
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> case_flags[unicode_max_length];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argc != 2)
+    usage(argv);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argv[1][0] != <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)
+    usage(argv);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argv[1][2] != 0)
+    usage(argv);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argv[1][1] == <B><FONT COLOR="#BC8F8F">'e'</FONT></B>) {
+    punycode_uint input[unicode_max_length];
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> codept;
+    <B><FONT COLOR="#228B22">char</FONT></B> output[ace_max_length + 1], uplus[3];
+    <B><FONT COLOR="#228B22">int</FONT></B> c;
+
+    <I><FONT COLOR="#B22222">/* Read the input code points: */</FONT></I>
+
+    input_length = 0;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(;;) {
+      r = scanf(<B><FONT COLOR="#BC8F8F">&quot;%2s%lx&quot;</FONT></B>, uplus, &amp;codept);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ferror(stdin))
+        fail(io_error);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (r == EOF || r == 0)
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (r != 2 || uplus[1] != <B><FONT COLOR="#BC8F8F">'+'</FONT></B> || codept &gt; (punycode_uint) - 1) {
+        fail(invalid_input);
+      }
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (input_length == unicode_max_length)
+        fail(too_big);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (uplus[0] == <B><FONT COLOR="#BC8F8F">'u'</FONT></B>)
+        case_flags[input_length] = 0;
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uplus[0] == <B><FONT COLOR="#BC8F8F">'U'</FONT></B>)
+        case_flags[input_length] = 1;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        fail(invalid_input);
+
+      input[input_length++] = codept;
+    }
+
+    <I><FONT COLOR="#B22222">/* Encode: */</FONT></I>
+
+    output_length = ace_max_length;
+    status =
+      punycode_encode(input_length, input, case_flags, &amp;output_length, output);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_bad_input)
+      fail(invalid_input);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_big_output)
+      fail(too_big);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_overflow)
+      fail(overflow);
+    assert(status == punycode_success);
+
+    <I><FONT COLOR="#B22222">/* Convert to native charset and output: */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; output_length; ++j) {
+      c = output[j];
+      assert(c &gt;= 0 &amp;&amp; c &lt;= 127);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (print_ascii[c] == 0)
+        fail(invalid_input);
+      output[j] = print_ascii[c];
+    }
+
+    output[j] = 0;
+    r = puts(output);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (r == EOF)
+      fail(io_error);
+    <B><FONT COLOR="#A020F0">return</FONT></B> EXIT_SUCCESS;
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argv[1][1] == <B><FONT COLOR="#BC8F8F">'d'</FONT></B>) {
+    <B><FONT COLOR="#228B22">char</FONT></B> input[ace_max_length + 2], *p, *pp;
+    punycode_uint output[unicode_max_length];
+
+    <I><FONT COLOR="#B22222">/* Read the Punycode input string and convert to ASCII: */</FONT></I>
+
+    fgets(input, ace_max_length + 2, stdin);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ferror(stdin))
+      fail(io_error);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (feof(stdin))
+      fail(invalid_input);
+    input_length = strlen(input) - 1;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (input[input_length] != <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>)
+      fail(too_big);
+    input[input_length] = 0;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(p = input; *p != 0; ++p) {
+      pp = strchr(print_ascii, *p);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (pp == 0)
+        fail(invalid_input);
+      *p = pp - print_ascii;
+    }
+
+    <I><FONT COLOR="#B22222">/* Decode: */</FONT></I>
+
+    output_length = unicode_max_length;
+    status =
+      punycode_decode(input_length, input, &amp;output_length, output, case_flags);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_bad_input)
+      fail(invalid_input);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_big_output)
+      fail(too_big);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (status == punycode_overflow)
+      fail(overflow);
+    assert(status == punycode_success);
+
+    <I><FONT COLOR="#B22222">/* Output the result: */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; output_length; ++j) {
+      r =
+        printf(<B><FONT COLOR="#BC8F8F">&quot;%s+%04lX\n&quot;</FONT></B>, case_flags[j] ? <B><FONT COLOR="#BC8F8F">&quot;U&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;u&quot;</FONT></B>,
+               (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>) output[j]);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (r &lt; 0)
+        fail(io_error);
+    }
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> EXIT_SUCCESS;
+  }
+
+  usage(argv);
+  <B><FONT COLOR="#A020F0">return</FONT></B> EXIT_SUCCESS;          <I><FONT COLOR="#B22222">/* not reached, but quiets compiler warning */</FONT></I>
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/punycode.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:34 GMT -->
+</HTML>

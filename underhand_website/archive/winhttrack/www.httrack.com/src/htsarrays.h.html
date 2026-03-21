@@ -1,0 +1,169 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsarrays.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+<HEAD>
+<TITLE>./htsarrays.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsarrays.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Arrays                                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_ARRAYS_DEFSTATIC</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ARRAYS_DEFSTATIC</FONT>
+
+<I><FONT COLOR="#B22222">/* System definitions. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Memory allocation assertion failure */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">hts_record_assert_memory_failed</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> size_t size) {
+  fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;memory allocation failed (%lu bytes)&quot;</FONT></B>, \
+          (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) size); \
+  assertf(! <B><FONT COLOR="#BC8F8F">&quot;memory allocation failed&quot;</FONT></B>); \
+}
+
+<I><FONT COLOR="#B22222">/** Dynamic array of T elements. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArray</FONT></B>(T) \
+  struct {            \
+    <I><FONT COLOR="#B22222">/** Elements. **/</FONT></I> \
+    union {           \
+      <I><FONT COLOR="#B22222">/** Typed. **/</FONT></I>  \
+      T* elts;        \
+      <I><FONT COLOR="#B22222">/** Opaque. **/</FONT></I> \
+      void* ptr;      \
+    } data;           \
+    <I><FONT COLOR="#B22222">/** Count. **/</FONT></I>    \
+    size_t size;      \
+    <I><FONT COLOR="#B22222">/** Capacity. **/</FONT></I> \
+    size_t capa;      \
+  }
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">EMPTY_TYPED_ARRAY</FONT> { { NULL }, 0, 0 }
+
+<I><FONT COLOR="#B22222">/** Array size, in elements. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArraySize</FONT></B>(A)   ((A).size)
+
+<I><FONT COLOR="#B22222">/** Array capacity, in elements. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayCapa</FONT></B>(A)   ((A).capa)
+
+<I><FONT COLOR="#B22222">/**
+ * Remaining free space, in elements. 
+ * Macro, first element evaluated multiple times.
+ **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayRoom</FONT></B>(A)   ( TypedArrayCapa(A) - TypedArraySize(A) )
+
+<I><FONT COLOR="#B22222">/** Array elements, of type T*. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayElts</FONT></B>(A)   ((A).data.elts)
+
+<I><FONT COLOR="#B22222">/** Array pointer, of type void*. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayPtr</FONT></B>(A)    ((A).data.ptr)
+
+<I><FONT COLOR="#B22222">/** Size of T. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayWidth</FONT></B>(A)  (sizeof(*TypedArrayElts(A)))
+
+<I><FONT COLOR="#B22222">/** Nth element of the array. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayNth</FONT></B>(A, N) (TypedArrayElts(A)[N])
+
+<I><FONT COLOR="#B22222">/**
+ * Tail of the array (outside the array). 
+ * The returned pointer points to the beginning of TypedArrayRoom(A)
+ * free elements.
+ **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayTail</FONT></B>(A) (TypedArrayNth(A, TypedArraySize(A)))
+
+<I><FONT COLOR="#B22222">/**
+  * Ensure at least 'ROOM' elements can be put in the remaining space.
+  * After a call to this macro, TypedArrayRoom(A) is guaranteed to be at 
+  * least equal to 'ROOM'.
+  **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayEnsureRoom</FONT></B>(A, ROOM) do { \
+  const size_t room_ = (ROOM); \
+  while (TypedArrayRoom(A) &lt; room_) { \
+    TypedArrayCapa(A) = TypedArrayCapa(A) &lt; 16 ? 16 : TypedArrayCapa(A) * 2; \
+  } \
+  TypedArrayPtr(A) = realloc(TypedArrayPtr(A), \
+                             TypedArrayCapa(A)*TypedArrayWidth(A)); \
+  if (TypedArrayPtr(A) == NULL) { \
+    hts_record_assert_memory_failed(TypedArrayCapa(A)*TypedArrayWidth(A)); \
+  } \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Add an element. Macro, first element evaluated multiple times. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayAdd</FONT></B>(A, E) do { \
+  TypedArrayEnsureRoom(A, 1); \
+  assertf(TypedArraySize(A) &lt; TypedArrayCapa(A)); \
+  TypedArrayTail(A) = (E); \
+  TypedArraySize(A)++; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/**
+ * Add 'COUNT' elements from 'PTR'. 
+ * Macro, first element evaluated multiple times.
+ **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayAppend</FONT></B>(A, PTR, COUNT) do { \
+  const size_t count_ = (COUNT); \
+  <I><FONT COLOR="#B22222">/* This 1-case is to benefit from type safety. */</FONT></I> \
+  if (count_ == 1) { \
+    TypedArrayAdd(A, *(PTR)); \
+  } else { \
+    const void *const source_ = (PTR); \
+    TypedArrayEnsureRoom(A, count_); \
+    assertf(count_ &lt;= TypedArrayRoom(A)); \
+    memcpy(&amp;TypedArrayTail(A), source_, count_ * TypedArrayWidth(A)); \
+    TypedArraySize(A) += count_; \
+  } \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Clear an array, freeing memory and clearing size and capacity. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TypedArrayFree</FONT></B>(A) do { \
+  if (TypedArrayPtr(A) != NULL) { \
+    TypedArrayCapa(A) = TypedArraySize(A) = 0; \
+    free(TypedArrayPtr(A)); \
+    TypedArrayPtr(A) = NULL; \
+  } \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsarrays.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+</HTML>

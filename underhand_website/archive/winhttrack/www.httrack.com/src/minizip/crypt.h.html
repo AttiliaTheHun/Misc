@@ -1,0 +1,151 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/crypt.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/crypt.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/crypt.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* crypt.h -- base code for crypt/uncrypt ZIPfile
+
+
+   Version 1.01e, February 12th, 2005
+
+   Copyright (C) 1998-2005 Gilles Vollant
+
+   This code is a modified version of crypting code in Infozip distribution
+
+   The encryption/decryption parts of this source code (as opposed to the
+   non-echoing password parts) were originally written in Europe.  The
+   whole source package can be freely distributed, including from the USA.
+   (Prior to January 2000, re-export from the US was a violation of US law.)
+
+   This encryption code is a direct transcription of the algorithm from
+   Roger Schlafly, described by Phil Katz in the file appnote.txt.  This
+   file (appnote.txt) is distributed with the PKZIP program (even in the
+   version without encryption capabilities).
+
+   If you don't need crypting in your application, just define symbols
+   NOCRYPT and NOUNCRYPT.
+
+   This code support the &quot;Traditional PKWARE Encryption&quot;.
+
+   The new AES encryption added on Zip format by Winzip (see the page
+   http://www.winzip.com/aes_info.htm ) and PKWare PKZip 5.x Strong
+   Encryption is not supported.
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">CRC32</FONT></B>(c, b) ((*(pcrc_32_tab+(((int)(c) ^ (b)) &amp; 0xff))) ^ ((c) &gt;&gt; 8))
+
+<I><FONT COLOR="#B22222">/***********************************************************************
+ * Return the next byte in the pseudo-random sequence
+ */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">decrypt_byte</FONT></B>(<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>* pkeys, <B><FONT COLOR="#228B22">const</FONT></B> z_crc_t* pcrc_32_tab)
+{
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> temp;  <I><FONT COLOR="#B22222">/* POTENTIAL BUG:  temp*(temp^1) may overflow in an
+                     * unpredictable manner on 16-bit systems; not a problem
+                     * with any known compiler so far, though */</FONT></I>
+
+    temp = ((<B><FONT COLOR="#228B22">unsigned</FONT></B>)(*(pkeys+2)) &amp; 0xffff) | 2;
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>)(((temp * (temp ^ 1)) &gt;&gt; 8) &amp; 0xff);
+}
+
+<I><FONT COLOR="#B22222">/***********************************************************************
+ * Update the encryption keys with the next byte of plain text
+ */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">update_keys</FONT></B>(<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>* pkeys,<B><FONT COLOR="#228B22">const</FONT></B> z_crc_t* pcrc_32_tab,<B><FONT COLOR="#228B22">int</FONT></B> c)
+{
+    (*(pkeys+0)) = CRC32((*(pkeys+0)), c);
+    (*(pkeys+1)) += (*(pkeys+0)) &amp; 0xff;
+    (*(pkeys+1)) = (*(pkeys+1)) * 134775813L + 1;
+    {
+      <B><FONT COLOR="#228B22">register</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> keyshift = (<B><FONT COLOR="#228B22">int</FONT></B>)((*(pkeys+1)) &gt;&gt; 24);
+      (*(pkeys+2)) = CRC32((*(pkeys+2)), keyshift);
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> c;
+}
+
+
+<I><FONT COLOR="#B22222">/***********************************************************************
+ * Initialize the encryption keys and the random header according to
+ * the given password.
+ */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">init_keys</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* passwd,<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>* pkeys,<B><FONT COLOR="#228B22">const</FONT></B> z_crc_t* pcrc_32_tab)
+{
+    *(pkeys+0) = 305419896L;
+    *(pkeys+1) = 591751049L;
+    *(pkeys+2) = 878082192L;
+    <B><FONT COLOR="#A020F0">while</FONT></B> (*passwd != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+        update_keys(pkeys,pcrc_32_tab,(<B><FONT COLOR="#228B22">int</FONT></B>)*passwd);
+        passwd++;
+    }
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">zdecode</FONT></B>(pkeys,pcrc_32_tab,c) \
+    (update_keys(pkeys,pcrc_32_tab,c ^= decrypt_byte(pkeys,pcrc_32_tab)))
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">zencode</FONT></B>(pkeys,pcrc_32_tab,c,t) \
+    (t=decrypt_byte(pkeys,pcrc_32_tab), update_keys(pkeys,pcrc_32_tab,c), t^(c))
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">INCLUDECRYPTINGCODE_IFCRYPTALLOWED</FONT>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">RAND_HEAD_LEN</FONT>  12
+   <I><FONT COLOR="#B22222">/* &quot;last resort&quot; source for second part of crypt seed pattern */</FONT></I>
+#  <B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">ZCR_SEED2</FONT>
+#    <B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ZCR_SEED2</FONT> 3141592654UL     <I><FONT COLOR="#B22222">/* use PI as default pattern */</FONT></I>
+#  <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">crypthead</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* passwd,      <I><FONT COLOR="#B22222">/* password string */</FONT></I>
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* buf,      <I><FONT COLOR="#B22222">/* where to write header */</FONT></I>
+                     <B><FONT COLOR="#228B22">int</FONT></B> bufSize,
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>* pkeys,
+                     <B><FONT COLOR="#228B22">const</FONT></B> z_crc_t* pcrc_32_tab,
+                     <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> crcForCrypting)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> n;                       <I><FONT COLOR="#B22222">/* index in random header */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> t;                       <I><FONT COLOR="#B22222">/* temporary */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> c;                       <I><FONT COLOR="#B22222">/* random byte */</FONT></I>
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> header[RAND_HEAD_LEN-2]; <I><FONT COLOR="#B22222">/* random header */</FONT></I>
+    <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> calls = 0;   <I><FONT COLOR="#B22222">/* ensure different random header each time */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (bufSize&lt;RAND_HEAD_LEN)
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* First generate RAND_HEAD_LEN-2 random bytes. We encrypt the
+     * output of rand() to get less predictability, since rand() is
+     * often poorly implemented.
+     */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (++calls == 1)
+    {
+        srand((<B><FONT COLOR="#228B22">unsigned</FONT></B>)(time(NULL) ^ ZCR_SEED2));
+    }
+    init_keys(passwd, pkeys, pcrc_32_tab);
+    <B><FONT COLOR="#A020F0">for</FONT></B> (n = 0; n &lt; RAND_HEAD_LEN-2; n++)
+    {
+        c = (rand() &gt;&gt; 7) &amp; 0xff;
+        header[n] = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>)zencode(pkeys, pcrc_32_tab, c, t);
+    }
+    <I><FONT COLOR="#B22222">/* Encrypt random header (last two bytes is high word of crc) */</FONT></I>
+    init_keys(passwd, pkeys, pcrc_32_tab);
+    <B><FONT COLOR="#A020F0">for</FONT></B> (n = 0; n &lt; RAND_HEAD_LEN-2; n++)
+    {
+        buf[n] = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>)zencode(pkeys, pcrc_32_tab, header[n], t);
+    }
+    buf[n++] = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>)zencode(pkeys, pcrc_32_tab, (<B><FONT COLOR="#228B22">int</FONT></B>)(crcForCrypting &gt;&gt; 16) &amp; 0xff, t);
+    buf[n++] = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>)zencode(pkeys, pcrc_32_tab, (<B><FONT COLOR="#228B22">int</FONT></B>)(crcForCrypting &gt;&gt; 24) &amp; 0xff, t);
+    <B><FONT COLOR="#A020F0">return</FONT></B> n;
+}
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/crypt.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

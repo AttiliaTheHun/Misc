@@ -1,0 +1,1004 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htswizard.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htswizard.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htswizard.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       wizard system (accept/refuse links)                    */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htswizard.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">// libérer filters[0] pour insérer un élément dans filters[0]
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HT_INSERT_FILTERS0</FONT> do {\
+  int i;\
+  if (*opt-&gt;filters.filptr &gt; 0) {\
+    for(i = (*opt-&gt;filters.filptr)-1 ; i&gt;=0 ; i--) {\
+      strcpybuff((*opt-&gt;filters.filters)[i+1],(*opt-&gt;filters.filters)[i]);\
+    }\
+  }\
+  (*opt-&gt;filters.filters)[0][0]=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;\
+  (*opt-&gt;filters.filptr)++;\
+  assertf((*opt-&gt;filters.filptr) &lt; opt-&gt;maxfilter); \
+} while(0)
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htspair_t {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *attr;
+} htspair_t;
+
+<I><FONT COLOR="#B22222">/* &quot;embedded&quot; */</FONT></I>
+htspair_t hts_detect_embed[] = {
+  {<B><FONT COLOR="#BC8F8F">&quot;img&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;src&quot;</FONT></B>},
+  {<B><FONT COLOR="#BC8F8F">&quot;link&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;href&quot;</FONT></B>},
+
+  <I><FONT COLOR="#B22222">/* embedded script hack */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;script&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;.src&quot;</FONT></B>},
+
+  <I><FONT COLOR="#B22222">/* style */</FONT></I>
+  {<B><FONT COLOR="#BC8F8F">&quot;style&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;import&quot;</FONT></B>},
+
+  {NULL, NULL}
+};
+
+<I><FONT COLOR="#B22222">/* Internal */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_acceptlink_</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> ptr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *attribute, <B><FONT COLOR="#228B22">int</FONT></B> *set_prio_to,
+                           <B><FONT COLOR="#228B22">int</FONT></B> *just_test_it);
+
+<I><FONT COLOR="#B22222">/*
+httrackp opt	 bloc d'options
+int ptr,int lien_tot,lien_url** liens
+							 relatif aux liens
+char* adr,char* fil
+							 adresse/fichier à tester
+char** filters,int filptr,int filter_max
+							 relatif aux filtres
+robots_wizard* robots
+							 relatif aux robots
+int* set_prio_to
+							 callback obligatoire &quot;capturer ce lien avec prio=N-1&quot;
+int* just_test_it
+							 callback optionnel &quot;ne faire que tester ce lien éventuellement&quot;
+retour:
+0 accepté
+1 refusé
+-1 pas d'avis
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_acceptlink</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> ptr,
+                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *attribute,
+                   <B><FONT COLOR="#228B22">int</FONT></B> *set_prio_to, <B><FONT COLOR="#228B22">int</FONT></B> *just_test_it) {
+  <B><FONT COLOR="#228B22">int</FONT></B> forbidden_url = hts_acceptlink_(opt, ptr,
+                                      adr, fil, tag, attribute, set_prio_to,
+                                      just_test_it);
+  <B><FONT COLOR="#228B22">int</FONT></B> prev_prio = set_prio_to ? *set_prio_to : 0;
+
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 6 --------------------
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">int</FONT></B> test_url = RUN_CALLBACK3(opt, check_link, adr, fil, forbidden_url);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (test_url != -1) {
+      forbidden_url = test_url;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (set_prio_to)
+        *set_prio_to = prev_prio;
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> forbidden_url;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cmp_token</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cmp) {
+  <B><FONT COLOR="#228B22">int</FONT></B> p;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> (strncasecmp(tag, cmp, (p = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(cmp))) == 0
+          &amp;&amp; !isalnum((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) tag[p]));
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_acceptlink_</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> ptr,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *tag,
+                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *attribute, <B><FONT COLOR="#228B22">int</FONT></B> *set_prio_to,
+                           <B><FONT COLOR="#228B22">int</FONT></B> *just_test_it) {
+  <B><FONT COLOR="#228B22">int</FONT></B> forbidden_url = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> meme_adresse;
+  <B><FONT COLOR="#228B22">int</FONT></B> embedded_triggered = 0;
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_FILTERS</FONT>     (*opt-&gt;filters.filters)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_FILTERS_PTR</FONT> (opt-&gt;filters.filptr)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_ROBOTS</FONT>      ((robots_wizard*)opt-&gt;robotsptr)
+  <B><FONT COLOR="#228B22">int</FONT></B> may_set_prio_to = 0;
+
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 0 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Infos */</FONT></I>
+  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;wizard test begins: %s%s&quot;</FONT></B>, adr, fil);
+
+  <I><FONT COLOR="#B22222">/* Already exists? Then, we know that we knew that this link had to be known */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (adr[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; fil[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; opt-&gt;hash != NULL
+      &amp;&amp; hash_read(opt-&gt;hash, adr, fil, 1) &gt;= 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;                   <I><FONT COLOR="#B22222">/* Yokai */</FONT></I>
+  }
+  <I><FONT COLOR="#B22222">// -------------------- PRELUDE OF PHASE 3-BIS --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Built-in known tags (&lt;img src=..&gt;, ..) */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url != 0 &amp;&amp; opt-&gt;nearlink &amp;&amp; tag != NULL &amp;&amp; attribute != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; hts_detect_embed[i].tag != NULL; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cmp_token(tag, hts_detect_embed[i].tag)
+          &amp;&amp; cmp_token(attribute, hts_detect_embed[i].attr)
+        ) {
+        embedded_triggered = 1;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 1 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Doit-on traiter les non html? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;getmode &amp; 2) == 0) {        <I><FONT COLOR="#B22222">// non on ne doit pas
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (!ishtml(opt, fil)) {    <I><FONT COLOR="#B22222">// non il ne faut pas
+</FONT></I>      <I><FONT COLOR="#B22222">//adr[0]='\0';    // ne pas traiter ce lien, pas traiter
+</FONT></I>      forbidden_url = 1;        <I><FONT COLOR="#B22222">// interdire récupération du lien
+</FONT></I>      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;non-html file ignored at %s : %s&quot;</FONT></B>, adr,
+                    fil);
+
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Niveau 1: ne pas parser suivant! */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ptr &gt; 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((heap(ptr)-&gt;depth &lt;= 0)
+        || (heap(ptr)-&gt;depth &lt;= 1 &amp;&amp; !embedded_triggered)) {
+      forbidden_url = 1;        <I><FONT COLOR="#B22222">// interdire récupération du lien
+</FONT></I>      hts_log_print(opt, LOG_DEBUG,
+                    <B><FONT COLOR="#BC8F8F">&quot;file from too far level ignored at %s : %s&quot;</FONT></B>, adr, fil);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* en cas d'échec en phase 1, retour immédiat! */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url == 1) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> forbidden_url;
+  }
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 2 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">// ------------------------------------------------------
+</FONT></I>  <I><FONT COLOR="#B22222">// doit-on traiter ce lien?.. vérifier droits de déplacement
+</FONT></I>  meme_adresse = strfield2(adr, urladr());
+  <B><FONT COLOR="#A020F0">if</FONT></B> (meme_adresse)
+    hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Compare addresses: %s=%s&quot;</FONT></B>, adr, urladr());
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Compare addresses: %s!=%s&quot;</FONT></B>, adr, urladr());
+  <B><FONT COLOR="#A020F0">if</FONT></B> (meme_adresse) {           <I><FONT COLOR="#B22222">// même adresse 
+</FONT></I>    {                           <I><FONT COLOR="#B22222">// tester interdiction de descendre
+</FONT></I>      <I><FONT COLOR="#B22222">// MODIFIE : en cas de remontée puis de redescente, il se pouvait qu'on ne puisse pas atteindre certains fichiers
+</FONT></I>      <I><FONT COLOR="#B22222">// problème: si un fichier est virtuellement accessible via une page mais dont le lien est sur une autre *uniquement*..
+</FONT></I>      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo2[HTS_URLMAXSIZE * 2];
+
+      tempo[0] = tempo2[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+      <I><FONT COLOR="#B22222">// note (up/down): on calcule à partir du lien primaire, ET du lien précédent.
+</FONT></I>      <I><FONT COLOR="#B22222">// ex: si on descend 2 fois on peut remonter 1 fois
+</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (lienrelatif(tempo, fil, heap(heap(ptr)-&gt;premier)-&gt;fil) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lienrelatif(tempo2, fil, heap(ptr)-&gt;fil) == 0) {
+          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;build relative links to test: %s %s (with %s and %s)&quot;</FONT></B>,
+                        tempo, tempo2, heap(heap(ptr)-&gt;premier)-&gt;fil,
+                        heap(ptr)-&gt;fil);
+
+          <I><FONT COLOR="#B22222">// si vient de primary, ne pas tester lienrelatif avec (car host &quot;différent&quot;)
+</FONT></I>          <I><FONT COLOR="#B22222">/*if (heap(heap(ptr)-&gt;premier) == 0) {   // vient de primary
+             }
+           */</FONT></I>
+
+          <I><FONT COLOR="#B22222">// NEW: finalement OK, sauf pour les moved repérés par link_import
+</FONT></I>          <I><FONT COLOR="#B22222">// PROBLEME : annulé a cause d'un lien éventuel isolé accepté..qui entrainerait un miroir
+</FONT></I>
+          <I><FONT COLOR="#B22222">// (test même niveau (NOUVEAU à cause de certains problèmes de filtres non intégrés))
+</FONT></I>          <I><FONT COLOR="#B22222">// NEW
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> ((tempo[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; tempo[1] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>
+               &amp;&amp; strchr(tempo + 1, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) == 0)
+              || (tempo2[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; tempo2[1] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>
+                  &amp;&amp; strchr(tempo2 + 1, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) == 0)
+            ) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!heap(ptr)-&gt;link_import) {     <I><FONT COLOR="#B22222">// ne résulte pas d'un 'moved'
+</FONT></I>              forbidden_url = 0;
+              hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;same level link authorized: %s%s&quot;</FONT></B>,
+                            adr, fil);
+            }
+          }
+          <I><FONT COLOR="#B22222">// down
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> ((strncmp(tempo, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3)) || (strncmp(tempo2, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3))) {      <I><FONT COLOR="#B22222">// pas montée sinon ne nbous concerne pas
+</FONT></I>            <B><FONT COLOR="#228B22">int</FONT></B> test1, test2;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!strncmp(tempo, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3))
+              test1 = 0;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              test1 = (strchr(tempo + ((*tempo == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0), <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) != NULL);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!strncmp(tempo2, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3))
+              test2 = 0;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+              test2 =
+                (strchr(tempo2 + ((*tempo2 == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) ? 1 : 0), <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) != NULL);
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((test1) &amp;&amp; (test2)) {   <I><FONT COLOR="#B22222">// on ne peut que descendre
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 1) == 0) {     <I><FONT COLOR="#B22222">// interdiction de descendre
+</FONT></I>                forbidden_url = 1;
+                hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;lower link canceled: %s%s&quot;</FONT></B>, adr,
+                              fil);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {          <I><FONT COLOR="#B22222">// autorisé à priori - NEW
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (!heap(ptr)-&gt;link_import) { <I><FONT COLOR="#B22222">// ne résulte pas d'un 'moved'
+</FONT></I>                  forbidden_url = 0;
+                  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;lower link authorized: %s%s&quot;</FONT></B>,
+                                adr, fil);
+                }
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((test1) || (test2)) {    <I><FONT COLOR="#B22222">// on peut descendre pour accéder au lien
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 1) != 0) {     <I><FONT COLOR="#B22222">// on peut descendre - NEW
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (!heap(ptr)-&gt;link_import) { <I><FONT COLOR="#B22222">// ne résulte pas d'un 'moved'
+</FONT></I>                  forbidden_url = 0;
+                  hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;lower link authorized: %s%s&quot;</FONT></B>,
+                                adr, fil);
+                }
+              }
+            }
+          }
+
+          <I><FONT COLOR="#B22222">// up
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> ((!strncmp(tempo, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3)) &amp;&amp; (!strncmp(tempo2, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3))) {    <I><FONT COLOR="#B22222">// impossible sans monter
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 2) == 0) {       <I><FONT COLOR="#B22222">// interdiction de monter
+</FONT></I>              forbidden_url = 1;
+              hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;upper link canceled: %s%s&quot;</FONT></B>, adr,
+                            fil);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {            <I><FONT COLOR="#B22222">// autorisé à monter - NEW
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (!heap(ptr)-&gt;link_import) {   <I><FONT COLOR="#B22222">// ne résulte pas d'un 'moved'
+</FONT></I>                forbidden_url = 0;
+                hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;upper link authorized: %s%s&quot;</FONT></B>,
+                              adr, fil);
+              }
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((!strncmp(tempo, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3)) || (!strncmp(tempo2, <B><FONT COLOR="#BC8F8F">&quot;../&quot;</FONT></B>, 3))) {     <I><FONT COLOR="#B22222">// Possible en montant
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 2) != 0) {       <I><FONT COLOR="#B22222">// autorisé à monter - NEW
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (!heap(ptr)-&gt;link_import) {   <I><FONT COLOR="#B22222">// ne résulte pas d'un 'moved'
+</FONT></I>                forbidden_url = 0;
+                hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;upper link authorized: %s%s&quot;</FONT></B>,
+                              adr, fil);
+              }
+            }                   <I><FONT COLOR="#B22222">// sinon autorisé en descente
+</FONT></I>          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          hts_log_print(opt, LOG_ERROR,
+                        <B><FONT COLOR="#BC8F8F">&quot;Error building relative link %s and %s&quot;</FONT></B>, fil,
+                        heap(ptr)-&gt;fil);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        hts_log_print(opt, LOG_ERROR, <B><FONT COLOR="#BC8F8F">&quot;Error building relative link %s and %s&quot;</FONT></B>,
+                      fil, heap(heap(ptr)-&gt;premier)-&gt;fil);
+      }
+
+    }                           <I><FONT COLOR="#B22222">// tester interdiction de descendre?
+</FONT></I>
+    {                           <I><FONT COLOR="#B22222">// tester interdiction de monter
+</FONT></I>      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo2[HTS_URLMAXSIZE * 2];
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (lienrelatif(tempo, fil, heap(heap(ptr)-&gt;premier)-&gt;fil) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lienrelatif(tempo2, fil, heap(ptr)-&gt;fil) == 0) {
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          hts_log_print(opt, LOG_ERROR,
+                        <B><FONT COLOR="#BC8F8F">&quot;Error building relative link %s and %s&quot;</FONT></B>, fil,
+                        heap(ptr)-&gt;fil);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        hts_log_print(opt, LOG_ERROR, <B><FONT COLOR="#BC8F8F">&quot;Error building relative link %s and %s&quot;</FONT></B>,
+                      fil, heap(heap(ptr)-&gt;premier)-&gt;fil);
+
+      }
+    }                           <I><FONT COLOR="#B22222">// fin tester interdiction de monter
+</FONT></I>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {                      <I><FONT COLOR="#B22222">// adresse différente, sortir?
+</FONT></I>
+    <I><FONT COLOR="#B22222">//if (!opt-&gt;wizard) {    // mode non wizard
+</FONT></I>    <I><FONT COLOR="#B22222">// doit-on traiter ce lien?.. vérifier droits de sortie
+</FONT></I>    <B><FONT COLOR="#A020F0">switch</FONT></B> ((opt-&gt;travel &amp; 255)) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;wizard)         <I><FONT COLOR="#B22222">// mode non wizard
+</FONT></I>        forbidden_url = 1;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;                    <I><FONT COLOR="#B22222">// interdicton de sortir au dela de l'adresse
+</FONT></I>    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:{                   <I><FONT COLOR="#B22222">// sortie sur le même dom.xxx
+</FONT></I>        size_t i = strlen(adr) - 1;
+        size_t j = strlen(urladr()) - 1;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((i &gt; 0) &amp;&amp; (j &gt; 0)) {
+          <B><FONT COLOR="#A020F0">while</FONT></B>((i &gt; 0) &amp;&amp; (adr[i] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+            i--;
+          <B><FONT COLOR="#A020F0">while</FONT></B>((j &gt; 0) &amp;&amp; (urladr()[j] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+            j--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((i &gt; 0) &amp;&amp; (j &gt; 0)) {
+            i--;
+            j--;
+            <B><FONT COLOR="#A020F0">while</FONT></B>((i &gt; 0) &amp;&amp; (adr[i] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+              i--;
+            <B><FONT COLOR="#A020F0">while</FONT></B>((j &gt; 0) &amp;&amp; (urladr()[j] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+              j--;
+          }
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((i &gt; 0) &amp;&amp; (j &gt; 0)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!strfield2(adr + i, urladr() + j)) {        <I><FONT COLOR="#B22222">// !=
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;wizard) { <I><FONT COLOR="#B22222">// mode non wizard
+</FONT></I>              <I><FONT COLOR="#B22222">//printf(&quot;refused: %s\n&quot;,adr);
+</FONT></I>              forbidden_url = 1;        <I><FONT COLOR="#B22222">// pas même domaine  
+</FONT></I>              hts_log_print(opt, LOG_DEBUG,
+                            <B><FONT COLOR="#BC8F8F">&quot;foreign domain link canceled: %s%s&quot;</FONT></B>, adr, fil);
+            }
+
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;wizard) {  <I><FONT COLOR="#B22222">// mode wizard
+</FONT></I>              forbidden_url = 0;        <I><FONT COLOR="#B22222">// même domaine  
+</FONT></I>              hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;same domain link authorized: %s%s&quot;</FONT></B>,
+                            adr, fil);
+            }
+          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          forbidden_url = 1;
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:{                   <I><FONT COLOR="#B22222">// sortie sur le même .xxx
+</FONT></I>        size_t i = strlen(adr) - 1;
+        size_t j = strlen(urladr()) - 1;
+
+        <B><FONT COLOR="#A020F0">while</FONT></B>((i &gt; 0) &amp;&amp; (adr[i] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+          i--;
+        <B><FONT COLOR="#A020F0">while</FONT></B>((j &gt; 0) &amp;&amp; (urladr()[j] != <B><FONT COLOR="#BC8F8F">'.'</FONT></B>))
+          j--;
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((i &gt; 0) &amp;&amp; (j &gt; 0)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!strfield2(adr + i, urladr() + j)) {        <I><FONT COLOR="#B22222">// !-
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (!opt-&gt;wizard) { <I><FONT COLOR="#B22222">// mode non wizard
+</FONT></I>              <I><FONT COLOR="#B22222">//printf(&quot;refused: %s\n&quot;,adr);
+</FONT></I>              forbidden_url = 1;        <I><FONT COLOR="#B22222">// pas même .xx  
+</FONT></I>              hts_log_print(opt, LOG_DEBUG,
+                            <B><FONT COLOR="#BC8F8F">&quot;foreign location link canceled: %s%s&quot;</FONT></B>, adr, fil);
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;wizard) {  <I><FONT COLOR="#B22222">// mode wizard
+</FONT></I>              forbidden_url = 0;        <I><FONT COLOR="#B22222">// même domaine  
+</FONT></I>              hts_log_print(opt, LOG_DEBUG,
+                            <B><FONT COLOR="#BC8F8F">&quot;same location link authorized: %s%s&quot;</FONT></B>, adr, fil);
+            }
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          forbidden_url = 1;
+      }
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">7</FONT></B>:                    <I><FONT COLOR="#B22222">// everywhere!!
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;wizard) {        <I><FONT COLOR="#B22222">// mode wizard
+</FONT></I>        forbidden_url = 0;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }                           <I><FONT COLOR="#B22222">// switch
+</FONT></I>
+    <I><FONT COLOR="#B22222">// ANCIENNE POS -- récupérer les liens à côtés d'un lien (nearlink)
+</FONT></I>
+  }                             <I><FONT COLOR="#B22222">// fin test adresse identique/différente
+</FONT></I>
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 3 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">// récupérer les liens à côtés d'un lien (nearlink) (nvelle pos)
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url != 0 &amp;&amp; opt-&gt;nearlink) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!ishtml(opt, fil)) {    <I><FONT COLOR="#B22222">// non html
+</FONT></I>      <I><FONT COLOR="#B22222">//printf(&quot;ok %s%s\n&quot;,ad,fil);
+</FONT></I>      forbidden_url = 0;        <I><FONT COLOR="#B22222">// autoriser
+</FONT></I>      may_set_prio_to = 1 + 1;  <I><FONT COLOR="#B22222">// set prio to 1 (parse but skip urls) if near is the winner
+</FONT></I>      hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;near link authorized: %s%s&quot;</FONT></B>, adr, fil);
+    }
+  }
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 3-BIS --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Built-in known tags (&lt;img src=..&gt;, ..) */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url != 0 &amp;&amp; embedded_triggered) {
+    forbidden_url = 0;          <I><FONT COLOR="#B22222">// autoriser
+</FONT></I>    may_set_prio_to = 1 + 1;    <I><FONT COLOR="#B22222">// set prio to 1 (parse but skip urls) if near is the winner
+</FONT></I>    hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;near link authorized (friendly tag): %s%s&quot;</FONT></B>,
+                  adr, fil);
+  }
+
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 4 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">// ------------------------------------------------------
+</FONT></I>  <I><FONT COLOR="#B22222">// Si wizard, il se peut qu'on autorise ou qu'on interdise 
+</FONT></I>  <I><FONT COLOR="#B22222">// un lien spécial avant même de tester sa position, sa hiérarchie etc.
+</FONT></I>  <I><FONT COLOR="#B22222">// peut court-circuiter le forbidden_url précédent
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;wizard) {            <I><FONT COLOR="#B22222">// le wizard entre en action..
+</FONT></I>    <I><FONT COLOR="#B22222">//
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> question = 1;           <I><FONT COLOR="#B22222">// poser une question                            
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> force_mirror = 0;       <I><FONT COLOR="#B22222">// pour mirror links
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> filters_answer = 0;     <I><FONT COLOR="#B22222">// décision prise par les filtres
+</FONT></I>    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK l[HTS_URLMAXSIZE * 2];
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK lfull[HTS_URLMAXSIZE * 2];
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url != -1)
+      question = 0;             <I><FONT COLOR="#B22222">// pas de question, résolu
+</FONT></I>
+    <I><FONT COLOR="#B22222">// former URL complète du lien actuel
+</FONT></I>    strcpybuff(l, jump_identification_const(adr));
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      strcatbuff(l, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+    strcatbuff(l, fil);
+    <I><FONT COLOR="#B22222">// full version (http://foo:bar@www.foo.com/bar.html)
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(adr))
+      strcpybuff(lfull, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      lfull[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    strcatbuff(lfull, adr);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      strcatbuff(lfull, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+    strcatbuff(lfull, fil);
+
+    <I><FONT COLOR="#B22222">// tester filters (URLs autorisées ou interdites explicitement)
+</FONT></I>
+    <I><FONT COLOR="#B22222">// si lien primaire on saute le joker, on est pas lémur
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (ptr == 0) {             <I><FONT COLOR="#B22222">// lien primaire, autoriser
+</FONT></I>      question = 1;             <I><FONT COLOR="#B22222">// la question sera résolue automatiquement
+</FONT></I>      forbidden_url = 0;
+      may_set_prio_to = 0;      <I><FONT COLOR="#B22222">// clear may-set flag
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">// eternal depth first
+</FONT></I>      <I><FONT COLOR="#B22222">// vérifier récursivité extérieure
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;extdepth &gt; 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ( <I><FONT COLOR="#B22222">/*question &amp;&amp; */</FONT></I> (ptr &gt; 0) &amp;&amp; (!force_mirror)) {
+          <I><FONT COLOR="#B22222">// well, this is kinda a hak
+</FONT></I>          <I><FONT COLOR="#B22222">// we don't want to mirror EVERYTHING, and we have to decide where to stop
+</FONT></I>          <I><FONT COLOR="#B22222">// there is no way yet to tag &quot;external&quot; links, and therefore links that are
+</FONT></I>          <I><FONT COLOR="#B22222">// &quot;weak&quot; (authorized depth &lt; external depth) are just not considered for external
+</FONT></I>          <I><FONT COLOR="#B22222">// hack
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (heap(ptr)-&gt;depth &gt; opt-&gt;extdepth) {
+            <I><FONT COLOR="#B22222">// *set_prio_to = opt-&gt;extdepth + 1;
+</FONT></I>            *set_prio_to = 1 + (opt-&gt;extdepth);
+            may_set_prio_to = 0;        <I><FONT COLOR="#B22222">// clear may-set flag
+</FONT></I>            forbidden_url = 0;  <I><FONT COLOR="#B22222">// autorisé
+</FONT></I>            question = 0;       <I><FONT COLOR="#B22222">// résolution auto
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (question) {
+              hts_log_print(opt, LOG_DEBUG,
+                            <B><FONT COLOR="#BC8F8F">&quot;(wizard) ambiguous link accepted (external depth): link %s at %s%s&quot;</FONT></B>,
+                            l, urladr(), urlfil());
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              hts_log_print(opt, LOG_DEBUG,
+                            <B><FONT COLOR="#BC8F8F">&quot;(wizard) forced to accept link (external depth): link %s at %s%s&quot;</FONT></B>,
+                            l, urladr(), urlfil());
+            }
+
+          }
+        }
+      }
+      <I><FONT COLOR="#B22222">// filters
+</FONT></I>      {
+        <B><FONT COLOR="#228B22">int</FONT></B> jok;
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mdepth = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+
+        <I><FONT COLOR="#B22222">// filters, 0=sait pas 1=ok -1=interdit
+</FONT></I>        {
+          <B><FONT COLOR="#228B22">int</FONT></B> jokDepth1 = 0, jokDepth2 = 0;
+          <B><FONT COLOR="#228B22">int</FONT></B> jok1 = 0, jok2 = 0;
+
+          jok1 =
+            fa_strjoker( <I><FONT COLOR="#B22222">/*url */</FONT></I> 0, _FILTERS, *_FILTERS_PTR, lfull, NULL, NULL,
+                        &amp;jokDepth1);
+          jok2 =
+            fa_strjoker( <I><FONT COLOR="#B22222">/*url */</FONT></I> 0, _FILTERS, *_FILTERS_PTR, l, NULL, NULL,
+                        &amp;jokDepth2);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (jok2 == 0) {      <I><FONT COLOR="#B22222">// #2 doesn't know
+</FONT></I>            jok = jok1;         <I><FONT COLOR="#B22222">// then, use #1
+</FONT></I>            mdepth = _FILTERS[jokDepth1];
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jok1 == 0) {       <I><FONT COLOR="#B22222">// #1 doesn't know
+</FONT></I>            jok = jok2;         <I><FONT COLOR="#B22222">// then, use #2
+</FONT></I>            mdepth = _FILTERS[jokDepth2];
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jokDepth1 &gt;= jokDepth2) {  <I><FONT COLOR="#B22222">// #1 matching rule is &quot;after&quot; #2, then it is prioritary
+</FONT></I>            jok = jok1;
+            mdepth = _FILTERS[jokDepth1];
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// #2 matching rule is &quot;after&quot; #1, then it is prioritary
+</FONT></I>            jok = jok2;
+            mdepth = _FILTERS[jokDepth2];
+          }
+        }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (jok == 1) {         <I><FONT COLOR="#B22222">// autorisé
+</FONT></I>          filters_answer = 1;   <I><FONT COLOR="#B22222">// décision prise par les filtres
+</FONT></I>          question = 0;         <I><FONT COLOR="#B22222">// ne pas poser de question, autorisé
+</FONT></I>          forbidden_url = 0;    <I><FONT COLOR="#B22222">// URL autorisée
+</FONT></I>          may_set_prio_to = 0;  <I><FONT COLOR="#B22222">// clear may-set flag
+</FONT></I>          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;(wizard) explicit authorized (%s) link: link %s at %s%s&quot;</FONT></B>,
+                        mdepth, l, urladr(), urlfil());
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jok == -1) { <I><FONT COLOR="#B22222">// forbidden
+</FONT></I>          filters_answer = 1;   <I><FONT COLOR="#B22222">// décision prise par les filtres
+</FONT></I>          question = 0;         <I><FONT COLOR="#B22222">// ne pas poser de question:
+</FONT></I>          forbidden_url = 1;    <I><FONT COLOR="#B22222">// URL interdite
+</FONT></I>          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;(wizard) explicit forbidden (%s) link: link %s at %s%s&quot;</FONT></B>,
+                        mdepth, l, urladr(), urlfil());
+        }                       <I><FONT COLOR="#B22222">// sinon on touche à rien
+</FONT></I>      }
+    }
+
+    <I><FONT COLOR="#B22222">// vérifier mode mirror links
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (question) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;mirror_first_page) {     <I><FONT COLOR="#B22222">// mode mirror links
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (heap(ptr)-&gt;precedent == 0) {       <I><FONT COLOR="#B22222">// parent=primary!
+</FONT></I>          forbidden_url = 0;    <I><FONT COLOR="#B22222">// autorisé
+</FONT></I>          may_set_prio_to = 0;  <I><FONT COLOR="#B22222">// clear may-set flag
+</FONT></I>          question = 1;         <I><FONT COLOR="#B22222">// résolution auto
+</FONT></I>          force_mirror = 5;     <I><FONT COLOR="#B22222">// mirror (5)
+</FONT></I>          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;(wizard) explicit mirror link: link %s at %s%s&quot;</FONT></B>, l,
+                        urladr(), urlfil());
+        }
+      }
+    }
+    <I><FONT COLOR="#B22222">// on doit poser la question.. peut on la poser?
+</FONT></I>    <I><FONT COLOR="#B22222">// (oui je sais quel preuve de délicatesse, merci merci)      
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> ((question) &amp;&amp; (ptr &gt; 0) &amp;&amp; (!force_mirror)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;wizard == 2) {   <I><FONT COLOR="#B22222">// éliminer tous les liens non répertoriés comme autorisés (ou inconnus)
+</FONT></I>        question = 0;
+        forbidden_url = 1;
+        hts_log_print(opt, LOG_DEBUG,
+                      <B><FONT COLOR="#BC8F8F">&quot;(wizard) ambiguous forbidden link: link %s at %s%s&quot;</FONT></B>, l,
+                      urladr(), urlfil());
+      }
+    }
+    <I><FONT COLOR="#B22222">// vérifier robots.txt
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;robots) {
+      <B><FONT COLOR="#228B22">int</FONT></B> r = checkrobots(_ROBOTS, adr, fil);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (r == -1) {            <I><FONT COLOR="#B22222">// interdiction
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_ROBOTS</FONT>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;robots.txt forbidden: %s%s\n&quot;</FONT></B>, adr, fil);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        <I><FONT COLOR="#B22222">// question résolue, par les filtres, et mode robot non strict
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((!question) &amp;&amp; (filters_answer) &amp;&amp; (opt-&gt;robots == 1)
+            &amp;&amp; (forbidden_url != 1)) {
+          r = 0;                <I><FONT COLOR="#B22222">// annuler interdiction des robots
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (!forbidden_url) {
+            hts_log_print(opt, LOG_DEBUG,
+                          <B><FONT COLOR="#BC8F8F">&quot;Warning link followed against robots.txt: link %s at %s%s&quot;</FONT></B>,
+                          l, adr, fil);
+          }
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (r == -1) {          <I><FONT COLOR="#B22222">// interdire
+</FONT></I>          forbidden_url = 1;
+          question = 0;
+          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;(robots.txt) forbidden link: link %s at %s%s&quot;</FONT></B>, l, adr,
+                        fil);
+        }
+      }
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!question) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!forbidden_url) {
+        hts_log_print(opt, LOG_DEBUG,
+                      <B><FONT COLOR="#BC8F8F">&quot;(wizard) shared foreign domain link: link %s at %s%s&quot;</FONT></B>, l,
+                      urladr(), urlfil());
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        hts_log_print(opt, LOG_DEBUG,
+                      <B><FONT COLOR="#BC8F8F">&quot;(wizard) cancelled foreign domain link: link %s at %s%s&quot;</FONT></B>,
+                      l, urladr(), urlfil());
+      }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">BDEBUG</FONT>==3
+      printf(<B><FONT COLOR="#BC8F8F">&quot;at %s in %s, wizard says: url %s &quot;</FONT></B>, urladr(), urlfil(), l);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url)
+        printf(<B><FONT COLOR="#BC8F8F">&quot;cancelled&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;&gt;SHARED&lt;&quot;</FONT></B>);
+      printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+
+    <I><FONT COLOR="#B22222">/* en cas de question, ou lien primaire (enregistrer autorisations) */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (question || (ptr == 0)) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s;
+      <B><FONT COLOR="#228B22">int</FONT></B> n = 0;
+
+      <I><FONT COLOR="#B22222">// si primaire (plus bas) alors ...
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((ptr != 0) &amp;&amp; (force_mirror == 0)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[HTS_URLMAXSIZE * 2];
+
+        tempo[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        strcatbuff(tempo, adr);
+        strcatbuff(tempo, fil);
+        s = RUN_CALLBACK1(opt, query3, tempo);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s) == 0)        <I><FONT COLOR="#B22222">// entrée
+</FONT></I>          n = 0;
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (isdigit((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) *s))
+          sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n);
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#A020F0">switch</FONT></B> (*s) {
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'*'</FONT></B>:
+            n = -1;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'!'</FONT></B>:
+            n = -999; {
+              <I><FONT COLOR="#B22222">/*char *a;
+                 int i;                                    
+                 a=copie_de_adr-128;
+                 if (a&lt;r.adr) a=r.adr;
+                 for(i=0;i&lt;256;i++) {
+                 if (a==copie_de_adr) printf(&quot;\nHERE:\n&quot;);
+                 printf(&quot;%c&quot;,*a++);
+                 }
+                 printf(&quot;\n\n&quot;);
+               */</FONT></I>
+            }
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+            n = -999;
+            printf(<B><FONT COLOR="#BC8F8F">&quot;What did you say?\n&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+          }
+        }
+        io_flush;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// lien primaire: autoriser répertoire entier       
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (!force_mirror) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 1) == 0) { <I><FONT COLOR="#B22222">// interdiction de descendre
+</FONT></I>            n = 7;
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            n = 5;              <I><FONT COLOR="#B22222">// autoriser miroir répertoires descendants (lien primaire)
+</FONT></I>          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B>                  <I><FONT COLOR="#B22222">// forcer valeur (sub-wizard)
+</FONT></I>          n = force_mirror;
+      }
+
+      <I><FONT COLOR="#B22222">/* sanity check - reallocate filters HERE */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((*_FILTERS_PTR) + 1 &gt;= opt-&gt;maxfilter) {
+        opt-&gt;maxfilter += HTS_FILTERSINC;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (filters_init(&amp;_FILTERS, opt-&gt;maxfilter, HTS_FILTERSINC) == 0) {
+          printf(<B><FONT COLOR="#BC8F8F">&quot;PANIC! : Too many filters : &gt;%d [%d]\n&quot;</FONT></B>, (*_FILTERS_PTR),
+                 __LINE__);
+          fflush(stdout);
+          hts_log_print(opt, LOG_PANIC, <B><FONT COLOR="#BC8F8F">&quot;Too many filters, giving up..(&gt;%d)&quot;</FONT></B>,
+                        (*_FILTERS_PTR));
+          hts_log_print(opt, LOG_INFO,
+                        <B><FONT COLOR="#BC8F8F">&quot;To avoid that: use #F option for more filters (example: -#F5000)&quot;</FONT></B>);
+          assertf(<B><FONT COLOR="#BC8F8F">&quot;too many filters - giving up&quot;</FONT></B> == NULL);      <I><FONT COLOR="#B22222">// wild..
+</FONT></I>        }
+      }
+      <I><FONT COLOR="#B22222">// here we have enough room for a new filter if necessary
+</FONT></I>      <B><FONT COLOR="#A020F0">switch</FONT></B> (n) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">-1</FONT></B>:                 <I><FONT COLOR="#B22222">// sauter tout le reste
+</FONT></I>        forbidden_url = 1;
+        opt-&gt;wizard = 2;        <I><FONT COLOR="#B22222">// sauter tout le reste
+</FONT></I>        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:                  <I><FONT COLOR="#B22222">// interdire les mêmes liens: adr/fil
+</FONT></I>        forbidden_url = 1;
+        HT_INSERT_FILTERS0;     <I><FONT COLOR="#B22222">// insérer en 0
+</FONT></I>        strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>);
+        strcatbuff(_FILTERS[0], jump_identification_const(adr));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+          strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+        strcatbuff(_FILTERS[0], fil);
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:                  <I><FONT COLOR="#B22222">// éliminer répertoire entier et sous rép: adr/path/ *
+</FONT></I>        forbidden_url = 1;
+        {
+          size_t i = strlen(fil) - 1;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((fil[i] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (i &gt; 0))
+            i--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fil[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+            HT_INSERT_FILTERS0; <I><FONT COLOR="#B22222">// insérer en 0
+</FONT></I>            strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>);
+            strcatbuff(_FILTERS[0], jump_identification_const(adr));
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            strncatbuff(_FILTERS[0], fil, i);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (_FILTERS[0][strlen(_FILTERS[0]) - 1] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">// ** ...
+</FONT></I>        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:                  <I><FONT COLOR="#B22222">// adresse adr*
+</FONT></I>        forbidden_url = 1;
+        HT_INSERT_FILTERS0;     <I><FONT COLOR="#B22222">// insérer en 0                                
+</FONT></I>        strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>);
+        strcatbuff(_FILTERS[0], jump_identification_const(adr));
+        strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">3</FONT></B>:                  <I><FONT COLOR="#B22222">// ** A FAIRE
+</FONT></I>        forbidden_url = 1;
+        <I><FONT COLOR="#B22222">/*
+           {
+           int i=strlen(adr)-1;
+           while((adr[i]!='/') &amp;&amp; (i&gt;0)) i--;
+           if (i&gt;0) {
+
+           }
+
+           } */</FONT></I>
+
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <I><FONT COLOR="#B22222">//
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B>:                  <I><FONT COLOR="#B22222">// same link
+</FONT></I>        <I><FONT COLOR="#B22222">// PAS BESOIN!!
+</FONT></I>        <I><FONT COLOR="#B22222">/*HT_INSERT_FILTERS0;    // insérer en 0                                
+           strcpybuff(_FILTERS[0],&quot;+&quot;);
+           strcatbuff(_FILTERS[0],adr);
+           if (*fil!='/') strcatbuff(_FILTERS[0],&quot;/&quot;);
+           strcatbuff(_FILTERS[0],fil); */</FONT></I>
+
+        <I><FONT COLOR="#B22222">// étant donné le renversement wizard/primary filter (les primary autorisent up/down ET interdisent)
+</FONT></I>        <I><FONT COLOR="#B22222">// il faut éviter d'un lien isolé effectue un miroir total..
+</FONT></I>
+        *set_prio_to = 0 + 1;   <I><FONT COLOR="#B22222">// niveau de récursion=0 (pas de miroir)
+</FONT></I>
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">5</FONT></B>:                  <I><FONT COLOR="#B22222">// autoriser répertoire entier et fils
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((opt-&gt;seeker &amp; 2) == 0) {   <I><FONT COLOR="#B22222">// interdiction de monter
+</FONT></I>          size_t i = strlen(fil) - 1;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((fil[i] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (i &gt; 0))
+            i--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fil[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+            HT_INSERT_FILTERS0; <I><FONT COLOR="#B22222">// insérer en 0                                
+</FONT></I>            strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+            strcatbuff(_FILTERS[0], jump_identification_const(adr));
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            strncatbuff(_FILTERS[0], fil, i + 1);
+            strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>);
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">// autoriser domaine alors!!
+</FONT></I>          HT_INSERT_FILTERS0;   <I><FONT COLOR="#B22222">// insérer en 0                                strcpybuff(filters[filptr],&quot;+&quot;);
+</FONT></I>          strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+          strcatbuff(_FILTERS[0], jump_identification_const(adr));
+          strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>);
+        }
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">6</FONT></B>:                  <I><FONT COLOR="#B22222">// same domain
+</FONT></I>        HT_INSERT_FILTERS0;     <I><FONT COLOR="#B22222">// insérer en 0                                strcpybuff(filters[filptr],&quot;+&quot;);
+</FONT></I>        strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+        strcatbuff(_FILTERS[0], jump_identification_const(adr));
+        strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <I><FONT COLOR="#B22222">//
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">7</FONT></B>:                  <I><FONT COLOR="#B22222">// autoriser ce répertoire
+</FONT></I>        {
+          size_t i = strlen(fil) - 1;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((fil[i] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (i &gt; 0))
+            i--;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fil[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+            HT_INSERT_FILTERS0; <I><FONT COLOR="#B22222">// insérer en 0                                
+</FONT></I>            strcpybuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;+&quot;</FONT></B>);
+            strcatbuff(_FILTERS[0], jump_identification_const(adr));
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+              strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+            strncatbuff(_FILTERS[0], fil, i + 1);
+            strcatbuff(_FILTERS[0], <B><FONT COLOR="#BC8F8F">&quot;*[file]&quot;</FONT></B>);
+          }
+        }
+
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">50</FONT></B>:                 <I><FONT COLOR="#B22222">// on fait rien
+</FONT></I>        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }                         <I><FONT COLOR="#B22222">// switch 
+</FONT></I>
+    }                           <I><FONT COLOR="#B22222">// test du wizard sur l'url
+</FONT></I>  }                             <I><FONT COLOR="#B22222">// fin du test wizard..
+</FONT></I>
+  <I><FONT COLOR="#B22222">// -------------------- PHASE 5 --------------------
+</FONT></I>
+  <I><FONT COLOR="#B22222">// lien non autorisé, peut-on juste le tester?
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (just_test_it) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (forbidden_url == 1) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;travel &amp; 256) {  <I><FONT COLOR="#B22222">// tester tout de même
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(adr, <B><FONT COLOR="#BC8F8F">&quot;ftp://&quot;</FONT></B>) == 0) {                   <I><FONT COLOR="#B22222">// PAS ftp!
+</FONT></I>          forbidden_url = 1;    <I><FONT COLOR="#B22222">// oui oui toujours interdit (note: sert à rien car ==1 mais c pour comprendre)
+</FONT></I>          *just_test_it = 1;    <I><FONT COLOR="#B22222">// mais on teste
+</FONT></I>          hts_log_print(opt, LOG_DEBUG, <B><FONT COLOR="#BC8F8F">&quot;Testing link %s%s&quot;</FONT></B>, adr, fil);
+        }
+      }
+    }
+    <I><FONT COLOR="#B22222">//adr[0]='\0';  // cancel
+</FONT></I>  }
+  <I><FONT COLOR="#B22222">// -------------------- FINAL PHASE --------------------
+</FONT></I>  <I><FONT COLOR="#B22222">// Test if the &quot;Near&quot; test won
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (may_set_prio_to &amp;&amp; forbidden_url == 0) {
+    *set_prio_to = may_set_prio_to;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> forbidden_url;
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_FILTERS</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_FILTERS_PTR</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_ROBOTS</FONT>
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_acceptmime</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">int</FONT></B> ptr,
+                   <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime) {
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_FILTERS</FONT>     (*opt-&gt;filters.filters)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_FILTERS_PTR</FONT> (opt-&gt;filters.filptr)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_ROBOTS</FONT>      ((robots_wizard*)opt-&gt;robotsptr)
+  <B><FONT COLOR="#228B22">int</FONT></B> forbidden_url = -1;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mdepth = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">int</FONT></B> jokDepth = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> jok = 0;
+
+  <I><FONT COLOR="#B22222">/* Authorized ? */</FONT></I>
+  jok =
+    fa_strjoker( <I><FONT COLOR="#B22222">/*mime */</FONT></I> 1, _FILTERS, *_FILTERS_PTR, mime, NULL, NULL,
+                &amp;jokDepth);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (jok != 0) {
+    mdepth = _FILTERS[jokDepth];
+    <B><FONT COLOR="#A020F0">if</FONT></B> (jok == 1) {             <I><FONT COLOR="#B22222">// autorisé
+</FONT></I>      forbidden_url = 0;        <I><FONT COLOR="#B22222">// URL autorisée
+</FONT></I>      hts_log_print(opt, LOG_DEBUG,
+                    <B><FONT COLOR="#BC8F8F">&quot;(wizard) explicit authorized (%s) link %s%s: mime '%s'&quot;</FONT></B>,
+                    mdepth, adr, fil, mime);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jok == -1) {     <I><FONT COLOR="#B22222">// forbidden
+</FONT></I>      forbidden_url = 1;        <I><FONT COLOR="#B22222">// URL interdite
+</FONT></I>      hts_log_print(opt, LOG_DEBUG,
+                    <B><FONT COLOR="#BC8F8F">&quot;(wizard) explicit forbidden (%s) link %s%s: mime '%s'&quot;</FONT></B>,
+                    mdepth, adr, fil, mime);
+    }                           <I><FONT COLOR="#B22222">// sinon on touche à rien
+</FONT></I>  }
+  <I><FONT COLOR="#B22222">/* userdef test */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">int</FONT></B> test_url =
+      RUN_CALLBACK4(opt, check_mime, adr, fil, mime, forbidden_url);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (test_url != -1) {
+      forbidden_url = test_url;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> forbidden_url;
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_FILTERS</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_FILTERS_PTR</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">_ROBOTS</FONT>
+}
+
+<I><FONT COLOR="#B22222">// tester taille
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_testlinksize</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, LLint size) {
+  <B><FONT COLOR="#228B22">int</FONT></B> jok = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt;= 0) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK l[HTS_URLMAXSIZE * 2];
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK lfull[HTS_URLMAXSIZE * 2];
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (size &gt;= 0) {
+      LLint sz = size;
+      <B><FONT COLOR="#228B22">int</FONT></B> size_flag = 0;
+
+      <I><FONT COLOR="#B22222">// former URL complète du lien actuel
+</FONT></I>      strcpybuff(l, jump_identification_const(adr));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+        strcatbuff(l, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+      strcatbuff(l, fil);
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(adr))
+        strcpybuff(lfull, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        lfull[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      strcatbuff(lfull, adr);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (*fil != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+        strcatbuff(l, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+      strcatbuff(lfull, fil);
+
+      <I><FONT COLOR="#B22222">// filters, 0=sait pas 1=ok -1=interdit
+</FONT></I>      {
+        <B><FONT COLOR="#228B22">int</FONT></B> jokDepth1 = 0, jokDepth2 = 0;
+        <B><FONT COLOR="#228B22">int</FONT></B> jok1 = 0, jok2 = 0;
+        LLint sz1 = size, sz2 = size;
+        <B><FONT COLOR="#228B22">int</FONT></B> size_flag1 = 0, size_flag2 = 0;
+
+        jok1 =
+          fa_strjoker( <I><FONT COLOR="#B22222">/*url */</FONT></I> 0, *opt-&gt;filters.filters, *opt-&gt;filters.filptr,
+                      lfull, &amp;sz1, &amp;size_flag1, &amp;jokDepth1);
+        jok2 =
+          fa_strjoker( <I><FONT COLOR="#B22222">/*url */</FONT></I> 0, *opt-&gt;filters.filters, *opt-&gt;filters.filptr,
+                      l, &amp;sz2, &amp;size_flag2, &amp;jokDepth2);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (jok2 == 0) {        <I><FONT COLOR="#B22222">// #2 doesn't know
+</FONT></I>          jok = jok1;           <I><FONT COLOR="#B22222">// then, use #1
+</FONT></I>          sz = sz1;
+          size_flag = size_flag1;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jok1 == 0) { <I><FONT COLOR="#B22222">// #1 doesn't know
+</FONT></I>          jok = jok2;           <I><FONT COLOR="#B22222">// then, use #2
+</FONT></I>          sz = sz2;
+          size_flag = size_flag2;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jokDepth1 &gt;= jokDepth2) {    <I><FONT COLOR="#B22222">// #1 matching rule is &quot;after&quot; #2, then it is prioritary
+</FONT></I>          jok = jok1;
+          sz = sz1;
+          size_flag = size_flag1;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">// #2 matching rule is &quot;after&quot; #1, then it is prioritary
+</FONT></I>          jok = jok2;
+          sz = sz2;
+          size_flag = size_flag2;
+        }
+      }
+
+      <I><FONT COLOR="#B22222">// log
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (jok == 1) {
+        hts_log_print(opt, LOG_DEBUG,
+                      <B><FONT COLOR="#BC8F8F">&quot;File confirmed (size test): %s%s (&quot;</FONT></B> LLintP <B><FONT COLOR="#BC8F8F">&quot;)&quot;</FONT></B>, adr, fil,
+                      (LLint) (size));
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (jok == -1) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (size_flag) {        <I><FONT COLOR="#B22222">/* interdit à cause de la taille */</FONT></I>
+          hts_log_print(opt, LOG_DEBUG,
+                        <B><FONT COLOR="#BC8F8F">&quot;File cancelled due to its size: %s%s (&quot;</FONT></B> LLintP
+                        <B><FONT COLOR="#BC8F8F">&quot;, limit: &quot;</FONT></B> LLintP <B><FONT COLOR="#BC8F8F">&quot;)&quot;</FONT></B>, adr, fil, (LLint) (size),
+                        (LLint) (sz));
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          jok = 1;
+        }
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> jok;
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">HT_INSERT_FILTERS0</FONT>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htswizard.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

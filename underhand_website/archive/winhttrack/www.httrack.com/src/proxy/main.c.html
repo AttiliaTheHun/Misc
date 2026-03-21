@@ -1,0 +1,214 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/proxy/main.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+<HEAD>
+<TITLE>./proxy/main.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./proxy/main.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: ProxyTrack, httrack cache-based proxy                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Standard includes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;time.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTSSAFE_ABORT_FUNCTION</FONT></B>(A,B,C)
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsnet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;store.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;proxytrack.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;signal.h&gt;</FONT></B>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_brpipe</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {
+  <I><FONT COLOR="#B22222">/* ignore */</FONT></I>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">scanHostPort</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str, <B><FONT COLOR="#228B22">char</FONT></B> *host, <B><FONT COLOR="#228B22">int</FONT></B> *port) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *pos = strrchr(str, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> n = (<B><FONT COLOR="#228B22">int</FONT></B>) (pos - str);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (n &lt; 256) {
+      host[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      strncat(host, str, n);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(pos + 1, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, port) == 1) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> *argv[]) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> proxyPort = 0, icpPort = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> proxyAddr[256 + 1], icpAddr[256 + 1];
+  PT_Indexes index;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  {
+    WORD wVersionRequested;     <I><FONT COLOR="#B22222">// requested version WinSock API
+</FONT></I>    WSADATA wsadata;            <I><FONT COLOR="#B22222">// Windows Sockets API data
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> stat;
+
+    wVersionRequested = 0x0101;
+    stat = WSAStartup(wVersionRequested, &amp;wsadata);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stat != 0) {
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Winsock not found!\n&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (LOBYTE(wsadata.wVersion) != 1 &amp;&amp; HIBYTE(wsadata.wVersion) != 1) {
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;WINSOCK.DLL does not support version 1.1\n&quot;</FONT></B>);
+      WSACleanup();
+      <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* Args */</FONT></I>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;ProxyTrack %s, build proxies upon HTTrack Website Copier Archives\n&quot;</FONT></B>,
+         PROXYTRACK_VERSION);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Copyright (C) 1998-2015 Xavier Roche and other contributors\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;This program is free software: you can redistribute it and/or modify\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;it under the terms of the GNU General Public License as published by\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;the Free Software Foundation, either version 3 of the License, or\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;(at your option) any later version.\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;*** This version is a development release ***\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (argc &lt; 3
+      || (strcmp(argv[1], <B><FONT COLOR="#BC8F8F">&quot;--convert&quot;</FONT></B>) != 0
+          &amp;&amp; (!scanHostPort(argv[1], proxyAddr, &amp;proxyPort)
+              || !scanHostPort(argv[2], icpAddr, &amp;icpPort)
+          )
+      )
+    ) {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;proxy mode:\n&quot;</FONT></B>);
+    fprintf(stderr,
+            <B><FONT COLOR="#BC8F8F">&quot;usage: %s &lt;proxy-addr:proxy-port&gt; &lt;ICP-addr:ICP-port&gt; [ ( &lt;new.zip path&gt; | &lt;new.ndx path&gt; | &lt;archive.arc path&gt; | --list &lt;file-list&gt; ) ..]\n&quot;</FONT></B>,
+            argv[0]);
+    fprintf(stderr,
+            <B><FONT COLOR="#BC8F8F">&quot;\texample:%s proxy:8080 localhost:3130 /home/archives/www-archive-01.zip /home/old-archives/www-archive-02.ndx\n&quot;</FONT></B>,
+            argv[0]);
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;convert mode:\n&quot;</FONT></B>);
+    fprintf(stderr,
+            <B><FONT COLOR="#BC8F8F">&quot;usage: %s --convert &lt;archive-output-path&gt; [ ( &lt;new.zip path&gt; | &lt;new.ndx path&gt; | &lt;archive.arc path&gt; | --list &lt;file-list&gt; ) ..]\n&quot;</FONT></B>,
+            argv[0]);
+    fprintf(stderr,
+            <B><FONT COLOR="#BC8F8F">&quot;\texample:%s proxy:8080 localhost:3130 /home/archives/www-archive-01.zip /home/old-archives/www-archive-02.ndx\n&quot;</FONT></B>,
+            argv[0]);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  index = PT_New();
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 3; i &lt; argc; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (argv[i][0] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[i], <B><FONT COLOR="#BC8F8F">&quot;--list&quot;</FONT></B>) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (i + 1 &lt; argc) {
+          <B><FONT COLOR="#228B22">char</FONT></B> line[256 + 1];
+          FILE *fp = fopen(argv[++i], <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (fp == NULL) {
+            fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;error: could not process list %s\n&quot;</FONT></B>, argv[i]);
+            exit(1);
+          }
+          <B><FONT COLOR="#A020F0">while</FONT></B>(linput(fp, line, 256)) {
+            <B><FONT COLOR="#228B22">int</FONT></B> itemsAdded = PT_AddIndex(index, line);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (itemsAdded &gt; 0) {
+              fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;processed: %s (%d items added)\n&quot;</FONT></B>, line,
+                      itemsAdded);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (itemsAdded == 0) {
+              fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;processed: %s (no items added)\n&quot;</FONT></B>, line);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;error: could not process %s\n&quot;</FONT></B>, line);
+            }
+          }
+          fclose(fp);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;* bad arg %s\n&quot;</FONT></B>, argv[i]);
+        exit(1);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <B><FONT COLOR="#228B22">int</FONT></B> itemsAdded = PT_AddIndex(index, argv[i]);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (itemsAdded &gt; 0) {
+        fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;processed: %s (%d items added)\n&quot;</FONT></B>, argv[i],
+                itemsAdded);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (itemsAdded == 0) {
+        fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;processed: %s (no items added)\n&quot;</FONT></B>, argv[i]);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;error: could not process %s\n&quot;</FONT></B>, argv[i]);
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* sigpipe */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  signal(SIGPIPE, sig_brpipe);  <I><FONT COLOR="#B22222">// broken pipe (write into non-opened socket)
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* Go */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(argv[1], <B><FONT COLOR="#BC8F8F">&quot;--convert&quot;</FONT></B>) != 0) {
+    ret = proxytrack_main(proxyAddr, proxyPort, icpAddr, icpPort, index);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((ret = PT_SaveCache(index, argv[2])) == 0) {
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;processed: '%s'\n&quot;</FONT></B>, argv[2]);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;error: could not save '%s'\n&quot;</FONT></B>, argv[2]);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Wipe */</FONT></I>
+  PT_Delete(index);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  WSACleanup();
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/proxy/main.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:47 GMT -->
+</HTML>

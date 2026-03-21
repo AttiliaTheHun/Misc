@@ -1,0 +1,537 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsjava.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:17 GMT -->
+<HEAD>
+<TITLE>./htsjava.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsjava.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Java classes parser                                    */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Yann Philippot                                       */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Version: Oct/2000 */</FONT></I>
+<I><FONT COLOR="#B22222">/* Fixed: problems with class structure (10/2000) */</FONT></I>
+
+<I><FONT COLOR="#B22222">// htsjava.c - Parseur de classes java
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_CONFIG_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;config.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/stat.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN32</FONT>) ||<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_SYS_TYPES_H</FONT>) )
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/types.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_UNISTD_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;unistd.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Standard httrack module includes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsopt.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsdefines.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Module structures */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmodules.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* We link to libhttrack, we can use its functions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* This file */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsjava.h&quot;</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">reverse_endian</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#228B22">int</FONT></B> endian = 1;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> (*((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;endian) == 1);
+}
+
+<I><FONT COLOR="#B22222">/* big/little endian swap */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">hts_swap16</FONT></B>(A) ( (((A) &amp; 0xFF)&lt;&lt;8) | (((A) &amp; 0xFF00)&gt;&gt;8) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">hts_swap32</FONT></B>(A) ( (( (hts_swap16(A)) &amp; 0xFFFF)&lt;&lt;16) | (( (hts_swap16(A&gt;&gt;16)) &amp; 0xFFFF)) )
+
+<I><FONT COLOR="#B22222">/* Static definitions */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> RESP_STRUCT <B><FONT COLOR="#0000FF">readtable</FONT></B>(htsmoduleStruct * str, FILE * fp, RESP_STRUCT,
+                             <B><FONT COLOR="#228B22">int</FONT></B> *);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">readshort</FONT></B>(FILE * fp);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">tris</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">printname</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B>[1024], <B><FONT COLOR="#228B22">char</FONT></B>[1024]);
+
+<I><FONT COLOR="#B22222">// ** HTS_xx sinon pas pris par VC++
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_CLASS</FONT>  7
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_FIELDREF</FONT>  9
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_METHODREF</FONT>  10
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STRING</FONT>  8
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTEGER</FONT>  3
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_FLOAT</FONT>  4
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_LONG</FONT>  5
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DOUBLE</FONT>  6
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERFACE</FONT>  11
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_NAMEANDTYPE</FONT>  12
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_ASCIZ</FONT>  1
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UNICODE</FONT>  2
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT> 0
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *libName = <B><FONT COLOR="#BC8F8F">&quot;htsjava&quot;</FONT></B>;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strcasecmp</FONT></B>(a,b) stricmp(a,b)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">strncasecmp</FONT></B>(a,b,n) strnicmp(a,b,n)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">detect_mime</FONT></B>(htsmoduleStruct * str) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *savename = str-&gt;filename;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (savename) {
+    <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(savename);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 6 &amp;&amp; strcasecmp(savename + len - 6, <B><FONT COLOR="#BC8F8F">&quot;.class&quot;</FONT></B>) == 0) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_detect_java</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                           htsmoduleStruct * str) {
+  <I><FONT COLOR="#B22222">/* Call parent functions if multiple callbacks are chained. */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (CALLBACKARG_PREV_FUN(carg, detect) != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (CALLBACKARG_PREV_FUN(carg, detect)
+        (CALLBACKARG_PREV_CARG(carg), opt, str)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;                 <I><FONT COLOR="#B22222">/* Found before us, let them have the priority */</FONT></I>
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Check MIME */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (detect_mime(str)) {
+    str-&gt;wrapper_name = libName;        <I><FONT COLOR="#B22222">/* Our ID */</FONT></I>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;                   <I><FONT COLOR="#B22222">/* Known format, we take it */</FONT></I>
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;                     <I><FONT COLOR="#B22222">/* Unknown format */</FONT></I>
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> off_t <B><FONT COLOR="#0000FF">fsize</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  STRUCT_STAT st;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (STAT(s, &amp;st) == 0 &amp;&amp; S_ISREG(st.st_mode)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> st.st_size;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_parse_java</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                          htsmoduleStruct * str) {
+  <I><FONT COLOR="#B22222">/* The wrapper_name memebr has changed: not for us anymore */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (str-&gt;wrapper_name == NULL || strcmp(str-&gt;wrapper_name, libName) != 0) {
+    <I><FONT COLOR="#B22222">/* Call parent functions if multiple callbacks are chained. */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (CALLBACKARG_PREV_FUN(carg, parse) != NULL) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> CALLBACKARG_PREV_FUN(carg, parse) (CALLBACKARG_PREV_CARG(carg),
+                                                opt, str);
+    }
+    strcpy(str-&gt;err_msg,
+           <B><FONT COLOR="#BC8F8F">&quot;unexpected error: bad wrapper_name and no previous wrapper&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;                   <I><FONT COLOR="#B22222">/* Unexpected error */</FONT></I>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (detect_mime(str)) {
+
+      <I><FONT COLOR="#B22222">/* (Legacy code) */</FONT></I>
+      <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+      FILE *fpout;
+      JAVA_HEADER header;
+      RESP_STRUCT *tab;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file = str-&gt;filename;
+
+      str-&gt;relativeToHtmlLink = 1;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;fopen\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((fpout = FOPEN(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), file), <B><FONT COLOR="#BC8F8F">&quot;r+b&quot;</FONT></B>)) == NULL) {
+        <I><FONT COLOR="#B22222">//fprintf(stderr, &quot;Cannot open input file.\n&quot;);
+</FONT></I>        sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to open file %s&quot;</FONT></B>, file);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;               <I><FONT COLOR="#B22222">// une erreur..
+</FONT></I>      }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;fread\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <I><FONT COLOR="#B22222">//if (fread(&amp;header,1,sizeof(JAVA_HEADER),fpout) != sizeof(JAVA_HEADER)) {   // pas complet..
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (fread(&amp;header, 1, 10, fpout) != 10) { <I><FONT COLOR="#B22222">// pas complet..
+</FONT></I>        fclose(fpout);
+        sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;File header too small (file len = &quot;</FONT></B> LLintP <B><FONT COLOR="#BC8F8F">&quot;)&quot;</FONT></B>,
+                (LLint) fsize(file));
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;header\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      <I><FONT COLOR="#B22222">// tester en tête
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (reverse_endian()) {
+        header.magic = hts_swap32(header.magic);
+        header.count = hts_swap16(header.count);
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (header.magic != 0xCAFEBABE) {
+        sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;non java file&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fpout) {
+          fclose(fpout);
+          fpout = NULL;
+        }
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+
+      tab = (RESP_STRUCT *) calloc(header.count, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(RESP_STRUCT));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!tab) {
+        sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to alloc %d bytes&quot;</FONT></B>,
+                (<B><FONT COLOR="#228B22">int</FONT></B>) <B><FONT COLOR="#A020F0">sizeof</FONT></B>(RESP_STRUCT));
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fpout) {
+          fclose(fpout);
+          fpout = NULL;
+        }
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;               <I><FONT COLOR="#B22222">// erreur..
+</FONT></I>      }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;calchead\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 1; i &lt; header.count; i++) {
+          <B><FONT COLOR="#228B22">int</FONT></B> err = 0;          <I><FONT COLOR="#B22222">// ++    
+</FONT></I>
+          tab[i] = readtable(str, fpout, tab[i], &amp;err);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!err) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((tab[i].type == HTS_LONG) || (tab[i].type == HTS_DOUBLE))
+              i++;              <I><FONT COLOR="#B22222">//2 element si double ou float
+</FONT></I>          } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// ++ une erreur est survenue!
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str-&gt;err_msg) == 0)
+              strcpy(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;Internal readtable error&quot;</FONT></B>);
+            free(tab);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fpout) {
+              fclose(fpout);
+              fpout = NULL;
+            }
+            <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+          }
+        }
+
+      }
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;addfiles\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      {
+        <I><FONT COLOR="#B22222">//unsigned int acess;
+</FONT></I>        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> Class;
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> SClass;
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        <I><FONT COLOR="#B22222">//acess = readshort(fpout);
+</FONT></I>        Class = readshort(fpout);
+        SClass = readshort(fpout);
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 1; i &lt; header.count; i++) {
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (tab[i].type == HTS_CLASS) {
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((tab[i].index1 &lt; header.count) &amp;&amp; (tab[i].index1 &gt;= 0)) {
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((tab[i].index1 != SClass) &amp;&amp; (tab[i].index1 != Class)
+                  &amp;&amp; (tab[tab[i].index1].name[0] != <B><FONT COLOR="#BC8F8F">'['</FONT></B>)) {
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!strstr(tab[tab[i].index1].name, <B><FONT COLOR="#BC8F8F">&quot;java/&quot;</FONT></B>)) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK tempo[1024];
+
+                  tempo[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+                  sprintf(tempo, <B><FONT COLOR="#BC8F8F">&quot;%s.class&quot;</FONT></B>, tab[tab[i].index1].name);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+                  printf(<B><FONT COLOR="#BC8F8F">&quot;add %s\n&quot;</FONT></B>, tempo);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (tab[tab[i].index1].file_position &gt;= 0)
+                    str-&gt;addLink(str, tempo);   <I><FONT COLOR="#B22222">/* tab[tab[i].index1].file_position */</FONT></I>
+                }
+
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              i = header.count; <I><FONT COLOR="#B22222">// exit 
+</FONT></I>            }
+          }
+
+        }
+      }
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">JAVADEBUG</FONT>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;end\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      free(tab);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fpout) {
+        fclose(fpout);
+        fpout = NULL;
+      }
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      strcpy(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;bad MIME type&quot;</FONT></B>);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;                     <I><FONT COLOR="#B22222">/* Error */</FONT></I>
+}
+
+<I><FONT COLOR="#B22222">/*
+module entry point 
+*/</FONT></I>
+EXTERNAL_FUNCTION <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_plug</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *argv);
+EXTERNAL_FUNCTION <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_plug</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *argv) {
+  <I><FONT COLOR="#B22222">/* Plug callback functions */</FONT></I>
+  CHAIN_FUNCTION(opt, detect, hts_detect_java, NULL);
+  CHAIN_FUNCTION(opt, parse, hts_parse_java, NULL);
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;                     <I><FONT COLOR="#B22222">/* success */</FONT></I>
+}
+
+<I><FONT COLOR="#B22222">// error: !=0 si erreur fatale
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> RESP_STRUCT <B><FONT COLOR="#0000FF">readtable</FONT></B>(htsmoduleStruct * str, FILE * fp,
+                             RESP_STRUCT trans, <B><FONT COLOR="#228B22">int</FONT></B> *error) {
+  <B><FONT COLOR="#228B22">char</FONT></B> rname[1024];
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> length;
+  <B><FONT COLOR="#228B22">int</FONT></B> j;
+
+  *error = 0;                   <I><FONT COLOR="#B22222">// pas d'erreur
+</FONT></I>  trans.file_position = -1;
+  trans.type = (<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) fgetc(fp);
+  <B><FONT COLOR="#A020F0">switch</FONT></B> (trans.type) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_CLASS</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Class&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_FIELDREF</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Field Reference&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_METHODREF</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Method Reference&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_INTERFACE</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Interface Method Reference&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_NAMEANDTYPE</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Name and Type&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_STRING</FONT></B>:             <I><FONT COLOR="#B22222">// CONSTANT_String
+</FONT></I>    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;String&quot;</FONT></B>);
+    trans.index1 = readshort(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_INTEGER</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Integer&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; 4; j++)
+      fgetc(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_FLOAT</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Float&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; 4; j++)
+      fgetc(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_LONG</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Long&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; 8; j++)
+      fgetc(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_DOUBLE</FONT></B>:
+    strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;Double&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; j &lt; 8; j++)
+      fgetc(fp);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_ASCIZ</FONT></B>:
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">HTS_UNICODE</FONT></B>:
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (trans.type == HTS_ASCIZ)
+      strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;HTS_ASCIZ&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      strcpy(trans.name, <B><FONT COLOR="#BC8F8F">&quot;HTS_UNICODE&quot;</FONT></B>);
+
+    {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buffer[1024];
+      <B><FONT COLOR="#228B22">char</FONT></B> *p;
+
+      p = &amp;buffer[0];
+
+      <I><FONT COLOR="#B22222">//fflush(fp); 
+</FONT></I>      trans.file_position = ftell(fp);
+      length = readshort(fp);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (length &lt; HTS_URLMAXSIZE) {
+        <I><FONT COLOR="#B22222">// while ((length &gt; 0) &amp;&amp; (length&lt;500)) {
+</FONT></I>        <B><FONT COLOR="#A020F0">while</FONT></B>(length &gt; 0) {
+          *p++ = fgetc(fp);
+
+          length--;
+        }
+        *p = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <I><FONT COLOR="#B22222">//#if JDEBUG
+</FONT></I>        <I><FONT COLOR="#B22222">//      if(tris(buffer)==1) printf(&quot;%s\n &quot;,buffer);
+</FONT></I>        <I><FONT COLOR="#B22222">//      if(tris(buffer)==2)  printf(&quot;%s\n &quot;,printname(buffer));
+</FONT></I>        <I><FONT COLOR="#B22222">//#endif
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (tris(str-&gt;opt, buffer) == 1)
+          str-&gt;addLink(str, buffer);    <I><FONT COLOR="#B22222">/* trans.file_position */</FONT></I>
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (tris(str-&gt;opt, buffer) == 2)
+          str-&gt;addLink(str, printname(rname, buffer));
+
+        strcpy(trans.name, buffer);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// gros pb
+</FONT></I>        <B><FONT COLOR="#A020F0">while</FONT></B>((length &gt; 0) &amp;&amp; (!feof(fp))) {
+          fgetc(fp);
+          length--;
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!feof(fp)) {
+          trans.type = -1;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;Internal stucture error (ASCII)&quot;</FONT></B>);
+          *error = 1;
+        }
+        <B><FONT COLOR="#A020F0">return</FONT></B> (trans);
+      }
+    }
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    <I><FONT COLOR="#B22222">// printf(&quot;Type inconnue\n&quot;);
+</FONT></I>    <I><FONT COLOR="#B22222">// on arrête tout 
+</FONT></I>    sprintf(str-&gt;err_msg, <B><FONT COLOR="#BC8F8F">&quot;Internal structure unknown (type %d)&quot;</FONT></B>, trans.type);
+    *error = 1;
+    <B><FONT COLOR="#A020F0">return</FONT></B> (trans);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (trans);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">readshort</FONT></B>(FILE * fp) {
+  <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> valint;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fread(&amp;valint, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(valint), 1, fp) == 1) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (reverse_endian())
+      <B><FONT COLOR="#A020F0">return</FONT></B> hts_swap16(valint);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> valint;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">tris</FONT></B>(httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *buffer) {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// Java
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> ((buffer[0] == <B><FONT COLOR="#BC8F8F">'['</FONT></B>) &amp;&amp; buffer[1] == <B><FONT COLOR="#BC8F8F">'L'</FONT></B> &amp;&amp; (!strstr(buffer, <B><FONT COLOR="#BC8F8F">&quot;java/&quot;</FONT></B>)))
+    <B><FONT COLOR="#A020F0">return</FONT></B> 2;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(buffer, <B><FONT COLOR="#BC8F8F">&quot;.gif&quot;</FONT></B>) || strstr(buffer, <B><FONT COLOR="#BC8F8F">&quot;.jpg&quot;</FONT></B>)
+      || strstr(buffer, <B><FONT COLOR="#BC8F8F">&quot;.jpeg&quot;</FONT></B>) || strstr(buffer, <B><FONT COLOR="#BC8F8F">&quot;.au&quot;</FONT></B>))
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  <I><FONT COLOR="#B22222">// Ajouts R.X: test type
+</FONT></I>  <I><FONT COLOR="#B22222">// Autres fichiers
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">char</FONT></B> type[256];
+
+    type[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    get_httptype(opt, type, buffer, 0);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(type))      <I><FONT COLOR="#B22222">// type reconnu!
+</FONT></I>      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <I><FONT COLOR="#B22222">// ajout RX 05/2001
+</FONT></I>    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (is_dyntype(get_ext(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), buffer)))      <I><FONT COLOR="#B22222">// asp,cgi...
+</FONT></I>      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">printname</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> rname[1024], <B><FONT COLOR="#228B22">char</FONT></B> name[1024]) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *p;
+  <B><FONT COLOR="#228B22">char</FONT></B> *p1;
+  size_t j;
+
+  rname[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>
+  p = &amp;name[0];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*p != <B><FONT COLOR="#BC8F8F">'['</FONT></B>) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> rname;  <I><FONT COLOR="#B22222">// &quot;&quot;
+</FONT></I>  }
+  p += 2;
+  <I><FONT COLOR="#B22222">//rname=(char*)calloct(strlen(name)+8,sizeof(char));
+</FONT></I>  p1 = rname;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; name[j] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; j++, p++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*p == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      *p1 = <B><FONT COLOR="#BC8F8F">'.'</FONT></B>;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*p == <B><FONT COLOR="#BC8F8F">';'</FONT></B>) {
+      *p1 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      strcat(rname, <B><FONT COLOR="#BC8F8F">&quot;.class&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B> rname;
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      *p1 = *p;
+    p1++;
+  }
+  p1 -= 3;
+  *p1 = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> rname;
+
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsjava.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:17 GMT -->
+</HTML>

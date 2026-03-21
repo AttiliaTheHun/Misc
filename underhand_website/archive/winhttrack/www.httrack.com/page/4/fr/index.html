@@ -1,0 +1,1159 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
+
+
+<!-- Mirrored from www.httrack.com/page/4/fr/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:39 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=utf-8" /><!-- /Added by HTTrack -->
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+ <link rel="shortcut icon" href="../../../favicon.ico" />	<meta name="description" content="HTTrack est un aspirateur de sites web facile d'utilisation et libre (GPL, logiciel libre). Il vous permet de télécharger un site web d'Internet vers votre disque dur, en construisant récursivement tous les répertoires, récupérant html, images et fichiers du serveur vers votre ordinateur. HTTrack réorganise la structure des liens en relatif. Ouvrez simplement une page du site 'aspiré' dans votre navigateur, et vous pourrez naviguer librement à l'intérieur, comme si vous étiez connecté. HTTrack peut aussi mettre à jour un site existant, ou continuer un téléchargement interrompu. Le robot est entièrement configurable, avec un système d'aide intégré. WinHTTrack est la version Windows 2000/XP/Vista/Seven/8 de HTTrack, et WebHTTrack la version pour Linux/Unix/BSD." />
+	<meta name="keywords" content="httrack, winhttrack, webhttrack, aspirateur de sites web, copie de sites sur ordinateur, miroir de sites web, archivage legal, preservation du web, archivage du web, surf hors connexion, capture de sites, logiciel libre, gpl" />
+<title>Historique: bugs corrigés, nouvelles fonctionnalités - HTTrack Website Copier - Aspirateur de sites web libre (GNU GPL)</title>
+
+    <script language="javascript">
+    <!--
+    function FOS(host,nom,info) {
+      var s;
+	  var a=64;
+	  var p="&"+"#"+a+";";
+      if (info == "") info=nom+p+host;
+      s="mail";
+      document.write("<a href='"+s+"to:"+nom+p+host+"'>"+info+"</a>");
+    }
+    // -->
+    </script>
+
+	<style type="text/css">
+	<!--
+
+body {
+	margin: 0;  padding: 0;  margin-bottom: 15px;  margin-top: 8px;
+	background: #77b;
+}
+body, td {
+	font: 14px "Trebuchet MS", Verdana, Arial, Helvetica, sans-serif;
+	}
+
+#subTitle {
+	background: #000;  color: #fff;  padding: 4px;  font-weight: bold; 
+	}
+
+#siteNavigation a, #siteNavigation .current {
+	font-weight: bold;  color: #448;
+	}
+#siteNavigation a:link    { text-decoration: none; }
+#siteNavigation a:visited { text-decoration: none; }
+
+#siteNavigation .current { background-color: #ccd; }
+
+#siteNavigation a:hover   { text-decoration: none;  background-color: #fff;  color: #000; }
+#siteNavigation a:active  { text-decoration: none;  background-color: #ccc; }
+
+
+a:link    { text-decoration: underline;  color: #00f; }
+a:visited { text-decoration: underline;  color: #000; }
+a:hover   { text-decoration: underline;  color: #c00; }
+a:active  { text-decoration: underline; }
+
+
+#pageContent {
+	clear: both;
+	border-bottom: 6px solid #000;
+	padding: 10px;  padding-top: 20px;
+	line-height: 1.65em;
+	background-image: url(../../../images/bg_rings.png);
+	background-repeat: no-repeat;
+	background-position: top right;
+	}
+
+#pageContent, #siteNavigation {
+	background-color: #ccd;
+	}
+
+/* ----------------------------------- */
+
+
+.imgLeft  { float: left;   margin-right: 10px;  margin-bottom: 10px; }
+.imgRight { float: right;  margin-left: 10px;   margin-bottom: 10px; }
+
+hr { height: 1px;  color: #000;  background-color: #000;  margin-bottom: 15px; }
+
+h1 { margin: 0;  font-weight: bold;  font-size: 2em; }
+h2 { margin: 0;  font-weight: bold;  font-size: 1.6em; }
+h3 { margin: 0;  font-weight: bold;  font-size: 1.3em; }
+h4 { margin: 0;  font-weight: bold;  font-size: 1.18em; }
+
+.blak { background-color: #000; }
+.hide { display: none; }
+.tableWidth { min-width: 400px; }
+
+.tblRegular       { border-collapse: collapse; }
+.tblRegular td    { padding: 6px;  background-image: url(../../../fade.gif);  border: 2px solid #99c; }
+.tblHeaderColor, .tblHeaderColor td { background: #99c; }
+.tblNoBorder td   { border: 0; }
+
+	// -->
+	</style>
+
+<!-- Begin Cookie Consent plugin by Silktide - http://silktide.com/cookieconsent -->
+
+<link rel="stylesheet" type="text/css" href="../../../../cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.0.3/cookieconsent.min.css" />
+<script src="../../../../cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.0.3/cookieconsent.min.js"></script>
+<script>
+window.addEventListener("load", function(){
+window.cookieconsent.initialise({
+  "palette": {
+    "popup": {
+      "background": "#000"
+    },
+    "button": {
+      "background": "#f1d600"
+    }
+  },
+  "content": {
+    "message": "We use cookies to personalise content and ads, and to analyse our traffic. We also share information about your use of our site with Google Ads and Google Analytics."
+  }
+})});
+</script>
+
+<!-- End Cookie Consent plugin -->
+
+</head>
+
+<body>
+
+<table width="76%" border="0" align="center" cellspacing="0" cellpadding="0" class="tableWidth">
+	<tr>
+	<td><img src="../../../images/header_title_4.png" width="400" height="34" alt="HTTrack Website Copier" title="" border="0" id="title" /></td>
+	</tr>
+</table>
+<table width="76%" border="0" align="center" cellspacing="0" cellpadding="3" class="tableWidth">
+	<tr>
+	<td id="subTitle">Aspirateur de sites web libre</td>
+	</tr>
+</table>
+<table width="76%" border="0" align="center" cellspacing="0" cellpadding="0" class="tableWidth">
+<tr class="blak">
+<td>
+	<table width="100%" border="0" align="center" cellspacing="1" cellpadding="0">
+	<tr align="center" id="siteNavigation">
+		<td><span class="hide">[</span>
+		<a href="../../1/fr/index.html" title="A propos de HTTrack: Présentation, Fonctions, Aide">A propos</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../2/fr/index.html" title="Télécharger HTTrack Website Copier 3.49-2">Télécharger</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../../html/index.html" title="Documentation et aide">Documentation</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="https://forum.httrack.com/" title="Forum">Forum</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="https://blog.httrack.com/" title="Blog">Blog</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../7/fr/index.html" title="Informations diverses, crédits">Informations</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../en/index.html" title="English version">English</a>
+		<span class="hide">]</span></td>
+
+	</tr>
+<tr align="center" id="siteNavigation">
+		<td><span class="hide">[</span>
+		<div class="current">Description</div>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<div class="current">Historique</div>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../5/fr/index.html" title="License: License d'utilisation de HTTrack">License</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../6/fr/index.html" title="Credits: Credits et auteurs">Credits</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../7/fr/index.html" title="Contact: Comment nous contacter">Contact</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="../../8/fr/index.html" title="Aidez-nous: Soutenez le logiciel libre">Nous aider</a>
+		<span class="hide">]</span></td>
+
+		<td><span class="hide">[</span>
+		<a href="#" title=""></a>
+		<span class="hide">]</span></td>
+
+
+</tr>
+
+
+	<tr>
+	<td colspan="7"> 
+		<table width="100%" border="0" align="center" cellspacing="0" cellpadding="10">
+		<tr> 
+		<td id="pageContent"> 
+
+<p><b>3.49-2</b><br />
++ Corrigé: Débordement de buffer dans l'interprêtation d'arguments de la ligne de commande (VL-ID 2068) (Hosein Askari)<br />
++ Corrigé: Corrections mineures<br />
+
+<p><b>3.48-23</b><br />
++ Corrigé: sous Linux, FTBFS avec openssl 1.1.0<br />
+3.48-22:<br />
++ Corrigé: sur Windows, correction d'injection locale de DLL (Tunisian Cyber)<br />
++ Corrigé: Typos diverses<br />
+3.48-21:<br />
++ Corrigé: Les RPMs de chrome utilisent /usr/bin/google-chrome comme chemin (Cickumqt)<br />
++ Corrigé: htsserver ne se tuait pas (immédiatement) lors de la fermeture<br />
++ Nouveau: Mise à jour pour WIN32 de OpenSSL en version 1.0.1j (Evgeniy)<br />
+3.48-20:<br />
++ Corrigé: incompatibilité de webhttrack avec Chrome<br />
+3.48-19:<br />
++ Corrigé: échec d'assertion htslib.c:3458 (strlen(copyBuff) == qLen) vue sous Linux<br />
+3.48-18:<br />
++ Corrigé: crashs vicieux dans le cache DNS dûs à une corruption dans la structure d'options (E.Kalinowski/karbofos)<br />
++ Nouveau: ajout de système de rapport de crash minimal pour Windows et Linux<br />
+3.48-17:<br />
++ Corrigé: inclusion de liste d'URL ne fonctionnait plus (tom swift)<br />
++ Corrigé: échec de construction sur ARM<br />
+3.48-14:<br />
++ Corrigé: caractère erroné FFFD (caractère de remplacement) en lieu et place du premier caractère non-ascii (chinois notamment) (aballboy)<br />
++ Corrigé: FTBFS avec version de zlib &lt; 1.2.70 (sammyx)<br />
++ Corrigé: ne pas parser les SVG corrompus (Smiling Spectre)<br />
++ Corrigé: ne pas décompresser les .tgz annoncés comme "streamés" (Smiling Spectre)<br />
++ Corrigé: déréférencement de pointeur NULL dans back_unserialize (htsback.c:976)<br />
+3.48-13<br />
++ Corrigé: fichiers de la bilbiothèque<br />
+3.48-12<br />
++ Corrigé: option --advanced-maxlinks cassée (Localhost)<br />
++ Corrigé: le paquet -devel est désormais autonome<br />
+3.48-11<br />
++ Corrigé: erreur htscore.c:244 (len + liensbuf->string_buffer_size &lt; liensbuf->string_buffer_capa)<br />
+3.48-10<br />
++ Corrigé: modèles html plus sûrs<br />
++ Corrigé: erreur htshash.c:330 ("error invalidating hash entry") corrigée (Sergey)<br />
++ Corrigé: régressions sous Windows 2000 (fantozzi.usenet)<br />
++ Corrigé: nettoyage de code (règles d'aliasing, nettoyage const, chaînes sécurisées)<br />
++ Nouveau: mise à jour des routines ZIP (zlib 1.2.8)<br />
++ Nouveau: option --advanced-maxlinks=0 pour désactiver les limites sur le nombre de liens<br />
+3.48-9<br />
++ Corrigé: version 32-bit cassée<br />
++ Corrigé: erreur "segOutputSize &lt; segSize assertion fails at htscharset.c:993"<br />
+3.48-8<br />
++ Corrigé: nouvelle version de zlib corrigeant CVE-2004-0797 et CVE-2005-2096<br />
++ Corrigé: report de crash plus fiable<br />
+3.48-7<br />
++ Corrigé: correction des erreurs "hashtable internal error: cuckoo/stash collision"<br />
+3.48-6<br />
++ Corrigé: nettoyage de code concernant la gestion des chaînes de caractères<br />
+3.48-3<br />
++ Corrigé: panneaux d'options buggés<br />
+3.48-2<br />
++ Nouveau: protection contre CVE-2014-0160<br />
+3.48-1<br />
++ Nouveau: tables de hachage améliorées pour accélérer les miroirs volumineux<br />
++ Nouveau: ajours de tests unitaires<br />
++ Nouveau: ajout de l'option %a, permettant de modifier l'en-tête par "Accept:".<br />
++ Nouveau: ajout de l'option %X, pour définir des en-têtes additionels<br />
++ Nouveau: ajout de l'option '-%t', pour préserver le type d'origine (peut donner une copie non naviguable localement)<br />
++ Corrigé: suppression du "scope id" (caractère %) dans les adresses IPv6 (notamment pour le proxy catch-url)<br />
++ Corrigé: corrections de construction, pour Android, et pour les versions non-SSL<br />
++ Corrigé: gestion du keep-alive buggée gaspillant les connexions<br />
++ Corrigé: suppression des fonctionnalités de chroot et de setuid (trop dangereuses)<br />
++ Corrigé: suppression du code de capture du protocole MMS (Microsoft Media Server) (mmsrip) (protocole mort, code non maintenu, problèmes de license)<br />
++ Corrigé: gestion du type buggée lors des redirections (par exemple un .PDF redirigeant vers un autre .PDF, avec comme type text/html dans le redirect)<br />
++ Corrigé: boucle infinie lors de la tentative de téléchargemetn d'un fichier file:/// si ce dernier est un répertoire sous Unix (gp)<br/>
++ Corrigé: suppression de la résolution de noms en arrière plan, sujette à des bugs<br />
++ Corrigé: ne pas bloquer la compatibilité avec Windows 2000 à cause du SetDllDirectory() (Andy Hewitt)<br />
++ Corrigé: ajout de l'option de structure personnalisée %h non prise en compte (William Clark)<br />
+
+<p><b>3.47-27</b><br />
++ Corrigé: boucle infinie quand on tente de capturer un répertoire sous forme de file:/// sur Unix (gp)<br />
+3.47-27<br />
++ Corrigé: correction de la verbosité par défaut du journal (qui n'affichait pas les restructions dûes à robots.txt par défaut)<br />
++ Corrigé: année du fichier de license, lien de la GPL, corrections libtool (cicku)<br />
++ Corrigé: correction sur le fichier Keywords (Sebastian Pipping)<br />
+3.47-26<br />
++ Corrigé: cache DNS buggé pouvant entrainer des crashes aléatoires
+3.47-25<br />
++ Corrigé: champ content-disposition NON pris en compte (Stephan Matthiesen)<br />
+3.47.24<br />
++ Corrigé: régression sur le décodage des chaînes encodées au format URL introduite dans la sous-version précédente<br />
+3.47-23<br />
++ Corrigé: impossibilité de télécharger des URL dont le nom de fichier contenait des caractères spéciaux comme # (lugusto)<br />
++ Nouveau: version Croate par Dominko Aždajić (domazd at mail dot ru)<br />
+3.47-22<br />
++ Corrigé: corrections dans la version Russe par Oleg Komarov (komoleg at mail dot ru)<br />
++ Nouveau: ajout du type MIME .torrent => application/x-bittorrent (alexei dot co at gmail dot com)<br />
+3.47-21<br />
++ Corrigé: Mauvaise gestion des '+' dans les URLs introduite en 3.47-15 (sarclaudio)<br />
++ Corrigé: les cookies de domaine ne fonctionnaient pas correctement (alexei dot co at gmail dot com )<br />
++ Corrigé: referer buggé lors du parcours (alexei dot com at gmail dot com)<br />
+3.47-20<br />
++ Corrigé: Division par zéro quand le nombre de connexions simultanées par seconde dépasse 1000 (probablement rare)<br />
+3.47-19<br />
++ Corrigé: encore des correctifs spécifiques à windows concernant la limite de 260 caractères pour les chemins de fichiers<br />
++ Corrigé: problèmes d'échappement de caractères sur les index<br />
++ Corrigé: nettoyage des scripts de construction Linux (inclusion des correctifs gentoo, correctifs lintian etc.)<br />
+3.47-18<br />
++ Corrigé: l'alias --timeout ne fonctionnait pas<br />
+3.47-17<br />
++ Corrigé: problèmes d'URL-encodage dans les URI<br />
+3.47-15<br />
++ Corrigé: problèmes d'encodage des caractères non-ascii dans la chaîne de requête (lugusto)<br />
++ Corrigé: entités HTML non correctement décodées dans l'URI ou la chaîne de requête<br />
+3.47.14<br />
++ Corrigé: correction de la limite de 260 caractères dans les noms de fichiers sous Windows (lugusto)<br />
++ Nouveau: openssl n'est plus chargé dynamiquement au démarrage, mais lié dynamiquement<br />
+3.47-13<br />
++ Corrigé: jeu de caractère incorrect dans les requêtes quand un fichier contient des caractères non-ascii (Steven Hsiao)<br />
++ Corrigé: jeu de caractère incorrect sur disque quand un fichier contient des caractères non-ascii (Steven Hsiao)<br />
++ Nouveau: support de l'IDNA / RFC 3492 (punycode)<br />
+3.47-12<br />
++ Corrigé: les images dans les CSS n'étaient pas toujours correctement détectées (Martin)<br />
++ Corrigé: les liens dans le javascripts n'étaient pas toujours détectés (wquatan)<br />
++ Corrigé: webhttrack provoquait des erreur de bus sur certains systèmes comme Mac OSX, à cause d'une taille de pile trop petite (Patrick Gundlach)<br />
+3.47-11<br />
++ Corrigé: les fichiers vides n'étaient pas correctement gérés (ni sauvegardés, ni mis à jour) (lugusto)<br />
++ Corrigé: bug qui pouvait entrainer le téléchargement d'un même fichier plusieurs fois, et des erreurs "Unexpected 412/416 error"<br />
+3.47-7<br />
++ Corrigé: sur Windows, correction d'injection locale de DLL (CVE-2010-5252)<br />
++ Corrigé: bug de conversion UTF-8 sous Linux pouvant générer des noms de fichiers corrompus<br />
+3.47-6<br />
++ Corrigé: fuite de mémoire pouvant entrainer une consommation importante de mémoire<br />
+3.47-5<br />
++ Corrigé: fermeture aléatoire de fichiers/sockets, causant des erreurs "zip_zipWriteInFileInZip_failed", "bogus state", ou du contenu téléchargé corrompu<br />
++ Corrigé: libssl.dylib est également localisé sur OSX (Nils Breunese)<br />
++ Corrigé: charset incorrect quand la meta http-equiv est trop éloignée<br />
++ Corrigé: gestion des chemins \\machine\dir incorrecte sous Windows Windows (TomZ)<br />
++ Corrigé: ne pas forcer les fichiers a avoir d'extension a moins que le type soit connu (comme le html)<br />
++ Corrigé: ajouts liés à HTML 5 concernant l'attribut "poster" pour le tag "video" (Jason Ronallo)<br />
++ Corrigé: fuite de mémoire dans proxytrack.c (Eric Searcy)<br />
++ Corrigé: le flag Z est désormais correctement setté dans hts-cache/new.txt (Peter)<br />
++ Corrigé: patch pour construciton parallèle, typo concernant ICONV_LIBS (Sebastian Pipping)<br />
+
+<p><b>3.46-1</b><br />
++ Nouveau: gestion des noms de fichiers Unicode<br />
++ Corrigé: correction d'un bug dans la gestion des mises à jour de fichiers effacés ou renommés, provoquant des erreurs "Unexpected 412/416 error (Requested Range Not Satisfiable)" and/or "Previous cache file not found" (-1)"<br />
++ Corrigé: échappement des caractères non-ascii >= 128 lors des requêtes GET/HEAD pour éviter les erreurs côté serveur<br />
++ Corrigé: ne pas utiliser les types "delayed" quand un miroir est interrompu<br />
++ Corrigé: générer des erreurs lorsque cela est nécessaire (Brent Palmer)<br />
++ Corrigé: erreurs lors du parcours des fichiers js a cause de balises "script" (Vasiliy)<br />
++ Corrigé: gestion des FTP anonyme sans password (Luiz)<br />
++ Corrigé: problèmes de Makefile sur la construction parallèle et les exemples (Sebastian Pipping)<br />
++ Corrigé: l'en-tête obsolète "Accept-Charset" a été supprimé des requêtes (Piotr Engelking )<br />
+
+<p><b>3.45-4</b><br />
++ Nouveau: la license des sources est désormais GPLv3<br />
++ Nouveau: ajout d'une option "K5" pour produire des copies pour proxy transparents (Brent Palmer)<br />
++ Nouveau: option -y pour controller le comportement de ^Z (Julian H. Stacey)<br />
++ Corrigé: remplacement de // par / pour la sauvegarde et non plus _/ (Brent Palmer)<br />
++ Corrigé: ne pas interpréter ^C avant ou après un miroir<br />
++ Corrigé: webhttrack: ne pas utiliser md5sum mais mktemp (Ryan Schmidt)<br />
++ Corrigé: documenter %k pour les structures "customisées"<br />
+
+<p><b>3.45-3</b><br />
++ Corrigé: messages "Previous file not found (erased by user ?)" incorrects entrainant le retransfert de fichiers existants dans le cache (Alain Desilets)<br />
++ Corrigé: --max-time arrête le miroir de manière propre (Alain Desilets)<br />
+
+<p><b>3.45-2</b><br />
++ Corrigé: le nombre de connexions simultanées était en général de un (Illyria, William Roeder)<br />
++ Corrigé: messages "Unexpected 412/416 error" entrainant la corruption de fichiers sur disque<br />
+
+<p><b>3.45-1</b><br />
++ Corrigé: l'interruption d'une mise à jour ne devrait plus effacer le contenu précédemment téléchargé (William Roeder, Alain Desilets and many others)<br />
++ Corrigé: bug de --continue/--update entrainant le retransfert de données déja en cache (notamment pages de redirection/erreur)<br />
+
+<p><b>3.44-5</b><br />
++ Corrigé: crash en utilisant -d avec des noms d'hôte courts (Alain Desilets)<br />
++ Corrigé: coquille dans les logs (Pascal Boulerie)<br />
+
+<p><b>3.44-4</b><br />
++ Corrigé: crashs aléatoires lors de l'interruption d'un miroir (découvert via -fstack-protector) dans htscoremain.c<br />
+
+<p><b>3.44-3</b><br />
++ Corrigé: Compilation Linux<br />
+
+<p><b>3.44-2</b><br />
++ Corrigé: format mal formé dans htslib.c (Moritz Muehlenhoff)<br />
++ Corrigé: format par défaut du foote corrigé<br />
++ Nouveau: gestion du "^C" plus intelligente<br />
++ Nouveau: option --do-not-generate-errors ajoutée<br />
++ Nouveau: taille maximale des cookies augmentée<br />
+
+<p><b>3.44-1</b><br />
++ Corrigé: Fichiers corrompus lors de mise à jour suite aux erreurs "engine: warning: entry cleaned up, but no trace on heap"/"Unexpected 412/416 error" (Petr Gajdusek ; closes:#614966)<br />
+
+<p><b>3.43-12</b><br />
++ Corrigé: débordement de tampon en réparant le cache (ZIP) si un cache endommagé d'un précédent miroir est trouvé (Linus Hoppe ; closes:#607704)<br />
+
+<p><b>3.43-11</b><br />
++ Corrigé: corrections dans webhttrack pour icecat (Uriy Zenkov ; closes:#605140)<br />
+
+<p><b>3.43-10</b><br />
++ Corrigé: la capture d'URL ne fonctionnait pas en présence d'un environnement IPv6 (John Bostelman)<br />
+  
+<p><b>3.43-9</b><br />
++ Corrigé: application/xhtml+xml non vu comme "html" (Peter Fritzsche)<br />
++ Corrigé: corrections sur les fichiers "desktop" pour linux<br />
+  
+<p><b>3.43-8</b><br />
++ Corrigé: Problèmes d'encodage d'URL avec les fichiers contenant des '%' (sandboxie32)<br />
++ Corrigé: Corrections sur webhttrack pour MacPorts Darwin/Mac (Ross Williams)<br />
++ Corrigé: Extraction des liens flash améliorée (Vincent/suei8423)<br />
+
+<p><b>3.43-7</b><br />
++ Corrigé: erreurs "Open error when decompressing" dûes à la génération erronée de fichiers temporaires (Scott Mueller)<br />
+
+<p><b>3.43-6</b><br />
++ Shell: corrections cosmétiques: ne pas chercher de proxy sur un réseau non local, ne pas forcer l'enregistrement des *.whtt<br />
+
+<p><b>3.43-5</b><br />
++ Corrigé: bug de gestion du tag code entrainant la production de liens invalides (Tom-tmh13 et William Roeder)<br />
+
+<p><b>3.43-4</b><br />
++ Corrigé: énormes ralentissements en SSL à cause d'appels à select() incorrects (Patrick Pfeifer)<br />
++ Corrigé: corrections pour Konqueror<br />
+
+<p><b>3.43-3</b><br />
++ Mise à jour: Fichier de traduction Portugues-Brasil</br />
+
+<p><b>3.43-2</b><br />
++ Corrigé: les questions du "wizard" étaient buggées, et la version en ligne de commande les ignoraient (Maz)<br />
++ Corrigé: ne pas renommer les sous-types xml (comme les schémas xsd) (Eric Avrillon)<br />
+
+<p><b>3.43</b><br />
++ Corrigé: Parcours trop aggressif des expression javascript de type url= (Chris)<br />
++ Corrigé: option --urllist qui "colle" le contenu de la liste à la liste des URL(Andreas Maier)<br />
++ Corrigé: "Previous cache file not found": fichier non re-téléchargé quand ce dernier est effacé avant une mise à jour (William Roeder)<br />
++ Corrigé: les fichiers *.rpm.src ne sont plus renommés en *.src.src sur les serveurs buggés (Hippy Dave)<br />
++ Corrigé: "pause" beaucoup plus réactif (William Roeder)<br />
++ Corrigé: les fichiers binaires real media ne sont plus considérés comme des fichiers html (William Roeder)<br />
++ Corrigé: la protection anti-binaires "looks like binary" ne corromp plus ces derniers<br />
++ Corrigé: téléchargements multiples de documents en erreur (lignes identiques '"Not Found" (404) at link [identical link]') causant des ralentissements (William Roeder)<br />
++ Corrigé: requête en double lors de la reprise de certains fichiers cassés<br />
++ Corrigé: bug d'affichage "link is probably looping, type unknown, aborting .."<br />
++ Corrigé: corrections diverses tels des références à des bibliothèques non explicites (Debarshi Ray)<br />
++ Corrigé: sous windows, remplacement de wsock32.dll par ws2_32.dll<br />
++ Corrigé: erreur mineure sur la vérification de la taille de l'argument de l'option "-O" (Joan CALVET)<br />
+
+<p><b>3.42-3</b><br />
++ Corrigé: Mauvaise vérification de taille d'URL en mode ligne de commande (CVE-2008-3429) (Joan CALVET)<br />
+
+<p><b>3.42-2</b><br />
++ Corrigé: Crashes aléatoires à la fin de la copie à cause d'un pointeur de fichier "flottant" (Carlos, angus at quovadis.com.ar)<br />
+
+<p><b>3.42</b><br />
++ Corrigé: la limite de taille de site interromp désormais la copie de manière non brutale, en terminant les transferts en cours (David Stevenson)<br />
+
+<p><b>3.41-3</b><br />
++ Corrigé: les fichiers annoncés comme text/plain ne sont plus renommés en .txt<br />
++ Corrigé: configure.in cassé<br />
+
+<p><b>3.41-2</b><br />
++ Corrigé: bug majeur d'inlining de fonction sous WIN32 entrainant la non utilisation du cache, et empêchant les mise à jour de foncionner<br />
+
+<p><b>3.41</b><br />
++ Nouveau: changement d'API/ABI pour des versions réenrantes (libhttrack1 2), gros nettoyage des .h<br />
++ Corrigé: Utilisation excessive de la mémoire lors du téléchargement de gros sites<br />
++ Corrigé: ne pas renommer les fichiers dont le type MIME est compatible avec l'extension<br />
++ Corrigé: corrections pour freeBSD (notamment relatifs à time.h)<br />
++ Nouveau: option %w pour désactiver certains modules (java, flash..)<br />
++ Corrigé: erreur 'no space left in stack for back_add'<br />
++ Corrigé: redirections d'images avec type "html" corrigé<br />
++ Corrigé: erreur 'Crash adding error, unexpected error found.. [4268]'<br />
+
+<p><b>3.40-2</b><br />
++ Corrigé: extensions '.del' buggées avec l'option ISO-9660<br />
++ Corrigé: inclusion du type de jeu de caractères des en-têtes même avec un haut de page vide<br />
++ Nouveau: option --port option pour webhttrack<br />
+3.40<br />
++ Nouveau: Capture des flux mms:// (merci à Nicolas Benoit!)<br />
++ Nouveau: projet proxyTrack lancé<br />
++ Nouveau: nouveau système de parcours des pages qui ne nécessite plus des tests inutiles des liens ('testing link type..')<br />
++ Nouveau: Redirections gérées de manière transparente avec la vérification de type retardée, et liens cassés transformés en liens externes quand l'option "no error page" est activée<br />
++ Nouveau: système de téléchargement en arrière plan amélioré pour prendre en charge des sites importants<br />
++ Nouveau: '--assume foo/bar.cgi=text/html' désormais possible<br />
++ Nouveau: filtres basés sur les types MIME (comme -mime:video/* +mime:video/mpeg)<br />
++ Nouveau: les filtres basés sur la taille permettent de réécrire les liens non téléchargés comme des liens externes<br />
++ Corrigé: Crash quand ftime()/localtime()==NULL corrigé<br />
++ Corrigé: Option iso-9660 utilise désormais '_' comme caractère de collision<br />
++ Corrigé: Problèmes de collision avec CaSsE différente<br />
++ Corrigé: a href='..' corrigé!<br />
++ Corrigé: les redirections sont désormais gérées par le nouveau système de parcours des pages<br />
++ Corrigé: liens "./" générés lors de la correction de liens dépassant les limites d'un site (../../)<br />
++ Corrigé: 'base href' buggé dans beaucoup de cas<br />
++ Corrigé: mise en place de limites pour éviter les abus de bande passante<br />
++ Corrigé: parcours externe (swf) buggé, correction des derniers fichiers .delayed<br />
++ Nouveau: nouveaux callbacks check-mime et save-file2<br />
++ Nouveau: "always delayed type check" activé<br />
++ Corrigé: finaliseur totalement buggé causant fichiers non décompressés et fichiers tronqués<br />
++ Shell: interface en Finlandais ajoutée!<br />
++ Corrigé: type "..html" buggé<br />
++ Corrigé: quelques bugs de .delayed restants<br />
++ Corrigé: flush avant l'appel de la commande utilisateur<br />
++ Corrigé: bug de nettoyage en arrière plan et de commande utilisateur<br />
++ Corrigé: correction du 'Crash adding error, unexpected error found.. [4250]'<br />
++ Corrigé: référence de chemin absolue dans le fichier cache empêchant son déplacement vers un autre répertoire<br />
++ Corrigé: bug de chemin pour webhttrack ('Browse Sites')<br />
++ Corrigé: corrections pour l'importation des vieilles versions de cache (qui ne fonctionnaient plus correctement)<br />
++ Corrigé: corrections de port dans htsnet.h<br />
++ Corrigé: option -N avec extraction de la chaîne de requête<br />
++ Corrigé: javascript: location=URL n'était pas pris en compte<br />
++ Corrigé: plus d'échappement des caractères type UTF lorsque cela n'est pas nécessaire<br />
++ Corrigé: des fichiers temporaires pouvaient rester si le serveur renvoyait des données compressées sur des requêtes HEAD<br />
++ Corrigé: l'option "URL hack" entrainait des problèmes de collision avec des fichiers identiques à la casse près (index.html vs INDEX.HTML)<br />
++ Corrigé: l'option "do not erase already downloaded file" fonctionne désormais correctement (elle laisse les liens fonctionnels dans le miroir)<br />
++ Corrigé: conversion UCS2 vers UTF-8<br />
++ Nouveau: l'option "near" capture les éléments de la page(images, css..) files<br />
++ Corrigé: fichiers de liens multimédias buggés (comme par exemple les x-ms-asf)<br />
++ Corrigé: problèmes de compilation pour la version Un*x<br />
+
+<p><b>3.33</b><br />
++ Corrigé: Redirections buggées avec même adresse en HTTPS<br />
++ Corrigé: Nommage des fichiers buggés avec "URL hack"<br />
++ Corrigé: Redirection extrèmement lentes et sur les fichiers vides<br />
++ Corrigé: Nommage des fichiers buggés pour les répertoires finissant par un "."<br />
++ Nouveau: Le nombre de connexions par sedonde peut sésormais être.. décimal, pour ralentir d'avantage<br />
++ Nouveau: Conformance ISO9660 améliorée<br />
++ Shell: Options "URL Hack" dans l'interface<br />
++ Shell: "Sauver les paramètres" reconstruit désormais l'index<br />
++ Shell: Options "Eteindre PC après copie"<br />
++ Shell: Sons en début/fin du miroir (configurable via les propriétés système)<br />
++ Shell: Drag & drop corrigé, import des .url<br />
++ Shell: Mode "wizard" corrigé (crash)<br />
++ Corrigé: Crash à la fin d'une copie dûe à des threads non terminés (Berti)<br />
++ Corrigé: \ n'est pas transformé en / après le délimiteur (?) de paramètres d'URL<br />
++ Nouveau: Deux nouveaux callbacks pour pré/post-traiter les données html téléchargées<br />
++ Nouveau: Nouveau callback link-detected2 (nom du tag passé en paramètre)<br />
++ Corrigé: ISO9660 cassé<br />
++ Corrigé: Crash sur les liens file://<br />
++ Corrigé: Et commerciaux (&amp;) non échappés dans les URLs<br />
++ Corrigé: Gel des transferts introduit dans la version 3.33-beta-2<br />
++ Corrigé: Bug d'affichage "Attente de l'heure programmée pour démarrer.."<br />
++ Corrigé: Bug "Attente de l'heure programmée pour démarrer.." (ce n'était finalement PAS un bug d'affichage)<br />
++ Corrigé: Problèmes de cAsSe avec des liens multiples faisant référence à une même URL, mais utilisant des types de casse différents<br />
++ Corrigé: Impossible de compiler (FTBFS) sur les architectures amd64 à cause de problèmes de cast (Andreas Jochens)<br />
++ Corrigé: Les &amp; étaient convertis en &amp;nbsp; (Leto Kauler)<br />
++ Shell: Corrigé crash en cas de liste d'URL très longue (Libor Striz)<br />
++ Corrigé: limitateur connexions/secondes rebranché<br />
++ Corrigé: bug de log "no files updated"<br />
++ Corrigé: liens encodés en UTF buggés (Lukasz Wozniak)<br />
++ Nouveau: --assume peut être utilisé pour forcer le type d'un script donné (Brian Schröder)<br />
+
+<p><b>3.32</b><br />
++ Corrigé: file:// encore cassé (boucles infinies avec parcours locaux)<br />
++ Corrigé: Limitateur de bande passante plus souple avec des taux de transfert bas<br />
++ Corrigé: Les modules externes n'étaient pas pris en compte lors des mise à jour<br />
++ Nouveau: Nouveaux exemples de modules<br />
++ Corrigé: Les fichiers css et js n'étaient plus parcourus!<br />
++ Corrigé: dépassement de tampon dans unzip.c corrigé<br />
++ Nouveau: les tests sont désormais cachés pour améliorer les performances!<br />
++ Nouveau: option %r (protocol) ajoutée pour la structure définissable par l'utilisateur<br />
++ Corrigé: Moteur cassé sur les architectures 64-bit<br />
+
+<p><b>3.31-BETA</b><br />
++ Nouveau: Catégories implémentées<br />
++ Nouveau: Nouveau format de cache (fichier ZIP)<br />
++ Nouveau: Les fichiers .m3u sont désormais parcourus<br />
++ Nouveau: Les fichiers .aam sont désormais parcourus<br />
++ Corrigé: Ftp cassé<br />
++ Corrigé: file:// cassé<br />
++ Corrigé: Gestion des cookies cassé<br />
++ Corrigé: Crash HTTrackInterface.c:251<br />
++ Corrigé: "N connexions" strict même en phase de scan<br />
++ Corrigé: Bug dans javascript:location<br />
++ Corrigé: Gestion des verions avec libtool débuggé<br />
++ Corrigé: Encore des corrections javascript avec \' et \"<br />
++ Corrigé: Les fichiers .HTM ne sont plus renommés en .html<br />
++ Corrigé: Corrections dans le Makefile pour OSX<br />
++ Nouveau: "referer" par défaut et champ HTTP "from"<br />
++ Nouveau: Les en têtes HTTP complets sont désormais sauvegardés dans le cache<br />
++ Corrigé: Les transferts ftp sont désormais loggés et finalisés correctement<br />
++ Corrigé: Lien symbolique manquant dans le script d'installation de webhttrack<br />
++ Corrigé: Chemin et langue sauvegardées dans webhttrack<br />
++ Shell: Evite les noms invalides<br />
++ Corrigé: Bug javascript avec src=<br />
++ Corrigé: Problèmes de Keep-alive sous Linux/Unix avec serveurs buggés (SIGPIPE)<br />
++ Corrigé: Bug de parcours dans du javascript (bug avec des guillemets vides: foo(''))<br />
++ Corrigé: compilation statique sous Linux/Unix<br />
++ Corrigé: fichiers .h trop verbeux (définitions internes)<br />
++ Corrigé: Chaînes de paramètres buggées avec ../ et/ou ./<br />
++ Nouveau: Ajout du callback "change-options" au début du parcours<br />
++ Nouveau: Les chaînes de paramètres sont triées pour la comparaison normalisée (quand "url hack" est activé)<br />
++ Corrigé: Dépendences sur zlib.dll modifiées en zlib1.dll<br />
++ Corrigé: La mise à jour des fichiers statiques incomplets ne fonctionnait pas correctement avec le nouveau cache<br />
++ Shell: Bouton de lancement dans Internet Explorer<br />
++ Corrigé: Crash lors de la rencontre de multiples '?' dans la query string avec la 3.31-alpha<br />
+
+<p><b>3.30</b><br />
++ Nouveau: Webhttrack, interface web d'httrack pour linux/unix/bsd<br />
++ Nouveau: Option "URL hack"<br />
++ Nouveau: Le charset des en têtes HTTP est maintenant propagé dans le fichier html<br />
++ Nouveau: Des modules externes peuvent être connectés au moteur<br />
++ Nouveau: Archives ".mht" implémentées experimentalement<br />
++ Corrigé: Bug des URLs contenant ??<br />
++ Corrigé: Base href sans http:// buggée<br />
++ Corrigé: Several javascript bugs<br />
++ Corrigé: Les pages UCS2 étaient très mal détectées<br />
++ Corrigé: Le changement de structure n'entraine plus le retransfert des fichier<br />
++ Corrigé: Bugs sur les liens de type "?foo" (liens avec uniquement ?..) corrigé<br />
++ Corrigé: ' ou " dans des URLs non protégées par des guillemets<br />
++ Corrigé: Problèmes avec les connexions permanentes (keep-alive) sur certains serveurs buggés<br />
++ Corrigé: Fichiers .ra corrompus<br />
++ Corrigé: Encore quelques bugs javascript corrigés<br />
++ Corrigé: progression des transferts ftp incorrects dans l'interfce<br />
++ Corrigé: corrections diverses dans webhttrack<br />
++ Corrigé: Page blanche finale dans webhttrack<br />
++ Corrigé: Commentaires javascript (//) ignorés<br />
++ Corrigé: Correction temporaire pour les "archive" ayant plusieurs sources<br />
++ Corrigé: Les fichiers importés js ou css ont désormais leur chemin relatif par rapport au fichier parent<br />
++ Corrigé: Guillemets non échappées ("") lors de la mise à jour en ligne de commande<br />
++ Corrigé: Caractères nuls dans les pages html cassaient le parcours<br />
++ Corrigé: Profondeur externe un peu moins buggée<br />
++ Corrigé: Filtres basés sur la taille buggés ("moins de 1KiB" fonctionne désormais)<br />
++ Corrigé: Comportements étranges des filtres (dernier filtre "effacé")<br />
++ Corrigé: Téléchargements buggés lors de l'utilisation du ftp (message d'erreur 'unable to save file')<br />
++ Corrigé: Bloquage avec "keep-alive" sur certains sites dû à une mauvaise gestion de l'encodage "chunk"<br />
++ Corrigé: Problèmes avec les chemins relatifs lors de l'inclusion de fichiers javascript<br />
++ Corrigé: Le miroir est interrompu en cas de disque plein<br />
++ Corrigé: L'option "No external pages" a été corrigée<br />
++ Corrigé: Bug javascript et \" dans document.write corrigé<br />
++ Corrigé: Deux fuites de mémoire dans la génération de fichiers temporaires et la construction des liens corrigé<br />
++ Corrigé: Compression boguée avec les formats différents de gzip<br />
++ Corrigé: Variété de charsets acceptés plus large<br />
++ Corrigé: Fichier robots.txt bogué lorsque des commentaires sont utilisés(#)<br />
++ Corrigé: Types MIME manquants pour certaines extensions comme .ico<br />
++ Shell: Recherche incessante du proxy<br />
++ Shell: Lien HelpHtml/ manquant<br />
++ Corrigé: Dépassement de tampon dans htsback.c:2779<br />
++ Corrigé: Expressions dans style et script buggées à cause de parcours trop aggressif<br />
++ Corrigé: Bugs javascript avec \" et \'<br />
++ Corrigé: Bug dans la détection des liens javascript quand des commentaires étaient insérés entre les arguments<br />
++ Corrigé: Bug quand du contenu gzippé valide était reçu<br />
++ Nouveau: Options "temps maximum" et "taille de site maximum" plus aggressives<br />
++ Nouveau: Syntaxe file://server/path sous Windows gérée<br />
++ Corrigé: Corretions pour les archives mht<br />
++ Corrigé: Les filtres donnés en ligne de commande pouvaient se retrouver écrasés par le moteur<br />
++ Corrigé: Parcours des liens javascript: générés dans des document.write() dans du code javascript retiré<br />
+
+<p><b>3.23</b><br />
++ Nouveau: Keep-alive<br />
++ Nouveau: Taille des URLs étendue à 1024 octets<br />
++ Nouveau: Hack pour les pages html buggées avec UCS2<br />
++ Corrigé: bugs divers avec base href<br />
++ Corrigé: bugs des fichiers périphériques windows corrigé<br />
++ Corrigé: le parcours javascript "sale" évite désormais les ","<br />
++ Corrigé: l'option "get non-html files near a link" entrainait parfois des miroirs trop grands<br />
++ Corrigé: Bugs si la librairie zlib ntétait pas trouvée<br />
++ Corrigé: Bug avec les options "near" et "pas de pages externes<br />
++ Corrigé: "Link empty" crash corrigé<br />
++ Corrigé: Quelques bugs javascript corrigés<br />
++ Corrigé: Bugs dans la gestion du Keep-alive ("unknown response structure")<br />
++ Corrigé: Bug majeur dans le keep-alive (connexion non fermée)<br />
++ Corrigé: Option 8-3 ne fonctionnait pas, option ISO9660 améliorée<br />
++ Corrigé: Liens buggés avec CR, TAB..<br />
++ Corrigé: petit bug avec liens externes ../ corrigé<br />
+
+<p><b>3.22-3</b><br />
++ Corrigé: Moteur lent du à des vérifications mémoire trop strictes<br />
++ Corrigé: Dépassement de tampon dans htscore.c:2353<br />
++ Corrigé: Fichiers "chunkés" corrompus avec champ "content-length"<br />
++ Corrigé: Bug des dossiers renommés en ".txt" sur les systèmes Un*x corrigé!<br />
++ Nouveau: Liste de filtres (-%S) ajouté<br />
++ Nouveau: Déboggeur de cache (-#C) ajouté<br />
+
+<p><b>3.21-8</b><br />
++ Nouveau: Support basique Macromedia Flash (extraction des liens)<br />
++ Nouveau: Design modulaire pour https, le parser flash et la zlib<br />
++ Nouveau: autoconf/configure standards pour les plate-formes Un*x<br />
++ Nouveau: Design modulaire aussi sur les plate-formes Windows (dll/lib)<br />
++ Corrigé: Les fichiers texte sans extension ne sont plus renommés "html"<br />
++ Corrigé: Bug avec les URL de type "?foo"<br />
++ Corrigé: Plus de "chmod 755" sur le home<br />
++ Corrigé: problèmes de stabilité dûs à de mauvaises vérifications sur le système e fichiers<br />
++ Corrigé: Dépassement de tampons dans le GUI/ligne de commande en affichants les statistiques<br />
++ Corrigé: Erreur de création de répertoires<br />
+
+<p><b>3.20</b><br />
++ Nouveau: Support HTTPS (SSL)<br />
++ Nouveau: Support ipv6<br />
++ Nouveau: 'longdesc' ajouté<br />
++ Nouveau: nouveau fichier 'new.txt' généré lors des transferts pour les fichiers mis à jour/modifiés<br />
++ Nouveau: Option de compatibilité ISO9660<br />
++ Nouveau: Détection de miroir/mise à jour vide améliorée<br />
++ Nouveau: L'option 'update hack' reconnait désormais les fichiers importés<br />
++ Nouveau: Option pour désactiver ipv4/ipv6<br />
++ Nouveau: Les filtres reconnaissent maintenant les expressions du type -https://*<br />
++ Corrigé: Le moteur est normalement 'réentrant'<br />
++ Corrigé: Corrections pour les alpha et autres systèmes 64-bit<br />
++ Corrigé: Fichiers téléchargés deux fois si non trouvés dans le cache<br />
++ Corrigé: problèmes ftp avec les réponses 2xx<br />
++ Corrigé: problèmes ftp avec réponses multilignes<br />
++ Corrigé: le caractère %20 n'est plus échappé<br />
++ Corrigé: bug du RETR ftp avec guillemets<br />
++ Corrigé: tolérance des en têtes vides<br />
++ Corrigé: Fichier hts-log fermé<br />
++ Corrigé: Pages compressées lors de mises à jour<br />
++ Corrigé: Crash lors de la réception de pages compressées vides<br />
++ Corrigé: Crashes aléatoires en mode 'spider'<br />
++ Corrigé: bcopy/bzero ne sont plus utilisés..<br />
++ Corrigé: diverses corrections dans le code<br />
++ Corrigé: Détection UTF8 améliorée<br />
++ Corrigé: Les liens externes fonctionnent avec le https et le ftp<br />
++ Corrigé: index.html principal corrompu ou manquant<br />
++ Corrigé: Crashes avec 'URL list'<br />
++ Corrigé: Crashes aléatoires sur des sites importants dû au système de nommage buggé<br />
++ Corrigé: Bloquages sur certains fichiers robots.txt<br />
++ Corrigé: Fichiers compressés non sauvés<br />
++ Corrigé: Corrections SVG<br />
++ Corrigé: Correction des réponses HTML brutes<br />
++ Corrigé: Hack pour les erreurs 406<br />
++ Corrigé: Crashes dûs à des fichiers binaires avec mauvais type HTML (non scannés désormais)<br />
++ Corrigé: Liens externes https et ftp buggés, liens relatifs https buggés<br />
++ Corrigé: Redimensionnement automatique de la pile de filtres<br />
++ Corrigé: Divers éléments ampersand (&) ajoutés<br />
++ Corrigé: correction temporaire pour le https avec proxy (connexion directe)<br />
++ Corrigé: "base href" avec les adresses absolues<br />
++ Corrigé: pile trop grosse sur certains systèmes<br />
++ Corrigé: erreurs dues à une authentification corrompue<br />
++ Corrigé: crash avec des échappements buggés<br />
++ Corrigé: fichier locaux<br />
++ Shell: Corrections, notamment dans l'enregistrement des types<br />
++ Shell: Erreur "fichiers template non trouvés" corrigé<br />
+
+<p><b>3.16</b><br />
+ + Corrigé: Zlib v1.4<br />
+ + Corrigé: Les fichiers gzippés sont désormais téléchargés sans problèmes (bug de compression HTTP)<br />
+ + Corrigé: URLs avec espaces en fin traités correctement<br />
+ + Corrigé: Bug avec META-HTTP<br />
+ + Shell: Enregistrement du type shell effectué une seule fois<br />
+
+<p><b>3.15</b><br />
+ + Corrigé: HTTP-referer buggé avec les sites protégés<br />
+ + Corrigé: Erreur IO/socket fatale sur des sites importants (handles non fermés)<br />
+ + Corrigé: Option K4 fonctionne<br />
+ + Corrigé: --continue+URL(s) efface les URLs précédentes<br />
+ + Corrigé: Bug avec 'www.foo.com?query'<br />
+ + Corrigé: Bug avec les / et : dans des URLs<br />
+ + Corrigé: Bug avec les tags meta<br />
+ + Shell: 'Fin non brutale' documentée<br />
+ + Shell: 'Kx' options added<br />
+
+<p><b>3.10</b><br />
+ + Corrigé: Rupture de pipe sous Linux<br />
+ + Corrigé: Problèmes de fichiers gzippés avec la version en ligne de commande<br />
+ + Corrigé: Crashes en cas de pages d'erreur compressées<br />
+ + Corrigé: Caractères mal échappés en html dans les paramètres<br />
+ + Corrigé: Fichiers non pris en compte (système d'anticipation buggé)<br />
+ + Corrigé: Crashes lors de l'affichage des statitsiques (division par zero)<br />
+ + Corrigé: Problèmes avec URLs contenant espaces ou guillemets<br />
+ + Corrigé: Slash ajouté lorsque ~ était détecté<br />
+ + Corrigé: Terminal VT illisible<br />
+ + Nouveau: Interruption plus rapide et plus propre<br />
+
+<p><b>3.09</b><br />
+ + Corrigé: Quelques problèmes avec le javascript<br />
+ + Corrigé: Elements après un onXXX non pris en compte<br />
+ + Nouveau: 'Wrapper' de mise à jour dans les sources<br />
+ + Nouveau: url() et @import dans tag style analyzé<br />
+ + Shell: Options index sémantique et nombre de liens intégrés<br />
+ + Shell: Changements dans les options pris en compte plus rapidement<br />
+ + Shell: Installateur plus propre (clés de registre)<br />
+
+<p><b>3.08</b><br />
+ + Nouveau: La compression HTTP est maintenant cupportée<br />
+ + New: Faster response analysis<br />
+ + Corrigé: Pages externes en html si cgi<br />
+ + Corrigé: Mélange CR et CR/LF pour les commentaires<br />
+ + Corrigé: Index principal corrompu<br />
+ + Shell: Meilleur rafraîchissement durant ke parcours<br />
+ + Shell: Erreur de DLL<br />
+
+<p><b>3.07</b><br />
+ + Corrigé: Crashes aléatoirs avec les redirections HTTP<br />
+ + Nouveau: Nouveau limitateur de bande passante (devrait être plus précis)<br />
+ + Nouveau: Code néttoyé, nouveaux fichiers htscore.c/httrack.c<br />
+
+<p><b>3.06</b><br />
+ + Corrigé: Redirections vers https/mailto supportées<br />
+ + Nouveau: Index principal /répertoire principal pour les versions Un*x<br />
+ + Nouveau: Sources plus modulaires (.so)<br />
+ + Nouveau: Tags Quicktime (targetX=)<br />
+ + Nouveau: HTTP 100 partiellement supporté<br />
+
+<p><b>3.05</b><br />
+ + Corrigé: Paramètres de tags non analysables ("id","name",..)<br />
+ + Corrigé: Classes java non trouvées en utilisant "." comme séparateur<br />
+ + Corrigé: Classes java non trouvées si .class manquant<br />
+
+<p><b>3.04</b><br />
+ + Corrigé: URLs avec espaces en début<br />
+ + Corrigé: URLs buggées en utilisant le "base href"<br />
+ + Shell: options --assume et -%e inclueses<br />
+ + Nouveau: Documentation légèrement mise à jour<br />
+
+<p><b>3.03</b><br />
+ + Nouveau: Optimisations du parseur, 10 fois plus rapide désormais!<br />
+ + Nouveau: Nouvelle option --assume pour accélérer le test des documents cgi<br />
+ + Nouveau: Option pour éviter de placer le nom/mot de passe pour les pages externes<br />
+ + Nouveau: Query string gargée pour les liens locaux<br />
+ + Corrigé: Conformité avec la RFC2396 pour les URLs (//toto et http:toto)<br />
+ + Corrigé: toto@toto.com n'est plus considéré comme fichier<br />
+ + Corrigé: Espaces convertis en %20 dans les liens<br />
+ + Corrigé: Bug "Unable to save file"<br />
+ + Corrigé: Fichier index index.html corrompu<br />
+ + Corrigé: Cookies désactivée avec --get<br />
+ + Corrigé: Bug dans le cache pour les pages d'erreur<br />
+
+<p><b>3.02</b><br />
+ + Corrigé: Pages sans titre enregistrées dans l'index principal<br />
+ + Corrigé: Erreurs avec Content-type+Content-disposition<br />
+ + Corrigé: Les fichiers backblue.gif/external.html ne sont plus effacés<br />
+ + Corrigé: Problèmes d'encodage avec les fichiers contenant des séquences comme %2F<br />
+ + Corrigé: Erreurs d'écriture reportées pour les fichiers HTML<br />
+ + Nouveau: Fichier hts-stop.lock pour interrompre le moteur<br />
+ + Nouveau: Nouveau système d'installation utilisant InnoSetup<br />
+
+<p><b>3.01</b><br />
+ + Nouveau: Fichiers HTTP real media capturés<br />
+ + Corrigé: Statistiques erronées<br />
+ + Corrigé: Bugs mineurs<br />
+
+<p><b>3.00</b><br />
+ + Nouveau: Nouvelle interface, <u>BEAUCOUP</u> d'améliorations!<br />
+ + Nouveau: Meilleure analyse (parcours javascript étendu, parcours HTML amélioré)<br />
+ + Nouveau: Système de téléchargement en arrière plan plus performant et plus rapide<br />
+ + Nouveau: ETag correctement géré<br />
+ + Nouveau: Liste d'URL optionnelle<br />
+ + Nouveau: Fichier de configuration optionnel<br />
+ + Nouveau: Nouvelles options de structure<br />
+ + Nouveau: Nouvelles options de filtres (filtres de taille)<br />
+ + Nouveau: Meilleure gestion des mots de passe<br />
+ + Nouveau: Contrôle du traffic pour éviter les surcharges des serveurs<br />
+ + Nouveau: Setuid et Chroot pour la version Unix<br />
+ + Nouveau: Support partiel en 64 bit<br />
+ + Nouveau: Les fichiers .js sont maintenant aussi analysés<br />
+ + Nouveau: Fichier unique hts-log.txt, niveaux d'erreur<br />
+ + Nouveau: Nouveau design pour index.html principal<br />
+ + Nouveau: Option "Mise à jour forcée" pour éviter les mise à jour non nécessaires<br />
+ + Nouveau: Langage par défaut envoyé pour les sites<br />
+ + Nouveau: Index avec recherche<br />
+ + Corrigé: Routines ftp buggées (version Linux)<br />
+ + Corrigé: Bug qui entrainait un miroir total en partant d'un sous-répertoire<br />
+ + Corrigé: Bug qui entrainait des reprises de téléchargement très lentes<br />
+ + Corrigé: Bug qui entrainait des boucles infinies sur certaines pages avec paramètres (?foo=/)<br />
+ + Corrigé: Cache corrompu<br />
+ + Corrigé: Liens cassés aléatoirement (pages non téléchargées)<br />
+ + Corrigé: Problèmes de liens partagés<br />
+ + Corrigé: Problèmes d'URLs avec virgule(,)<br />
+ + Corrigé: Problèmes avec / et \ ensembles<br />
+ + Corrigé: Problème d'adresses avec plusieurs @<br />
+ + Corrigé: Problème d'adresses avec %2E et %2F<br />
+ + Corrigé: Problèmes de liens vides<br />
+ + Corrigé: Bug "Unexpected backing error" corrigé<br />
+ + Corrigé: Fichiers de taille incorrecte non acceptés<br />
+ + Corrigé: Premier index.html créé même pour les pages sans titre<br />
+ + Corrigé: Option N100 buggée (unable to save file)<br />
+ + Corrigé: Bloquage en utilisant plusieurs noms d'hôte dans les URLs<br />
+ + Corrigé: Mot de passe stocké en interne pour éviter les problèmes d'accès<br />
+ + Corrigé: Correction de la limite /nul du DOS<br />
+ + Corrigé: Filtre -* buggé (rien de téléchargé)<br />
+ + Corrigé: Fichiers .shtml renommés en .html<br />
+ + Corrigé: Content-disposition sans ""<br />
+ + Corrigé: Liens HTML externes pour les liens /foo<br />
+ + Corrigé: Utilisation de % pour le login<br />
+ + Corrigé: Parcours javascript pouvant échouer avec " et ' mélangés<br />
+ + Corrigé: Quelques bugs avec Range: lors de la reprise d'un fichier complet<br />
+ + Corrigé: Problèmes avec Range: et les fichiers html<br />
+ + Corrigé: Messages HTTP/1.1 407 et 416 gérés<br />
+ + Corrigé: Date des fichiers erronés<br />
+ + Corrigé: Bug du caractère nul dans du HTML<br />
+ + Corrigé: Bug du cachage des pages d'erreur<br />
+ + Corrigé: Une erreur de connexion/un site déplacé ne détruit plus tout!<br />
+ + Corrigé: En cas de ../ en trop dans une URL relative<br />
+ + Shell:   Nouvelle estimation du taux de transfert<br />
+ + Shell:   Crash avec l'assistant+questions corrigé<br />
+ + Shell:   lang.h dynamique pour faciliter la mise à jour des traductions<br />
+ + Shell:   Options non passées au moteur<br />
+ + Corrigé: Beaucoup de problèmes mineurs!<br />
+
+<p><b>2.2</b><br />
+ Note: Les correctifs les plus importants de la 3.00 alpha sont inclus dans la 2.2<br />
+
+<p><b>2.02</b><br />
+ + Nouveau: Système de cache amélioré, compatible avec toute les plate-formes<br />
+ + Nouveau: Mise à jour améliorée (date précise)<br />
+ + Nouveau: Date distante pour les fichiers<br />
+ + Nouveau: ETag (HTTP/1.1) reconnu<br />
+ + Shell: Interface portugaise disponible<br />
+ + Corrigé: Bug pour les liens contenant une virgule<br />
+ + Corrigé: Bug du 'file://' avec le proxy<br />
+ + Nouveau: Moteur un petit peu plus rapide<br />
+ + Shell: Quelques bugs corrigés dans l'interface<br />
+
+<p><b>2.01</b><br />
+ + Nouveau: ftp via le proxy enfin supporté!<br />
+ + Nouveau: Lisibilité des sources améliorée<br />
+ + Nouveau: Encore des super nouvelles options<br />
+ + Nouveau: Vitesse améliorée (liens captutés durant le parcours, "update rapide" plus rapide)<br />
+ + Nouveau: Outil pour capturer les URL "submit" (formulaires ou liens javascript complexes)<br />
+ + Shell: Interface allemande disponible<br />
+ + Shell: Interface hollandaise disponible<br />
+ + Shell: Interface polonaise disponible<br />
+ + Corrigé: Bug du niveau 1 corrigé<br />
+ + Corrigé: Encore quelques problèmes de parsing/structure<br />
+ + Corrigé: Referer envoyé au serveur<br />
+ + Corrigé: Les Cookies ne fonctionnaient pas correctement<br />
+ + Corrigé: Problèmes avec les pages à redirections<br />
+ + Nouveau: Meilleur scan javascript<br />
+ + Corrigé: Problèmes pour les URL avec paramètres (foo.cgi?param=2&choice=1)<br />
+ + Corrigé: Problèmes avec le ftp<br />
+ + Nouveau: les transferts ftp sont maintenant en mode passif (tolérant aux firewall)<br />
+
+<p><b>2.00</b> -- Première version libre de HTTrack! <br />
+ + Nouveau: Les sources de HTTrack (ligne de commande), désormais libres, sont fournis<br />
+ + Shell: Interface réécrite!<br />
+ + Nouveau: Documentation réécrite (anglais)<br />
+ + Shell: Possibilités de Glisser-Déposer ("Drag&Drop")<br />
+ + Shell: Plus d'informations sur les URL<br />
+ + Shell: Corrigé: Problèmes de connexion au provider<br />
+ + Corrigé: Problèmes de bouclage sur certains sites causant des crash<br />
+ + Corrigé: Problèmes d'encodage de certaines URL<br />
+ + Corrigé: Quelques problèmes d'accès à des fichiers ../<br />
+ + Corrigé: Quelques corrections lors de la mise à jour d'un miroir<br />
+ + Shell: Barres de progression incorrectes corrigées<br />
+ + Corrigé: Les "action" des formulaires sont corrigés pour permettre aux cgi des formulaires de fonctionner depuis un miroir local<br />
+ + Corrigé: Crash après reprise de miroirs "interrompus manuellement"<br />
+ + Corrigé: Fichiers déteriorés sur certains serveurs (bug du chunk)<br />
+
+<p><b>1.30</b> <br />
+ + Shell: Interface améliorée<br />
+ + Nouveau: robots.txt suivis par défaut<br />
+ + Nouveau: Vitesse de scan améliorée sur les gros (>10,000 liens) sites grâce à une table de hachage<br />
+ + Nouveau: Mode 'Mirror Link' (aspirer tous les liens d'une page)<br />
+ + Nouveau: Les cookies sont maintenant compris<br />
+ + Nouveau: Option Pas de pages externes (remplacer html/gif externes par des fichiers par défaut)<br />
+ + Nouveau: Version en ligne de commande améliorée, mise en arrière plan (Unix)<br />
+ + Corrigé: Problèmes avec le parcours javascript<br />
+ + Corrigé: Login/pass ne sont plus transformés en minuscules<br />
+ + Corrigé: Problèmes avec base href<br />
+ + Nouveau: Les liens au niveau 1 sont maintenant patchés<br />
+ + Nouveau: Le nettoyage efface les répertoires inutilisés<br />
+ + Nouveau: L'option -V execute une commande shell a chaque nouveau fichier<br />
+ + Shell: La rubrique 'Primary filter' fonctionne maintenant<br />
+ <p><b>1.24</b> <br />
+ + Corrigé: Protocole ftp buggé (avec login/pass)<br />
+ + Corrigé: Problèmes avec le cache (fichiers corrompus)<br />
+ + Nouveau: Nettoyage des fichiers non utilisés<br />
+ + Nouveau: Messages "Updated" pour les mise à jour<br />
+ + Shell: Connexion automatique/déconnexion optionnelle au provider<br />
+ + Corrigé: index.html n'était pas toujours créé<br />
+ + Shell: Corrigé: Plantages divers avec l'interface<br />
+ + Shell: Corrigé: Les préférences sur les filtres n'étaient pas sauvées<br />
+ + Corrigé: Diverses (et nombreuses) corrections<br />
+ <p><b>1.23</b> <br />
+ + Shell: Interface améliorée<br />
+ + Shell: Configurations multiples<br />
+ + Shell: Redéfinitions des options<br />
+ + Shell: Reprise de miroir améliorée<br />
+ <p><b>1.22</b> <br />
+ + Corrigé: Le parcours vers le haut/bas ne fontionnait pas correctement<br />
+ + Corrigé: Certains fichiers non capturés, bugs corrigés<br />
+ + Corrigé: Problèmes avec les classes (1.21)<br /> 
+ + Nouveau : Le taux de transfert peut être abaissé (option -A)<br /> 
+ + Shell: Rafraîchissement fluide<br />
+ + Nouveau: Protocole basic ftp un peu amélioré<br />
+ <p><b>1.21</b> <br />
+ + Corrigé: Certains types de classes Java n'étaient pas parsées<br />
+ + Corrigé: Certains répertoires sans le / final étaient ignorés<br />
+ + Corrigé: Crashes dus à des "content-type" troplongs<br />
+ <p><b>1.20<br />
+ </b>+ Shell: documentation!<br />
+ + Corrigé: 'Host Cancel' buggé (crash en cas de timeout)<br />
+ + Nouveau: Télécharge uniquement la fin des fichiers si possible (fichiers partiellement
+ transmis)<br />
+ + Nouveau: Nouveau système de cache (seuls les fichiers HTML sont stockés désormais)<br />
+ + Nouveau: Structure définie par l'utilisateur possible<br />
+ + Nouveau: Version francisée de l'interface<br />
+ + Corrigé: Plantages (div par 0/instruction illégale) aléatoires en cas de fichiers de
+ taille nulle<br />
+ + Nouveau: Gestion limitée du ftp (fichier par fichier) (càd que +ftp://* fonctionne
+ désormais)<br />
+ + Corrigé: Problèmes de connexion avec certains serveurs ou proxy<br />
+ + Nouveau: Option par défaut qui sauve un rapport en html sur les erreurs (404..)<br />
+ + Shell: Possibilité de voir le miroir et les fichiers log à la fin<br />
+ + Nouveau: Authentification de proxy (ex: guest:star@monproxy.com:8080)<br />
+ + Shell: Interface améliorée (notamment durant un miroir)<br />
+ + Corrigé: Les noms de fichiers ambigus sont renommés (asp,cgi-&gt;html/gif..)<br />
+ + Shell: Nouvelle option &quot;test links&quot;<br />
+ + <strong>Nouveau</strong>: Authentification sur un site (ex:
+ guest:star@www.myweb.com/index.html)<br />
+ + Corrigé: Bugs mineurs corrigés<br />
+ + Shell: Visualisation des fichiers log durant un miroir<br />
+ + Corrigé: Certains problèmes avec des cgi (noms de fichiers)<br />
+ + Corrigé: Options pour aller plus bas/haut dans les répertoires et filtres<br />
+ + Corrigé: &quot;Store html first&quot; ne fonctionnait pas<br />
+ + Nouveau: L'option -F (&quot;Browser ID&quot;) déguise HTTrack en un butineur<br />
+ + <strong>Nouveau</strong>: Nouveau système de filtres<br />
+ + Shell: Nouveaux boutons &quot;Save as default&quot; pour enregistrer une configuration<br />
+ + Corrigé: &quot;Build options&quot; ne fonctionnait PAS! (fichiers remplacés ou
+ manquants)<br />
+ + Corrigé: Champ &quot;User agent&quot; corrigé<br />
+ + Shell: Options &quot;Skip&quot;<br />
+ + Shell: Meilleur contrôle de l'interface durant un miroir<br />
+ + Shell: InstallShield et fichiers d'aide<br />
+ + Corrigé: Certains liens n'étaient pas filtrés parfois<br />
+ + Corrigé: Crash du miroir à fin<br />
+ <b><br />
+ 1.16b<br />
+ </b>+ Shell: Bug *stupide* qui rendait WinHTTrack très leeeent<br />
+ + Corrigé: Crash si la première page n'a pas de titre corrigé<br />
+ + Corrigé: Options comme &quot;Just scan&quot; sauvaient des fichiers vides<br />
+ + Corrigé: Interdire tous les liens (*) sauf autorisés manuellement corrigé<br />
+ + Shell: Interface pour les filtres améliorée<br />
+ 1.16:<br />
+ + Nouveau : Classes Java et sous classes prises en compte!<br />
+ + Nouveau: Meilleure analyse JavaScripts<br />
+ + Nouveau: Option: Abandon des sites en cas de timeout/transfer trop lent<br />
+ + Shell: Interface améliorée<br />
+ <b><br />
+ 1.15b<br />
+ </b>+ Corrigé: Quelques bugs corrigés<br />
+ 1.15:<br />
+ + Shell: Interface améliorée<br />
+ + Nouveau: Robot amélioré (certyains fichiers via javascript sont désormais
+ détectés!)<br />
+ + Nouveau: Jokers améliorés (par exemple, +www.*.com/*.zip)<br />
+ + Nouveau: fichier 'config' pour configurer proxy, chemins.. une seule fois<br />
+ <b><br />
+ 1.11<br />
+ </b>+ Nouveau: Démarrage à heure spécifique<br />
+ + Nouveau: Option temps de transfert maximum<br />
+ + Shell: Interface améliorée pour une utilisation simplifiée<br />
+ <b><br />
+ 1.10e<br />
+ </b>+ Corrigé: Les maps n'étaient pas correctement gérées (bug stupide)<br />
+ 1.10d:<br />
+ + Corrigé: Fichier index.html bogué<br />
+ 1.10c<br />
+ + Shell: Champ &quot;time out&quot; nécessitait le champ &quot;transfer rate&quot;<br />
+ 1.10b<br />
+ + Corrigé: Meilleure gestion mémoire<br />
+ 1.10<br />
+ + Nouveau: Option &quot;Taux transfert minimum&quot; ajouté (éviter les sites les plus
+ lents)<br />
+ + Nouveau: Les sites &quot;morts&quot; ne gèlent plus HTTrack<br />
+ + Corrigé: Encore des problèmes avec les tags code/codebase<br />
+ + Nouveau: Détection des ruptures de liens améliorée<br />
+ <br />
+ <b>1.04</b><br />
+ + Corrigé : Certains liens n'étaient pas correctement lus (pages avec des tags
+ &quot;codebase&quot;)<br />
+ + Shell: Interface améliorée<br />
+ <br />
+ <b>1.03</b> (Pas de changements pour la version en ligne de commande)<br />
+ + Shell:Gros bug corrigé (taux de transfert TRES lents) <br />
+ <br />
+ <b>1.02</b><br />
+ + Corrigé: Certains fichiers java n'étaient pas correctement transférés<br />
+ + Nouveau: La vitesse a été améliorée<br />
+ + Corrigé: Fichiers log plus précis<br />
+ + Shell: L'interface a été améliorée<br />
+ <br />
+ <b>1.01</b><br />
+ + Corrigé: Erreurs lors de la construction de la structure des fichiers<br />
+ <br />
+ <b>1.00 - The 1.00, Yeah!</b><br />
+ + Nouveau: base et codebase sont maintenant scannés<br />
+ <br />
+ <b>0.998 beta-2</b><br />
+ + Corrigé: Bug des fichiers multiples (fichiers ayant le même nom dans un répertoire
+ identique) avec l'option -O corrigé<br />
+ <br />
+ <b>0.997 beta-2</b><br />
+ + Corrigé: Les noms de fichiers avec des '%' n'étaient pas correctement renommés<br />
+ + Corrigé: bug deétecté dans la 0.996: certains fichiers ne sont pas écrits sur
+ disque!!<br />
+ <br />
+ <b>0.996 beta-2</b><br />
+ + Nouveau: Option -O (chemin pour muroir/fichiers log)<br />
+ + Nouveau: L' heure/date des fichiers inchangés reste inchangée durant une update<br />
+ <br />
+ <b>0.99 beta-2</b><br />
+ + Nouveau: Champ &quot;User-agent&quot;<br />
+ + Nouveau: Raccourcis (--spider etc.)<br />
+ + Nouveau: Les liens non téléchargés sont reconstruits de manière absolue<br />
+ + Nouveau: L'option 'g' (juste get files in current directory) a été ajoutée<br />
+ + Nouveau: Analyse des liens primaires a été améliorée<br />
+ + Fixed: bug du &quot;304&quot; corrigé<br />
+ <br />
+ <b>0.25 beta-2</b><br />
+ + Corrigé: Plantages durant certains miroirs corrigé!<br />
+ + Nouveau: Plus d'options 'N' (filenames type)<br />
+ <br />
+ <b>0.24 beta-2</b><br />
+ + Corrigé: Restart/Update avec&nbsp;un cache ne fonctionnait pas (pas du tout..)<br />
+ + Corrigé: Les jokers fonctionnent correctement (càd. +www.abc.com* fonctionne)<br />
+ + Nouveau: L'option 'n' (get non-html files near a link) a été ajoutée!<br />
+ <br />
+ <b>0.23 beta-2</b><br />
+ + Corrigé: L'option 'M' (site size) ne fonctionnait pas<br />
+ + Corrigé: Les fichiers dépassant 65Ko n'étaient pas correctement écrits </p>
+
+
+<a href="mailto:trescollant@httrack.com" onClick="return false" style="visibility:hidden">@</a>
+		</td>
+		</tr>
+		</table>
+	</td>
+	</tr>
+	</table>
+</td>
+</tr>
+</table>
+
+<table width="76%" border="0" align="center" cellspacing="0" cellpadding="0">
+	<tr>
+	<td id="footer"><small>&copy; 2020 Xavier Roche &amp; other contributors - Web Design: Leto Kauler.</small></td>
+<td align="right">
+<a href="http://endsoftpatents.org/innovating-without-patents" target="_new" title="This site is innovating without patents!">
+<img border="0" alt="End Software Patents" style="border-width:0" src="../../../esp_chicklet.png">
+</a></td>
+	</tr>
+</table>
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+ var _gaq = _gaq || [];
+ _gaq.push(['_setAccount', 'UA-10546883-1']);
+ _gaq.push(['_trackPageview']);
+ _gaq.push(['_trackPageLoadTime']);
+
+ (function() {
+   var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+   ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+   var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+ })();
+</script>
+<!-- Google Analytics -->
+
+</body>
+
+<!-- Mirrored from www.httrack.com/page/4/fr/index.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:39 GMT -->
+</html>
+

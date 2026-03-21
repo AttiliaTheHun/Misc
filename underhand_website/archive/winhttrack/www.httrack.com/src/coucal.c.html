@@ -1,0 +1,1581 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/coucal.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+<HEAD>
+<TITLE>./coucal.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./coucal.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+Coucal, Cuckoo hashing-based hashtable with stash area.
+Copyright (C) 2013-2014 Xavier Roche (http://www.httrack.com/)
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;assert.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdarg.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* We use murmur hashing by default, even if md5 can be a good candidate,
+   for its quality regarding diffusion and collisions.
+   MD5 is slower than other hashing functions, but is known to be an excellent
+   hashing function. FNV-1 is generally good enough for this purpose, too, but
+   the performance gain is not sufficient to use it by default.
+
+   On several benchmarks, both MD5 and FNV were quite good (0.45 cuckoo moved
+   on average for each new item inserted in the hashtable), but FNV-1 was more
+   prone to mutual collisions (creating cycles requiring stash handling), and
+   was causing the stash area to be more filled than the MD5 variant.
+
+   Simpler hashing functions, such as rolling hashes (LCG) were also tested,
+   but with collision rate and diffusion were terrible.
+
+   [ On a 10M key tests, both variants acheived 0.45 cuckoo/add ration,
+     but the FNV-1 variant collided 11 times with a maximum stash area
+     filled with 4 entries ; whereas the MD5 variant did only collide
+     once ]
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (!<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MD5</FONT>) \
+  &amp;&amp; !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_OPENSSL_MD5</FONT>) \
+  &amp;&amp; !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MURMUR</FONT>) \
+  &amp;&amp; !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_FNV1</FONT>) \
+  )
+<I><FONT COLOR="#B22222">/* Temporry: fixing Invalid address alignment issues */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_ALIGNED_ACCESS_REQUIRED</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__sparc__</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">mips</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__mips__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">MIPS</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_MIPS_</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">arm</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__arm__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">ARM</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_ARM_</FONT>) \
+  )
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">LIBHTTRACK_EXPORTS</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTHASH_USES_OPENSSL_MD5</FONT> 1
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTHASH_USES_MD5</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTHASH_USES_MURMUR</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Dispatch includes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MURMUR</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;murmurhash3.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MD5</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;md5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Init</FONT></B>(CTX, FLAG) MD5Init(CTX, FLAG)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Update</FONT></B>(CTX, DATA, SIZE) MD5Update(CTX, DATA, SIZE)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Final</FONT></B>(DIGEST, CTX) MD5Final(DIGEST, CTX)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HashMD5Context</FONT> MD5CTX
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_OPENSSL_MD5</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;openssl/md5.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Init</FONT></B>(CTX, FLAG) MD5_Init(CTX)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Update</FONT></B>(CTX, DATA, SIZE) MD5_Update(CTX, DATA, SIZE)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HashMD5Final</FONT></B>(DIGEST, CTX) MD5_Final(DIGEST, CTX)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HashMD5Context</FONT> MD5_CTX
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;No hash method defined&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Size of auxiliary stash. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STASH_SIZE</FONT> 16
+
+<I><FONT COLOR="#B22222">/** Minimum value for lg_size. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MIN_LG_SIZE</FONT> 4
+
+<I><FONT COLOR="#B22222">/** Minimum value for pool.capacity. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MIN_POOL_CAPACITY</FONT> 256
+
+<I><FONT COLOR="#B22222">/* 64-bit constant */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">WIN32</FONT>))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UINT_64_CONST</FONT></B>(X) ((uint64_t) (X))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UINT_64_FORMAT</FONT> <B><FONT COLOR="#BC8F8F">&quot;I64d&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_LP64</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__x86_64__</FONT>) \
+       || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__powerpc64__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__64BIT__</FONT>))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UINT_64_CONST</FONT></B>(X) ((uint64_t) X##UL)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UINT_64_FORMAT</FONT> <B><FONT COLOR="#BC8F8F">&quot;ld&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">UINT_64_CONST</FONT></B>(X) ((uint64_t) X##ULL)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UINT_64_FORMAT</FONT> <B><FONT COLOR="#BC8F8F">&quot;lld&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Hashtable. **/</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> struct_coucal {
+  <I><FONT COLOR="#B22222">/** Hashtable items. **/</FONT></I>
+  coucal_item *items;
+
+  <I><FONT COLOR="#B22222">/** Log-2 of the hashtable size. **/</FONT></I>
+  size_t lg_size;
+
+  <I><FONT COLOR="#B22222">/** Number of used items (&lt;= POW2(lg_size)). **/</FONT></I>
+  size_t used;
+
+  <I><FONT COLOR="#B22222">/** Stash area for collisions. **/</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> {
+    <I><FONT COLOR="#B22222">/** Stash items. **/</FONT></I>
+    coucal_item items[STASH_SIZE];
+
+    <I><FONT COLOR="#B22222">/** Stash size (&lt;= STASH_SIZE). **/</FONT></I>
+    size_t size;
+  } stash;
+
+  <I><FONT COLOR="#B22222">/** String pool. **/</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> {
+    <I><FONT COLOR="#B22222">/** String buffer. **/</FONT></I>
+    <B><FONT COLOR="#228B22">char</FONT></B> *buffer;
+    <I><FONT COLOR="#B22222">/** Buffer used size (high watermark). **/</FONT></I>
+    size_t size;
+    <I><FONT COLOR="#B22222">/** Buffer capacity. **/</FONT></I>
+    size_t capacity;
+    <I><FONT COLOR="#B22222">/** Used chars (== size if compacted). **/</FONT></I>
+    size_t used;
+  } pool;
+
+  <I><FONT COLOR="#B22222">/** Statistics **/</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> {
+    <I><FONT COLOR="#B22222">/** Highest stash.size seen. **/</FONT></I>
+    size_t max_stash_size;
+    <I><FONT COLOR="#B22222">/** Number of writes. **/</FONT></I>
+    size_t write_count;
+    <I><FONT COLOR="#B22222">/** Number of writes causing an add. **/</FONT></I>
+    size_t add_count;
+    <I><FONT COLOR="#B22222">/** Number of cuckoo moved during adds. **/</FONT></I>
+    size_t cuckoo_moved;
+    <I><FONT COLOR="#B22222">/** Number of items added to stash. **/</FONT></I>
+    size_t stash_added;
+    <I><FONT COLOR="#B22222">/** Number of hashtable rehash/expand operations. **/</FONT></I>
+    size_t rehash_count;
+    <I><FONT COLOR="#B22222">/** Number of pool compact operations. **/</FONT></I>
+    size_t pool_compact_count;
+    <I><FONT COLOR="#B22222">/** Number of pool realloc operations. **/</FONT></I>
+    size_t pool_realloc_count;
+  } stats;
+
+  <I><FONT COLOR="#B22222">/** Settings. **/</FONT></I>
+  <B><FONT COLOR="#228B22">struct</FONT></B> {
+    <I><FONT COLOR="#B22222">/** How to handle values (might be NULL). **/</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> {
+      <I><FONT COLOR="#B22222">/** free() **/</FONT></I>
+      t_coucal_value_freehandler free;
+      <I><FONT COLOR="#B22222">/** opaque argument **/</FONT></I>
+      coucal_opaque arg;
+    } value;
+
+    <I><FONT COLOR="#B22222">/** How to handle names (might be NULL). **/</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> {
+      <I><FONT COLOR="#B22222">/** strdup() **/</FONT></I>
+      t_coucal_duphandler dup;
+      <I><FONT COLOR="#B22222">/** free() **/</FONT></I>
+      t_coucal_key_freehandler free;
+      <I><FONT COLOR="#B22222">/** hash **/</FONT></I>
+      t_coucal_hasheshandler hash;
+      <I><FONT COLOR="#B22222">/** comparison **/</FONT></I>
+      t_coucal_cmphandler equals;
+      <I><FONT COLOR="#B22222">/** opaque argument **/</FONT></I>
+      coucal_opaque arg;
+    } key;
+
+    <I><FONT COLOR="#B22222">/** How to handle fatal assertions (might be NULL). **/</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> {
+      <I><FONT COLOR="#B22222">/** logging **/</FONT></I>
+      t_coucal_loghandler log;
+      <I><FONT COLOR="#B22222">/** abort() **/</FONT></I>
+      t_coucal_asserthandler fatal;
+      <I><FONT COLOR="#B22222">/** opaque argument **/</FONT></I>
+      coucal_opaque arg;
+      <I><FONT COLOR="#B22222">/** hashtable name for logging **/</FONT></I>
+      coucal_key_const name;
+    } error;
+
+    <I><FONT COLOR="#B22222">/** How to handle pretty-print (debug) (might be NULL). **/</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> {
+      <I><FONT COLOR="#B22222">/** key print() **/</FONT></I>
+      t_coucal_printkeyhandler key;
+      <I><FONT COLOR="#B22222">/** value print() **/</FONT></I>
+      t_coucal_printvaluehandler value;
+      <I><FONT COLOR="#B22222">/** opaque argument **/</FONT></I>
+      coucal_opaque arg;
+    } print;
+  } custom;
+};
+
+<I><FONT COLOR="#B22222">/* Assertion check. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">coucal_assert</FONT></B>(HASHTABLE, EXP) \
+  (void)( (EXP) || (coucal_assert_failed(HASHTABLE, #EXP, __FILE__, __LINE__), 0) )
+
+<I><FONT COLOR="#B22222">/* Compiler-specific. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__GNUC__</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">INTHASH_PRINTF_FUN</FONT></B>(fmt, arg) __attribute__ ((format (printf, fmt, arg)))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTHASH_INLINE</FONT> __inline__
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_MSC_VER</FONT>))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">INTHASH_PRINTF_FUN</FONT></B>(FMT, ARGS)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTHASH_INLINE</FONT> __inline
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">INTHASH_PRINTF_FUN</FONT></B>(FMT, ARGS)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTHASH_INLINE</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Logging level. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_log</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, coucal_loglevel level,
+                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, va_list args);
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(NAME, LEVEL) \
+static void NAME(const coucal hashtable, const char *format, ...) \
+  INTHASH_PRINTF_FUN(2, 3); \
+static void NAME(const coucal hashtable, const char *format, ...) { \
+  va_list args; \
+  va_start(args, format); \
+  coucal_log(hashtable, LEVEL, format, args); \
+  va_end(args); \
+}
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+<I><FONT COLOR="#B22222">/* Verbose. */</FONT></I>
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_crit, coucal_log_critical)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_warning, coucal_log_warning)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_info, coucal_log_info)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_debug, coucal_log_debug)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_trace, coucal_log_trace)
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> 0
+<I><FONT COLOR="#B22222">/* Info. */</FONT></I>
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_crit, coucal_log_critical)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_warning, coucal_log_warning)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_info, coucal_log_info)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">coucal_debug</FONT> coucal_log
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">coucal_trace</FONT> coucal_nolog
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<I><FONT COLOR="#B22222">/* No logging except stats and critical. */</FONT></I>
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_crit, coucal_log_critical)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_warning, coucal_log_warning)
+<B><FONT COLOR="#0000FF">DECLARE_LOG_FUNCTION</FONT></B>(coucal_info, coucal_log_info)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">coucal_debug</FONT> coucal_nolog
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">coucal_trace</FONT> coucal_nolog
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* 2**X */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">POW2</FONT></B>(X) ( (size_t) 1 &lt;&lt; (X) )
+
+<I><FONT COLOR="#B22222">/* the empty string for the string pool */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> the_empty_string[1] = { 0 };
+
+<I><FONT COLOR="#B22222">/* global assertion handler */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> t_coucal_asserthandler global_assert_handler = NULL;
+
+<I><FONT COLOR="#B22222">/* global assertion handler */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> t_coucal_loghandler global_log_handler = NULL;
+
+<I><FONT COLOR="#B22222">/* default assertion handler, if neither hashtable one nor global one 
+   were defined */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_fail</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* exp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* file, <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;assertion '%s' failed at %s:%d\n&quot;</FONT></B>, exp, file, line);
+  abort();
+}
+
+<I><FONT COLOR="#B22222">/* assert failed handler. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_assert_failed</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* exp, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* file, <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> name = coucal_get_name(hashtable);
+  coucal_crit(hashtable, <B><FONT COLOR="#BC8F8F">&quot;hashtable %s: %s failed at %s:%d&quot;</FONT></B>, 
+    name != NULL ? name : <B><FONT COLOR="#BC8F8F">&quot;&lt;unknown&gt;&quot;</FONT></B>, exp, file, line);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable != NULL &amp;&amp; hashtable-&gt;custom.error.fatal != NULL) {
+    hashtable-&gt;custom.error.fatal(hashtable-&gt;custom.error.arg, exp, file, line);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (global_assert_handler != NULL) {
+    global_assert_handler(hashtable, exp, file, line);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    coucal_fail(exp, file, line);
+  }
+  abort();
+}
+
+<I><FONT COLOR="#B22222">/* Logging */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_log</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, coucal_loglevel level,
+                       <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, va_list args) {
+  coucal_assert(hashtable, format != NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable != NULL &amp;&amp; hashtable-&gt;custom.error.log != NULL) {
+    hashtable-&gt;custom.error.log(hashtable-&gt;custom.error.arg, level, format, args);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (global_log_handler != NULL) {
+    global_log_handler(hashtable, level, format, args);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;[%p] &quot;</FONT></B>, (<B><FONT COLOR="#228B22">void</FONT></B>*) hashtable);
+    (<B><FONT COLOR="#228B22">void</FONT></B>) vfprintf(stderr, format, args);
+    putc(<B><FONT COLOR="#BC8F8F">'\n'</FONT></B>, stderr);
+  }
+}
+
+<I><FONT COLOR="#B22222">/* No logging (should be dropped by the compiler) */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_nolog</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, 
+                                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, ...)
+                                        INTHASH_PRINTF_FUN(2, 3);
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_nolog</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, 
+                                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *format, ...) {
+  (<B><FONT COLOR="#228B22">void</FONT></B>) hashtable;
+  (<B><FONT COLOR="#228B22">void</FONT></B>) format;
+}
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">coucal_get_name</FONT></B>(coucal hashtable) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;custom.error.name;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_log_stats</FONT></B>(coucal hashtable) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> name = coucal_get_name(hashtable);
+  coucal_info(hashtable, <B><FONT COLOR="#BC8F8F">&quot;hashtable %s%s%ssummary: &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;size=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; (lg2=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot;) &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;used=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;stash-size=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;pool-size=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;pool-capacity=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;pool-used=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;writes=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;(new=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot;) &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;moved=%&quot;</FONT></B>UINT_64_FORMAT <B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;stashed=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;max-stash-size=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;avg-moved=%g &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;rehash=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;pool-compact=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;pool-realloc=%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+               <B><FONT COLOR="#BC8F8F">&quot;memory=%&quot;</FONT></B>UINT_64_FORMAT,
+               name != NULL ? <B><FONT COLOR="#BC8F8F">&quot;\&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>,
+               name != NULL ? name : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>,
+               name != NULL ? <B><FONT COLOR="#BC8F8F">&quot;\&quot; &quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>,
+               (uint64_t) POW2(hashtable-&gt;lg_size),
+               (uint64_t) hashtable-&gt;lg_size,
+               (uint64_t) hashtable-&gt;used,
+               (uint64_t) hashtable-&gt;stash.size,
+               (uint64_t) hashtable-&gt;pool.size,
+               (uint64_t) hashtable-&gt;pool.capacity,
+               (uint64_t) hashtable-&gt;pool.used,
+               (uint64_t) hashtable-&gt;stats.write_count,
+               (uint64_t) hashtable-&gt;stats.add_count,
+               (uint64_t) hashtable-&gt;stats.cuckoo_moved,
+               (uint64_t) hashtable-&gt;stats.stash_added,
+               (uint64_t) hashtable-&gt;stats.max_stash_size,
+               (<B><FONT COLOR="#228B22">double</FONT></B>) hashtable-&gt;stats.cuckoo_moved / (<B><FONT COLOR="#228B22">double</FONT></B>) hashtable-&gt;stats.add_count,
+               (uint64_t) hashtable-&gt;stats.rehash_count,
+               (uint64_t) hashtable-&gt;stats.pool_compact_count,
+               (uint64_t) hashtable-&gt;stats.pool_realloc_count,
+               (uint64_t) coucal_memory_size(hashtable)
+               );
+}
+
+<I><FONT COLOR="#B22222">/* default hash function when key is a regular C-string */</FONT></I>
+coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_hash_data</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *data_, size_t size) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> data = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *) data_;
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MD5</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_OPENSSL_MD5</FONT>))
+  <I><FONT COLOR="#B22222">/* compute a regular MD5 and extract two 32-bit integers */</FONT></I>
+  HashMD5Context ctx;
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> md5digest[16];
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 32)
+    coucal_hashkeys mhashes[2];
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    coucal_hashkeys hashes;
+  } u;
+
+  <I><FONT COLOR="#B22222">/* compute MD5 */</FONT></I>
+  HashMD5Init(&amp;ctx, 0);
+  HashMD5Update(&amp;ctx, data, (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) size);
+  HashMD5Final(u.md5digest, &amp;ctx);
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 32)
+  <I><FONT COLOR="#B22222">/* mix mix mix */</FONT></I>
+  u.mhashes[0].hash1 ^= u.mhashes[1].hash1;
+  u.mhashes[0].hash2 ^= u.mhashes[1].hash2;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* do not keep identical hashes */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (u.hashes.hash1 == u.hashes.hash2) {
+    u.hashes.hash2 = ~u.hashes.hash2;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> u.hashes;
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_MURMUR</FONT>))
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    uint32_t result[4];
+    coucal_hashkeys hashes;
+  } u;
+  MurmurHash3_x86_128(data, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) size, 42, &amp;u.result);
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 32)
+  <I><FONT COLOR="#B22222">/* mix mix mix */</FONT></I>
+  u.result[0] ^= u.result[2];
+  u.result[1] ^= u.result[3];
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">/* do not keep identical hashes */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (u.hashes.hash1 == u.hashes.hash2) {
+    u.hashes.hash2 = ~u.hashes.hash2;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> u.hashes;
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HTS_INTHASH_USES_FNV1</FONT>))
+  <I><FONT COLOR="#B22222">/* compute two Fowler-Noll-Vo hashes (64-bit FNV-1 variant) ;
+     each 64-bit hash being XOR-folded into a single 32-bit hash. */</FONT></I>
+  size_t i;
+  coucal_hashkeys hashes;
+  uint64_t h1, h2;
+
+  <I><FONT COLOR="#B22222">/* FNV-1, 64-bit. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FNV1_PRIME</FONT> UINT_64_CONST(1099511628211)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FNV1_OFFSET_BASIS</FONT> UINT_64_CONST(14695981039346656037)
+
+  <I><FONT COLOR="#B22222">/* compute the hashes ; second variant is using xored data */</FONT></I>
+  h1 = FNV1_OFFSET_BASIS;
+  h2 = ~FNV1_OFFSET_BASIS;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; size ; i++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c1 = data[i];
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c2 = ~c1;
+    h1 = ( h1 * FNV1_PRIME ) ^ c1;
+    h2 = ( h2 * FNV1_PRIME ) ^ c2;
+  }
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 32)
+  <I><FONT COLOR="#B22222">/* XOR-folding to improve diffusion (Wikipedia) */</FONT></I>
+  hashes.hash1 = ( (uint32_t) h1 ^ (uint32_t) ( h1 &gt;&gt; 32 ) );
+  hashes.hash2 = ( (uint32_t) h2 ^ (uint32_t) ( h2 &gt;&gt; 32 ) );
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 64)
+  <I><FONT COLOR="#B22222">/* Direct hashes */</FONT></I>
+  hashes.hash1 = h1;
+  hashes.hash2 = h2;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Unsupported COUCAL_HASH_SIZE&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FNV1_PRIME</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FNV1_OFFSET_BASIS</FONT>
+
+  <I><FONT COLOR="#B22222">/* do not keep identical hashes */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashes.hash1 == hashes.hash2) {
+    hashes.hash2 = ~hashes.hash2;
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashes;
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Undefined hashing method&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+INTHASH_INLINE coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_hash_string</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_hash_data(name, strlen(name));
+}
+
+INTHASH_INLINE coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_calc_hashes</FONT></B>(coucal hashtable, 
+                                                  coucal_key_const value) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;custom.key.hash == NULL 
+    ? coucal_hash_string(value)
+    : hashtable-&gt;custom.key.hash(hashtable-&gt;custom.key.arg, value);
+}
+
+<I><FONT COLOR="#B22222">/* position 'pos' is free ? */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_is_free</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable, size_t pos) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;items[pos].name == NULL;
+}
+
+<I><FONT COLOR="#B22222">/* compare two keys ; by default using strcmp() */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_equals</FONT></B>(coucal hashtable,
+                                        coucal_key_const a,
+                                        coucal_key_const b) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;custom.key.equals == NULL
+    ? strcmp((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) a, (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) b) == 0
+    : hashtable-&gt;custom.key.equals(hashtable-&gt;custom.key.arg, a, b);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_matches_</FONT></B>(coucal hashtable,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> item,
+                                          coucal_key_const name,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys *hashes) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> item-&gt;name != NULL
+    &amp;&amp; item-&gt;hashes.hash1 == hashes-&gt;hash1
+    &amp;&amp; item-&gt;hashes.hash2 == hashes-&gt;hash2
+    &amp;&amp; coucal_equals(hashtable, item-&gt;name, name);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_matches</FONT></B>(coucal hashtable, size_t pos,
+                                         coucal_key_const name,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys *hashes) {
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> item = &amp;hashtable-&gt;items[pos];
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_matches_(hashtable, item, name, hashes);
+}
+
+<I><FONT COLOR="#B22222">/* compact string pool ; does not necessarily change the capacity */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_compact_pool</FONT></B>(coucal hashtable, size_t capacity) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t hash_size = POW2(hashtable-&gt;lg_size);
+  size_t i;
+  <B><FONT COLOR="#228B22">char</FONT></B>*<B><FONT COLOR="#228B22">const</FONT></B> old_pool = hashtable-&gt;pool.buffer;
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t old_size = hashtable-&gt;pool.size;
+  size_t count = 0;
+
+  <I><FONT COLOR="#B22222">/* we manage the string pool */</FONT></I>
+  coucal_assert(hashtable, hashtable-&gt;custom.key.dup == NULL);
+
+  <I><FONT COLOR="#B22222">/* statistics */</FONT></I>
+  hashtable-&gt;stats.pool_compact_count++;
+
+  <I><FONT COLOR="#B22222">/* change capacity now */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.capacity != capacity) {
+    hashtable-&gt;pool.capacity = capacity;
+  }
+
+  <I><FONT COLOR="#B22222">/* realloc */</FONT></I>
+  hashtable-&gt;pool.buffer = malloc(hashtable-&gt;pool.capacity);
+  hashtable-&gt;pool.size = 0;
+  hashtable-&gt;pool.used = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.buffer == NULL) {
+    coucal_debug(hashtable,
+      <B><FONT COLOR="#BC8F8F">&quot;** hashtable string pool compaction error: could not allocate &quot;</FONT></B>
+      <B><FONT COLOR="#BC8F8F">&quot;%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes&quot;</FONT></B>, 
+      (uint64_t) hashtable-&gt;pool.capacity);
+    coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable string pool compaction error&quot;</FONT></B>);
+  }
+
+  <I><FONT COLOR="#B22222">/* relocate a string on a different pool */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RELOCATE_STRING</FONT></B>(S) do {                             \
+    if (S != NULL &amp;&amp; S != the_empty_string) {               \
+      const char *const src = (S);                          \
+      char *const dest =                                    \
+        &amp;hashtable-&gt;pool.buffer[hashtable-&gt;pool.size];      \
+      const size_t capacity = hashtable-&gt;pool.capacity;     \
+      char *const max_dest =                                \
+        &amp;hashtable-&gt;pool.buffer[capacity];                  \
+      <I><FONT COLOR="#B22222">/* copy string */</FONT></I>                                     \
+      coucal_assert(hashtable, dest &lt; max_dest);           \
+      dest[0] = src[0];                                     \
+      {                                                     \
+        size_t i;                                           \
+        for(i = 1 ; src[i - 1] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> ; i++) {             \
+          coucal_assert(hashtable, &amp;dest[i] &lt; max_dest);   \
+          dest[i] = src[i];                                 \
+        }                                                   \
+        <I><FONT COLOR="#B22222">/* update pool size */</FONT></I>                              \
+        hashtable-&gt;pool.size += i;                          \
+        coucal_assert(hashtable,                           \
+                       hashtable-&gt;pool.size &lt;= capacity);   \
+      }                                                     \
+      <I><FONT COLOR="#B22222">/* update source */</FONT></I>                                   \
+      S = dest;                                             \
+      count++;                                              \
+    }                                                       \
+} while(0)
+
+  <I><FONT COLOR="#B22222">/* relocate */</FONT></I>
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hash_size ; i++) {
+    RELOCATE_STRING(hashtable-&gt;items[i].name);
+  }
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+    RELOCATE_STRING(hashtable-&gt;stash.items[i].name);
+  }
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RELOCATE_STRING</FONT>
+
+  <I><FONT COLOR="#B22222">/* compacted (used chars == current size) */</FONT></I>
+  hashtable-&gt;pool.used = hashtable-&gt;pool.size;
+
+  <I><FONT COLOR="#B22222">/* wipe previous pool */</FONT></I>
+  free(old_pool);
+
+  coucal_debug(hashtable,
+                <B><FONT COLOR="#BC8F8F">&quot;compacted string pool for %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; strings: &quot;</FONT></B>
+                <B><FONT COLOR="#BC8F8F">&quot;%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes =&gt; %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes&quot;</FONT></B>,
+                (uint64_t) count, (uint64_t) old_size,
+                (uint64_t) hashtable-&gt;pool.size);
+}
+
+<I><FONT COLOR="#B22222">/* realloc (expand) string pool ; does not change the compacity */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_realloc_pool</FONT></B>(coucal hashtable, size_t capacity) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t hash_size = POW2(hashtable-&gt;lg_size);
+  <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> oldbase = hashtable-&gt;pool.buffer;
+  size_t count = 0;
+
+  <I><FONT COLOR="#B22222">/* we manage the string pool */</FONT></I>
+  coucal_assert(hashtable, hashtable-&gt;custom.key.dup == NULL);
+
+  <I><FONT COLOR="#B22222">/* compact instead ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.used &lt; ( hashtable-&gt;pool.size*3 ) / 4) {
+    coucal_compact_pool(hashtable, capacity);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ;
+  }
+
+  <I><FONT COLOR="#B22222">/* statistics */</FONT></I>
+  hashtable-&gt;stats.pool_realloc_count++;
+
+  <I><FONT COLOR="#B22222">/* change capacity now */</FONT></I>
+  hashtable-&gt;pool.capacity = capacity;
+
+  <I><FONT COLOR="#B22222">/* realloc */</FONT></I>
+  hashtable-&gt;pool.buffer = realloc(hashtable-&gt;pool.buffer,
+    hashtable-&gt;pool.capacity);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.buffer == NULL) {
+    coucal_crit(hashtable,
+      <B><FONT COLOR="#BC8F8F">&quot;** hashtable string pool allocation error: could not allocate &quot;</FONT></B>
+      <B><FONT COLOR="#BC8F8F">&quot;%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes&quot;</FONT></B>, 
+      (uint64_t) hashtable-&gt;pool.capacity);
+    coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable string pool allocation error&quot;</FONT></B>);
+  }
+
+  <I><FONT COLOR="#B22222">/* recompute string address */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">RECOMPUTE_STRING</FONT></B>(S) do {                                     \
+    if (S != NULL &amp;&amp; S != the_empty_string) {                        \
+      const size_t offset = (const char*) (S) - oldbase;             \
+      coucal_assert(hashtable, offset &lt; hashtable-&gt;pool.capacity);  \
+      S = &amp;hashtable-&gt;pool.buffer[offset];                           \
+      count++;                                                       \
+    }                                                                \
+} while(0)
+
+  <I><FONT COLOR="#B22222">/* recompute string addresses */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.buffer != oldbase) {
+    size_t i;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hash_size ; i++) {
+      RECOMPUTE_STRING(hashtable-&gt;items[i].name);
+    }
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+      RECOMPUTE_STRING(hashtable-&gt;stash.items[i].name);
+    }
+  }
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">RECOMPUTE_STRING</FONT>
+
+  coucal_debug(hashtable, <B><FONT COLOR="#BC8F8F">&quot;reallocated string pool for &quot;</FONT></B>
+                <B><FONT COLOR="#BC8F8F">&quot;%&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; strings: %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes&quot;</FONT></B>,
+                (uint64_t) count, (uint64_t) hashtable-&gt;pool.capacity);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> coucal_key <B><FONT COLOR="#0000FF">coucal_dup_name_internal</FONT></B>(coucal hashtable,
+                                           coucal_key_const name_) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> name = (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) name_;
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t len = strlen(name) + 1;
+  <B><FONT COLOR="#228B22">char</FONT></B> *s;
+
+  <I><FONT COLOR="#B22222">/* the pool does not allow empty strings for safety purpose ; handhe that
+    (keys are being emptied when free'd to detect duplicate free) */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (len == 1) {
+    coucal_assert(hashtable, the_empty_string[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> the_empty_string;
+  }
+
+  <I><FONT COLOR="#B22222">/* expand pool capacity */</FONT></I>
+  coucal_assert(hashtable, hashtable-&gt;pool.size &lt;= hashtable-&gt;pool.capacity);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.capacity - hashtable-&gt;pool.size &lt; len) {
+    size_t capacity;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(capacity = MIN_POOL_CAPACITY ; capacity &lt; hashtable-&gt;pool.size + len
+      ; capacity &lt;&lt;= 1) ;
+    coucal_assert(hashtable, hashtable-&gt;pool.size &lt; capacity);
+    coucal_realloc_pool(hashtable, capacity);
+  }
+
+  <I><FONT COLOR="#B22222">/* copy */</FONT></I>
+  coucal_assert(hashtable, len + hashtable-&gt;pool.size &lt;= hashtable-&gt;pool.capacity);
+  s = &amp;hashtable-&gt;pool.buffer[hashtable-&gt;pool.size];
+  memcpy(s, name, len);
+  hashtable-&gt;pool.size += len;
+  hashtable-&gt;pool.used += len;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+
+<I><FONT COLOR="#B22222">/* duplicate a key. default is to use the internal pool. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE coucal_key <B><FONT COLOR="#0000FF">coucal_dup_name</FONT></B>(coucal hashtable,
+                                                 coucal_key_const name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;custom.key.dup == NULL
+    ? coucal_dup_name_internal(hashtable, name)
+    : hashtable-&gt;custom.key.dup(hashtable-&gt;custom.key.arg, name);
+}
+
+<I><FONT COLOR="#B22222">/* internal pool free handler.
+   note: pointer must have been kicked from the pool first */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_free_key_internal</FONT></B>(coucal hashtable, coucal_key name_) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> name = (<B><FONT COLOR="#228B22">char</FONT></B>*) name_;
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t len = strlen(name) + 1;
+
+  <I><FONT COLOR="#B22222">/* see coucal_dup_name_internal() handling */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (len == 1 &amp;&amp; name == the_empty_string) {
+    coucal_assert(hashtable, the_empty_string[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ;
+  }
+
+  coucal_assert(hashtable, *name != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> || !<B><FONT COLOR="#BC8F8F">&quot;duplicate or bad string pool release&quot;</FONT></B>);
+  hashtable-&gt;pool.used -= len;
+  *name = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; <I><FONT COLOR="#B22222">/* the string is now invalidated */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* compact the pool is too many holes  */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.used &lt; hashtable-&gt;pool.size / 2) {
+    size_t capacity = hashtable-&gt;pool.capacity;
+    <I><FONT COLOR="#B22222">/* compact and shrink */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;pool.used &lt; capacity / 4) {
+      capacity /= 2;
+    }
+    coucal_assert(hashtable, hashtable-&gt;pool.used &lt; capacity);
+    coucal_compact_pool(hashtable, capacity);
+  }
+}
+
+<I><FONT COLOR="#B22222">/* free a key. default is to use the internal pool.
+   note: pointer must have been kicked from the pool first */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_free_key</FONT></B>(coucal hashtable, coucal_key name) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;custom.key.free == NULL) {
+    coucal_free_key_internal(hashtable, name);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    hashtable-&gt;custom.key.free(hashtable-&gt;custom.key.arg, name);
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE size_t <B><FONT COLOR="#0000FF">coucal_hash_to_pos_</FONT></B>(size_t lg_size,
+                                                 coucal_hashkey hash) {
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkey mask = POW2(lg_size) - 1;
+  <B><FONT COLOR="#A020F0">return</FONT></B> hash &amp; mask;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE size_t <B><FONT COLOR="#0000FF">coucal_hash_to_pos</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> coucal hashtable,
+                                                coucal_hashkey hash) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_hash_to_pos_(hashtable-&gt;lg_size, hash);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read_pvoid</FONT></B>(coucal hashtable, coucal_key_const name, <B><FONT COLOR="#228B22">void</FONT></B> **pvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ret =
+    coucal_read_value(hashtable, name, (pvalue != NULL) ? &amp;value : NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pvalue != NULL)
+    *pvalue = value.ptr;
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B>* <B><FONT COLOR="#0000FF">coucal_get_pvoid</FONT></B>(coucal hashtable, coucal_key_const name) {
+  <B><FONT COLOR="#228B22">void</FONT></B> *value;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_read_pvoid(hashtable, name, &amp;value)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> value;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write_pvoid</FONT></B>(coucal hashtable, coucal_key_const name, <B><FONT COLOR="#228B22">void</FONT></B> *pvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+
+  value.ptr = pvalue;
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_write_value(hashtable, name, value);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_add_pvoid</FONT></B>(coucal hashtable, coucal_key_const name, <B><FONT COLOR="#228B22">void</FONT></B> *pvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+
+  value.ptr = pvalue;
+  coucal_write_value(hashtable, name, value);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write</FONT></B>(coucal hashtable, coucal_key_const name, intptr_t intvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+
+  value.intg = intvalue;
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_write_value(hashtable, name, value);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_default_free_handler</FONT></B>(coucal_opaque arg,
+                                        coucal_value value) {
+  (<B><FONT COLOR="#228B22">void</FONT></B>) arg;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (value.ptr != NULL)
+    free(value.ptr);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_del_value_</FONT></B>(coucal hashtable, coucal_value *pvalue) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pvalue-&gt;ptr != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;custom.value.free != NULL)
+      hashtable-&gt;custom.value.free(hashtable-&gt;custom.value.arg, *pvalue);
+    pvalue-&gt;ptr = NULL;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_del_value</FONT></B>(coucal hashtable, size_t pos) {
+  coucal_del_value_(hashtable, &amp;hashtable-&gt;items[pos].value);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_del_name</FONT></B>(coucal hashtable, coucal_item *item) {
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys nullHash = INTHASH_KEYS_NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> name = (<B><FONT COLOR="#228B22">char</FONT></B>*) item-&gt;name;
+  item-&gt;name = NULL;  <I><FONT COLOR="#B22222">/* there must be no reference remaining */</FONT></I>
+  item-&gt;hashes = nullHash;
+  <I><FONT COLOR="#B22222">/* free after detach (we may compact the pool) */</FONT></I>
+  coucal_free_key(hashtable, name);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_del_item</FONT></B>(coucal hashtable, coucal_item *pitem) {
+  coucal_del_value_(hashtable, &amp;pitem-&gt;value);
+  coucal_del_name(hashtable, pitem);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_add_item_</FONT></B>(coucal hashtable, coucal_item item);
+
+<I><FONT COLOR="#B22222">/* Write (add or replace) a value in the hashtable. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write_value_</FONT></B>(coucal hashtable, coucal_key_const name,
+                               coucal_value value) {
+  coucal_item item;
+  size_t pos;
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys hashes = coucal_calc_hashes(hashtable, name);
+
+  <I><FONT COLOR="#B22222">/* Statistics */</FONT></I>
+  hashtable-&gt;stats.write_count++;
+
+  <I><FONT COLOR="#B22222">/* replace at position 1 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes.hash1);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, &amp;hashes)) {
+    coucal_del_value(hashtable, pos);
+    hashtable-&gt;items[pos].value = value;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;  <I><FONT COLOR="#B22222">/* replaced */</FONT></I>
+  }
+
+  <I><FONT COLOR="#B22222">/* replace at position 2 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes.hash2);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, &amp;hashes)) {
+    coucal_del_value(hashtable, pos);
+    hashtable-&gt;items[pos].value = value;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;  <I><FONT COLOR="#B22222">/* replaced */</FONT></I>
+  }
+
+  <I><FONT COLOR="#B22222">/* replace in the stash ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size != 0) {
+    size_t i;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches_(hashtable, &amp;hashtable-&gt;stash.items[i], name, 
+                           &amp;hashes)) {
+        coucal_del_value_(hashtable, &amp;hashtable-&gt;stash.items[i].value);
+        hashtable-&gt;stash.items[i].value = value;
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;  <I><FONT COLOR="#B22222">/* replaced */</FONT></I>
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Statistics */</FONT></I>
+  hashtable-&gt;stats.add_count++;
+
+  <I><FONT COLOR="#B22222">/* otherwise we need to create a new item */</FONT></I>
+  item.name = coucal_dup_name(hashtable, name);
+  item.value = value;
+  item.hashes = hashes;
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_add_item_(hashtable, item);
+}
+
+<I><FONT COLOR="#B22222">/* Return the string representation of a key */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">coucal_print_key</FONT></B>(coucal hashtable,
+                                    coucal_key_const name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;custom.print.key != NULL
+    ? hashtable-&gt;custom.print.key(hashtable-&gt;custom.print.arg, name)
+    : (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*) name;
+}
+
+<I><FONT COLOR="#B22222">/* Add a new item in the hashtable. The item SHALL NOT be already present. */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_add_item_</FONT></B>(coucal hashtable, coucal_item item) {
+  coucal_hashkey cuckoo_hash, initial_cuckoo_hash;
+  size_t loops;
+  size_t pos;
+
+  <I><FONT COLOR="#B22222">/* place at free position 1 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, item.hashes.hash1);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_is_free(hashtable, pos)) {
+    hashtable-&gt;items[pos] = item;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1; <I><FONT COLOR="#B22222">/* added */</FONT></I>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <I><FONT COLOR="#B22222">/* place at free position 2 ? */</FONT></I>
+    pos = coucal_hash_to_pos(hashtable, item.hashes.hash2);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_is_free(hashtable, pos)) {
+      hashtable-&gt;items[pos] = item;
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1; <I><FONT COLOR="#B22222">/* added */</FONT></I>
+    }
+    <I><FONT COLOR="#B22222">/* prepare cuckoo ; let's take position 1 */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> {
+      cuckoo_hash = initial_cuckoo_hash = item.hashes.hash1;
+      coucal_trace(hashtable,
+                    <B><FONT COLOR="#BC8F8F">&quot;debug:collision with '%s' at %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; (%x)&quot;</FONT></B>, 
+                     coucal_print_key(hashtable, item.name),
+                     (uint64_t) pos, cuckoo_hash);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* put 'item' in place with hash 'cuckoo_hash' */</FONT></I>
+  <B><FONT COLOR="#A020F0">for</FONT></B>(loops = POW2(hashtable-&gt;lg_size) ; loops != 0 ; --loops) {
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t pos = coucal_hash_to_pos(hashtable, cuckoo_hash);
+
+    coucal_trace(hashtable,
+                  <B><FONT COLOR="#BC8F8F">&quot;\tdebug:placing cuckoo '%s' at %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; (%x)&quot;</FONT></B>, 
+                  coucal_print_key(hashtable, item.name),
+                  (uint64_t) pos, cuckoo_hash);
+
+    <I><FONT COLOR="#B22222">/* place at alternate free position ? */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_is_free(hashtable, pos)) {
+      coucal_trace(hashtable, <B><FONT COLOR="#BC8F8F">&quot;debug:free position&quot;</FONT></B>);
+      hashtable-&gt;items[pos] = item;
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1; <I><FONT COLOR="#B22222">/* added */</FONT></I>
+    }
+    <I><FONT COLOR="#B22222">/* then cuckoo's place it is */</FONT></I>
+    <B><FONT COLOR="#A020F0">else</FONT></B> {
+      <I><FONT COLOR="#B22222">/* replace */</FONT></I>
+      <B><FONT COLOR="#228B22">const</FONT></B> coucal_item backup_item = hashtable-&gt;items[pos];
+      hashtable-&gt;items[pos] = item;
+
+      <I><FONT COLOR="#B22222">/* statistics */</FONT></I>
+      hashtable-&gt;stats.cuckoo_moved++;
+
+      <I><FONT COLOR="#B22222">/* take care of new lost item */</FONT></I>
+      item = backup_item;
+
+      <I><FONT COLOR="#B22222">/* we just kicked this item from its position 1 */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (pos == coucal_hash_to_pos(hashtable, item.hashes.hash1)) {
+        <I><FONT COLOR="#B22222">/* then place it on position 2 on next run */</FONT></I>
+        coucal_trace(hashtable, <B><FONT COLOR="#BC8F8F">&quot;\tdebug:position 1&quot;</FONT></B>);
+        cuckoo_hash = item.hashes.hash2;
+      }
+      <I><FONT COLOR="#B22222">/* we just kicked this item from its position 2 */</FONT></I>
+      <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (pos == coucal_hash_to_pos(hashtable, item.hashes.hash2)) {
+        <I><FONT COLOR="#B22222">/* then place it on position 1 on next run */</FONT></I>
+        coucal_trace(hashtable, <B><FONT COLOR="#BC8F8F">&quot;\tdebug:position 2&quot;</FONT></B>);
+        cuckoo_hash = item.hashes.hash1;
+      }
+      <B><FONT COLOR="#A020F0">else</FONT></B> {
+        coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable internal error: unexpected position&quot;</FONT></B>);
+      }
+
+      <I><FONT COLOR="#B22222">/* we are looping (back to same hash) */</FONT></I>
+      <I><FONT COLOR="#B22222">/* TODO FIXME: we should actually check the positions */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cuckoo_hash == initial_cuckoo_hash) {
+        <I><FONT COLOR="#B22222">/* emergency stash */</FONT></I>
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* emergency stashing for the rare cases of collisions */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size &lt; STASH_SIZE) {
+    hashtable-&gt;stash.items[hashtable-&gt;stash.size] = item;
+    hashtable-&gt;stash.size++;
+    <I><FONT COLOR="#B22222">/* for statistics */</FONT></I>
+    hashtable-&gt;stats.stash_added++;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size &gt; hashtable-&gt;stats.max_stash_size) {
+      hashtable-&gt;stats.max_stash_size = hashtable-&gt;stash.size;
+    }
+    coucal_debug(hashtable, <B><FONT COLOR="#BC8F8F">&quot;used stash because of collision (%d entries)&quot;</FONT></B>,
+                  (<B><FONT COLOR="#228B22">int</FONT></B>) hashtable-&gt;stash.size);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1; <I><FONT COLOR="#B22222">/* added */</FONT></I>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <I><FONT COLOR="#B22222">/* debugging */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;custom.print.key != NULL 
+      &amp;&amp; hashtable-&gt;custom.print.value != NULL) {
+      size_t i;
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+        coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> item = &amp;hashtable-&gt;stash.items[i];
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t pos1 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash1);
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t pos2 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash2);
+        coucal_crit(hashtable, 
+          <B><FONT COLOR="#BC8F8F">&quot;stash[%u]: key='%s' value='%s' pos1=%d pos2=%d hash1=%04x hash2=%04x&quot;</FONT></B>,
+          (<B><FONT COLOR="#228B22">int</FONT></B>) i,
+          hashtable-&gt;custom.print.key(hashtable-&gt;custom.print.arg, item-&gt;name),
+          hashtable-&gt;custom.print.value(hashtable-&gt;custom.print.arg, item-&gt;value),
+          (<B><FONT COLOR="#228B22">int</FONT></B>) pos1, (<B><FONT COLOR="#228B22">int</FONT></B>) pos2,
+          item-&gt;hashes.hash1, item-&gt;hashes.hash2);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_is_free(hashtable, pos1)) {
+          coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> item = &amp;hashtable-&gt;items[pos1];
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t pos1 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash1);
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t pos2 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash2);
+          coucal_crit(hashtable, 
+            <B><FONT COLOR="#BC8F8F">&quot;\t.. collisionning with key='%s' value='%s' pos1=%d pos2=%d hash1=%04x hash2=%04x&quot;</FONT></B>,
+            hashtable-&gt;custom.print.key(hashtable-&gt;custom.print.arg, item-&gt;name),
+            hashtable-&gt;custom.print.value(hashtable-&gt;custom.print.arg, item-&gt;value),
+            (<B><FONT COLOR="#228B22">int</FONT></B>) pos1, (<B><FONT COLOR="#228B22">int</FONT></B>) pos2,
+            item-&gt;hashes.hash1, item-&gt;hashes.hash2);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          coucal_crit(hashtable, <B><FONT COLOR="#BC8F8F">&quot;\t.. collisionning with a free slot (%d)!&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) pos1);
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_is_free(hashtable, pos2)) {
+          coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> item = &amp;hashtable-&gt;items[pos2];
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t pos1 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash1);
+          <B><FONT COLOR="#228B22">const</FONT></B> size_t pos2 = coucal_hash_to_pos(hashtable, item-&gt;hashes.hash2);
+          coucal_crit(hashtable, 
+            <B><FONT COLOR="#BC8F8F">&quot;\t.. collisionning with key='%s' value='%s' pos1=%d pos2=%d hash1=%04x hash2=%04x&quot;</FONT></B>,
+            hashtable-&gt;custom.print.key(hashtable-&gt;custom.print.arg, item-&gt;name),
+            hashtable-&gt;custom.print.value(hashtable-&gt;custom.print.arg, item-&gt;value),
+            (<B><FONT COLOR="#228B22">int</FONT></B>) pos1, (<B><FONT COLOR="#228B22">int</FONT></B>) pos2,
+            item-&gt;hashes.hash1, item-&gt;hashes.hash2);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          coucal_crit(hashtable, <B><FONT COLOR="#BC8F8F">&quot;\t.. collisionning with a free slot (%d)!&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) pos2);
+        }
+      }
+    }
+
+    <I><FONT COLOR="#B22222">/* we are doomed. hopefully the probability is lower than being killed
+       by a wandering radioactive monkey */</FONT></I>
+    coucal_log_stats(hashtable);
+    coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable internal error: cuckoo/stash collision&quot;</FONT></B>);
+
+    <I><FONT COLOR="#B22222">/* not reachable code */</FONT></I>
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_is_acceptable_pow2</FONT></B>(size_t lg_size) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> lg_size &lt;= COUCAL_HASH_SIZE &amp;&amp; lg_size &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(size_t)*8;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write_value</FONT></B>(coucal hashtable, coucal_key_const name,
+                       coucal_value_const value) {
+  <I><FONT COLOR="#B22222">/* replace of add item */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ret = coucal_write_value_(hashtable, name, value);
+
+  <I><FONT COLOR="#B22222">/* added ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ret) {
+    <I><FONT COLOR="#B22222">/* size of half of the table */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t half_size = POW2(hashtable-&gt;lg_size - 1);
+
+    <I><FONT COLOR="#B22222">/* size of half of the stash */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t half_stash_size = STASH_SIZE / 2;
+
+    <I><FONT COLOR="#B22222">/* item was added: increase count */</FONT></I>
+    hashtable-&gt;used++;
+
+    <I><FONT COLOR="#B22222">/* table is more than half-full, or stash is more than half-full */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;used &gt;= half_size
+      || hashtable-&gt;stash.size &gt;= half_stash_size) {
+      size_t i;
+
+      <I><FONT COLOR="#B22222">/* size before  */</FONT></I>
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t prev_power = hashtable-&gt;lg_size;
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t prev_size = half_size * 2;
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t prev_alloc_size = prev_size*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(coucal_item);
+
+      <I><FONT COLOR="#B22222">/* size after doubling it */</FONT></I>
+      <B><FONT COLOR="#228B22">const</FONT></B> size_t alloc_size = prev_alloc_size * 2;
+
+      <I><FONT COLOR="#B22222">/* log stash issues */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size &gt;= half_stash_size 
+        &amp;&amp; half_size &gt; POW2(16) 
+        &amp;&amp; hashtable-&gt;used &lt; half_size / 4) {
+          coucal_warning(hashtable, 
+            <B><FONT COLOR="#BC8F8F">&quot;stash size still full despite %&quot;</FONT></B>UINT_64_FORMAT
+            <B><FONT COLOR="#BC8F8F">&quot; elements used out of %&quot;</FONT></B>UINT_64_FORMAT,
+            (uint64_t) hashtable-&gt;used, (uint64_t) half_size*2);
+      }
+
+      <I><FONT COLOR="#B22222">/* statistics */</FONT></I>
+      hashtable-&gt;stats.rehash_count++;
+
+      <I><FONT COLOR="#B22222">/* realloc */</FONT></I>
+      hashtable-&gt;lg_size++;
+      coucal_assert(hashtable, coucal_is_acceptable_pow2(hashtable-&gt;lg_size));
+      hashtable-&gt;items = 
+        (coucal_item *) realloc(hashtable-&gt;items, alloc_size);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;items == NULL) {
+        coucal_crit(hashtable,
+          <B><FONT COLOR="#BC8F8F">&quot;** hashtable allocation error: &quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;could not allocate %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; bytes&quot;</FONT></B>, 
+          (uint64_t) alloc_size);
+        coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable allocation error&quot;</FONT></B>);
+      }
+
+      <I><FONT COLOR="#B22222">/* clear upper half */</FONT></I>
+      memset(&amp;hashtable-&gt;items[prev_size], 0, prev_alloc_size);
+
+      <I><FONT COLOR="#B22222">/* relocate lower half items when needed */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; prev_size ; i++) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_is_free(hashtable, i)) {
+          <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys *<B><FONT COLOR="#228B22">const</FONT></B> hashes = &amp;hashtable-&gt;items[i].hashes;
+
+          <I><FONT COLOR="#B22222">/* currently at old position 1 */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_hash_to_pos_(prev_power, hashes-&gt;hash1) == i) {
+            <B><FONT COLOR="#228B22">const</FONT></B> size_t pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash1);
+            <I><FONT COLOR="#B22222">/* no more the expected position */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pos != i) {
+              coucal_assert(hashtable, pos &gt;= prev_size);
+              hashtable-&gt;items[pos] = hashtable-&gt;items[i];
+              memset(&amp;hashtable-&gt;items[i], 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hashtable-&gt;items[i]));
+            }
+          }
+          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_hash_to_pos_(prev_power, hashes-&gt;hash2) == i) {
+            <B><FONT COLOR="#228B22">const</FONT></B> size_t pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash2);
+            <I><FONT COLOR="#B22222">/* no more the expected position */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pos != i) {
+              coucal_assert(hashtable, pos &gt;= prev_size);
+              hashtable-&gt;items[pos] = hashtable-&gt;items[i];
+              memset(&amp;hashtable-&gt;items[i], 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hashtable-&gt;items[i]));
+            }
+          }
+          <B><FONT COLOR="#A020F0">else</FONT></B> {
+            coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable unexpected internal error (bad position)&quot;</FONT></B>);
+          }
+        }
+      }
+
+      coucal_debug(hashtable,
+                    <B><FONT COLOR="#BC8F8F">&quot;expanded hashtable to %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; elements&quot;</FONT></B>,
+                    (uint64_t) POW2(hashtable-&gt;lg_size));
+
+      <I><FONT COLOR="#B22222">/* attempt to merge the stash if present */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size != 0) {
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t old_size = hashtable-&gt;stash.size;
+        size_t i;
+
+        <I><FONT COLOR="#B22222">/* backup stash and reset it */</FONT></I>
+        coucal_item stash[STASH_SIZE];
+        memcpy(&amp;stash, hashtable-&gt;stash.items, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(hashtable-&gt;stash.items));
+        hashtable-&gt;stash.size = 0;
+
+        <I><FONT COLOR="#B22222">/* insert all items */</FONT></I>
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; old_size ; i++) {
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ret = coucal_add_item_(hashtable, stash[i]);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (ret == 0) {
+            coucal_assert(hashtable, ! <B><FONT COLOR="#BC8F8F">&quot;hashtable duplicate key when merging the stash&quot;</FONT></B>);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* logging */</FONT></I>
+        coucal_assert(hashtable, hashtable-&gt;stash.size &lt;= old_size);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size &lt; old_size) {
+          coucal_debug(hashtable, <B><FONT COLOR="#BC8F8F">&quot;reduced stash size from %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>
+                        <B><FONT COLOR="#BC8F8F">&quot;to %&quot;</FONT></B>UINT_64_FORMAT,
+                        (uint64_t) old_size, (uint64_t) hashtable-&gt;stash.size);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          coucal_trace(hashtable, <B><FONT COLOR="#BC8F8F">&quot;stash has still %&quot;</FONT></B>UINT_64_FORMAT<B><FONT COLOR="#BC8F8F">&quot; elements&quot;</FONT></B>,
+                        (uint64_t) hashtable-&gt;stash.size);
+        }
+      }
+
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_add</FONT></B>(coucal hashtable, coucal_key_const name, intptr_t intvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+
+  memset(&amp;value, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(value));
+  value.intg = intvalue;
+  coucal_write_value(hashtable, name, value);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read</FONT></B>(coucal hashtable, coucal_key_const name, intptr_t * intvalue) {
+  coucal_value value = INTHASH_VALUE_NULL;
+  <B><FONT COLOR="#228B22">int</FONT></B> ret =
+    coucal_read_value(hashtable, name, (intvalue != NULL) ? &amp;value : NULL);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (intvalue != NULL)
+    *intvalue = value.intg;
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+coucal_value* <B><FONT COLOR="#0000FF">coucal_fetch_value_hashes</FONT></B>(coucal hashtable,
+                                        coucal_key_const name,
+                                        <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys *hashes) {
+  size_t pos;
+
+  <I><FONT COLOR="#B22222">/* found at position 1 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash1);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, hashes)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> &amp;hashtable-&gt;items[pos].value;
+  }
+
+  <I><FONT COLOR="#B22222">/* found at position 2 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash2);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, hashes)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> &amp;hashtable-&gt;items[pos].value;
+  }
+
+  <I><FONT COLOR="#B22222">/* find in stash ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size != 0) {
+    size_t i;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches_(hashtable, &amp;hashtable-&gt;stash.items[i], name,
+                          hashes)) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> &amp;hashtable-&gt;stash.items[i].value;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* not found */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+INTHASH_INLINE coucal_value* <B><FONT COLOR="#0000FF">coucal_fetch_value</FONT></B>(coucal hashtable,
+                                                coucal_key_const name) {
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys hashes = coucal_calc_hashes(hashtable, name);
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_fetch_value_hashes(hashtable, name, &amp;hashes);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read_value</FONT></B>(coucal hashtable, coucal_key_const name,
+                      coucal_value * pvalue) {
+  coucal_value* <B><FONT COLOR="#228B22">const</FONT></B> value = coucal_fetch_value(hashtable, name);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (value != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pvalue != NULL) {
+      *pvalue = *value;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> size_t <B><FONT COLOR="#0000FF">coucal_inc_</FONT></B>(coucal hashtable, coucal_key_const name,
+                          size_t inc) {
+  coucal_value* <B><FONT COLOR="#228B22">const</FONT></B> value = coucal_fetch_value(hashtable, name);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (value != NULL) {
+    value-&gt;uintg += inc;
+    <B><FONT COLOR="#A020F0">return</FONT></B> value-&gt;uintg;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <I><FONT COLOR="#B22222">/* create a new value */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ret = coucal_write(hashtable, name, inc);
+    coucal_assert(hashtable, ret);
+    <B><FONT COLOR="#A020F0">return</FONT></B> inc;
+  }
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_inc</FONT></B>(coucal hashtable, coucal_key_const name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) coucal_inc_(hashtable, name, 1);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_dec</FONT></B>(coucal hashtable, coucal_key_const name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) coucal_inc_(hashtable, name, (size_t) -1);
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_exists</FONT></B>(coucal hashtable, coucal_key_const name) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> coucal_read_value(hashtable, name, NULL);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_remove_</FONT></B>(coucal hashtable, coucal_key_const name,
+                          <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys *hashes, size_t *removed) {
+  size_t pos;
+
+  <I><FONT COLOR="#B22222">/* found at position 1 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash1);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, hashes)) {
+    coucal_del_item(hashtable, &amp;hashtable-&gt;items[pos]);
+    *removed = pos;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+
+  <I><FONT COLOR="#B22222">/* found at position 2 ? */</FONT></I>
+  pos = coucal_hash_to_pos(hashtable, hashes-&gt;hash2);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches(hashtable, pos, name, hashes)) {
+    coucal_del_item(hashtable, &amp;hashtable-&gt;items[pos]);
+    *removed = pos;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+
+  <I><FONT COLOR="#B22222">/* find in stash ? */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size != 0) {
+    size_t i;
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_matches_(hashtable, &amp;hashtable-&gt;stash.items[i], name,
+                           hashes)) {
+        coucal_del_item(hashtable, &amp;hashtable-&gt;stash.items[i]);
+        <B><FONT COLOR="#A020F0">for</FONT></B>( ; i + 1 &lt; hashtable-&gt;stash.size ; i++) {
+          hashtable-&gt;stash.items[i] = hashtable-&gt;stash.items[i + 1];
+        }
+        hashtable-&gt;stash.size--;
+        *removed = (size_t) -1;
+        coucal_debug(hashtable, <B><FONT COLOR="#BC8F8F">&quot;debug:deleted item in stash (%d entries)&quot;</FONT></B>,
+          (<B><FONT COLOR="#228B22">int</FONT></B>) hashtable-&gt;stash.size);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* not found */</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_remove</FONT></B>(coucal hashtable, coucal_key_const name) {
+  <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys hashes = coucal_calc_hashes(hashtable, name);
+  size_t removed;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ret = coucal_remove_(hashtable, name, &amp;hashes, &amp;removed);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ret) {
+    <I><FONT COLOR="#B22222">/* item was removed: decrease count */</FONT></I>
+    coucal_assert(hashtable, hashtable-&gt;used != 0);
+    hashtable-&gt;used--;
+
+    <I><FONT COLOR="#B22222">/* can we place stash entry back to the table ? */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;stash.size != 0 &amp;&amp; removed != (size_t) -1) {
+      size_t i;
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t pos1 =
+          coucal_hash_to_pos(hashtable, hashtable-&gt;stash.items[i].hashes.hash1);
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t pos2 =
+          coucal_hash_to_pos(hashtable, hashtable-&gt;stash.items[i].hashes.hash2);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (pos1 == removed || pos2 == removed) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (pos1 == removed) {
+            hashtable-&gt;items[pos1] = hashtable-&gt;stash.items[i];
+          } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (pos2 == removed) {
+            hashtable-&gt;items[pos2] = hashtable-&gt;stash.items[i];
+          }
+          <B><FONT COLOR="#A020F0">for</FONT></B>( ; i + 1 &lt; hashtable-&gt;stash.size ; i++) {
+            hashtable-&gt;stash.items[i] = hashtable-&gt;stash.items[i + 1];
+          }
+          hashtable-&gt;stash.size--;
+          coucal_debug(hashtable, <B><FONT COLOR="#BC8F8F">&quot;debug:moved item from stash (%d entries)&quot;</FONT></B>,
+            (<B><FONT COLOR="#228B22">int</FONT></B>) hashtable-&gt;stash.size);
+          <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+      }
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_readptr</FONT></B>(coucal hashtable, coucal_key_const name, intptr_t * value) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret;
+
+  *value = 0;
+  ret = coucal_read(hashtable, name, value);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*value == 0)
+    ret = 0;
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+intptr_t <B><FONT COLOR="#0000FF">coucal_get_intptr</FONT></B>(coucal hashtable, coucal_key_const name) {
+  intptr_t value;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_read(hashtable, name, &amp;value)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> value;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> INTHASH_INLINE size_t <B><FONT COLOR="#0000FF">coucal_get_pow2</FONT></B>(size_t initial_size) {
+  size_t size;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(size = MIN_LG_SIZE 
+    ; size &lt;= COUCAL_HASH_SIZE &amp;&amp; POW2(size) &lt; initial_size
+    ; size++) ;
+  <B><FONT COLOR="#A020F0">return</FONT></B> size;
+}
+
+coucal <B><FONT COLOR="#0000FF">coucal_new</FONT></B>(size_t initial_size) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t lg_size = coucal_get_pow2(initial_size);
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> lg_valid = coucal_is_acceptable_pow2(lg_size);
+  coucal hashtable = lg_valid 
+    ? (coucal) calloc(1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(struct_coucal)) : NULL;
+  coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> items = 
+    (coucal_item *) calloc(POW2(lg_size), <B><FONT COLOR="#A020F0">sizeof</FONT></B>(coucal_item));
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (lg_valid &amp;&amp; items != NULL &amp;&amp; hashtable != NULL) {
+    hashtable-&gt;lg_size = lg_size;
+    hashtable-&gt;items = items;
+    hashtable-&gt;used = 0;
+    hashtable-&gt;stash.size = 0;
+    hashtable-&gt;pool.buffer = NULL;
+    hashtable-&gt;pool.size = 0;
+    hashtable-&gt;pool.capacity = 0;
+    hashtable-&gt;pool.used = 0;
+    hashtable-&gt;stats.max_stash_size = 0;
+    hashtable-&gt;stats.write_count = 0;
+    hashtable-&gt;stats.add_count = 0;
+    hashtable-&gt;stats.cuckoo_moved = 0;
+    hashtable-&gt;stats.stash_added= 0;
+    hashtable-&gt;stats.pool_compact_count = 0;
+    hashtable-&gt;stats.pool_realloc_count = 0;
+    hashtable-&gt;stats.rehash_count = 0;
+    hashtable-&gt;custom.value.free = NULL;
+    hashtable-&gt;custom.value.arg = NULL;
+    hashtable-&gt;custom.key.dup = NULL;
+    hashtable-&gt;custom.key.free = NULL;
+    hashtable-&gt;custom.key.hash = NULL;
+    hashtable-&gt;custom.key.equals = NULL;
+    hashtable-&gt;custom.key.arg = NULL;
+    hashtable-&gt;custom.error.log = NULL;
+    hashtable-&gt;custom.error.fatal = NULL;
+    hashtable-&gt;custom.error.name = NULL;
+    hashtable-&gt;custom.error.arg = NULL;
+    hashtable-&gt;custom.print.key = NULL;
+    hashtable-&gt;custom.print.value = NULL;
+    hashtable-&gt;custom.print.arg = NULL;
+    <B><FONT COLOR="#A020F0">return</FONT></B> hashtable;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (items != NULL) {
+    free(items);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable != NULL) {
+    free(hashtable);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_created</FONT></B>(coucal hashtable) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> hashtable != NULL &amp;&amp; hashtable-&gt;items != NULL;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_is_malloc</FONT></B>(coucal hashtable, <B><FONT COLOR="#228B22">int</FONT></B> flag) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (flag) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;custom.value.free == NULL) {
+      hashtable-&gt;custom.value.free = coucal_default_free_handler;
+      hashtable-&gt;custom.value.arg = NULL;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    hashtable-&gt;custom.value.free = NULL;
+    hashtable-&gt;custom.value.arg = NULL;
+  }
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_name</FONT></B>(coucal hashtable, coucal_key_const name) {
+  hashtable-&gt;custom.error.name = name;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_set_value_handler</FONT></B>(coucal hashtable,
+                                    t_coucal_value_freehandler free,
+                                    coucal_opaque arg) {
+  hashtable-&gt;custom.value.free = free;
+  hashtable-&gt;custom.value.arg = arg;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_set_key_handler</FONT></B>(coucal hashtable,
+                                  t_coucal_duphandler dup,
+                                  t_coucal_key_freehandler free,
+                                  t_coucal_hasheshandler hash,
+                                  t_coucal_cmphandler equals,
+                                  coucal_opaque arg) {
+  <I><FONT COLOR="#B22222">/* dup and free must be consistent */</FONT></I>
+  coucal_assert(hashtable, ( dup == NULL ) == ( free == NULL ) );
+  hashtable-&gt;custom.key.dup = dup;
+  hashtable-&gt;custom.key.free = free;
+  hashtable-&gt;custom.key.hash = hash;
+  hashtable-&gt;custom.key.equals = equals;
+  hashtable-&gt;custom.key.arg = arg;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_assert_handler</FONT></B>(coucal hashtable,
+                               t_coucal_loghandler log,
+                               t_coucal_asserthandler fatal,
+                               coucal_opaque arg) {
+  hashtable-&gt;custom.error.log = log;
+  hashtable-&gt;custom.error.fatal = fatal;
+  hashtable-&gt;custom.error.arg = arg;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_print_handler</FONT></B>(coucal hashtable,
+                              t_coucal_printkeyhandler key,
+                              t_coucal_printvaluehandler value,
+                              coucal_opaque arg) {
+  hashtable-&gt;custom.print.key = key;
+  hashtable-&gt;custom.print.value = value;
+  hashtable-&gt;custom.print.arg = arg;
+}
+
+size_t <B><FONT COLOR="#0000FF">coucal_nitems</FONT></B>(coucal hashtable) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable != NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> hashtable-&gt;used;
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+size_t <B><FONT COLOR="#0000FF">coucal_memory_size</FONT></B>(coucal hashtable) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t size_struct = <B><FONT COLOR="#A020F0">sizeof</FONT></B>(struct_coucal);
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t hash_size = POW2(hashtable-&gt;lg_size)*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(coucal_item);
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t pool_size = hashtable-&gt;pool.capacity*<B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B>);
+  <B><FONT COLOR="#A020F0">return</FONT></B> size_struct + hash_size + pool_size;
+}
+
+size_t <B><FONT COLOR="#0000FF">coucal_hash_size</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> COUCAL_HASH_SIZE;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_delete</FONT></B>(coucal *phashtable) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (phashtable != NULL) {
+    coucal hashtable = *phashtable;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable != NULL) {
+      coucal_log_stats(hashtable);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hashtable-&gt;items != NULL) {
+        <I><FONT COLOR="#B22222">/* we need to delete values */</FONT></I>
+        <B><FONT COLOR="#228B22">const</FONT></B> size_t hash_size = POW2(hashtable-&gt;lg_size);
+        size_t i;
+
+        <I><FONT COLOR="#B22222">/* wipe hashtable values (not names) */</FONT></I>
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hash_size ; i++) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!coucal_is_free(hashtable, i)) {
+            coucal_del_value(hashtable, i);
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* wipe auxiliary stash values (not names) if any */</FONT></I>
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; i &lt; hashtable-&gt;stash.size ; i++) {
+          coucal_del_value_(hashtable, &amp;hashtable-&gt;stash.items[i].value);
+        }
+      }
+      <I><FONT COLOR="#B22222">/* wipe top-level */</FONT></I>
+      hashtable-&gt;lg_size = 0;
+      hashtable-&gt;used = 0;
+      free(hashtable-&gt;pool.buffer);
+      hashtable-&gt;pool.buffer = NULL;
+      free(hashtable-&gt;items);
+      hashtable-&gt;items = NULL;
+      free(hashtable);
+      *phashtable = NULL;
+    }
+  }
+}
+
+<I><FONT COLOR="#B22222">/* Enumerator */</FONT></I>
+
+struct_coucal_enum <B><FONT COLOR="#0000FF">coucal_enum_new</FONT></B>(coucal hashtable) {
+  struct_coucal_enum e;
+
+  e.index = 0;
+  e.table = hashtable;
+  <B><FONT COLOR="#A020F0">return</FONT></B> e;
+}
+
+coucal_item *<B><FONT COLOR="#0000FF">coucal_enum_next</FONT></B>(struct_coucal_enum * e) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t hash_size = POW2(e-&gt;table-&gt;lg_size);
+  <B><FONT COLOR="#A020F0">for</FONT></B>( ; e-&gt;index &lt; hash_size 
+    &amp;&amp; coucal_is_free(e-&gt;table, e-&gt;index) ; e-&gt;index++) ;
+  <I><FONT COLOR="#B22222">/* enumerate all table */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (e-&gt;index &lt; hash_size) {
+    coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> next = &amp;e-&gt;table-&gt;items[e-&gt;index];
+    e-&gt;index++;
+    <B><FONT COLOR="#A020F0">return</FONT></B> next;
+  }
+  <I><FONT COLOR="#B22222">/* enumerate stash if present */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (e-&gt;index &lt; hash_size + e-&gt;table-&gt;stash.size) {
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t index = e-&gt;index - hash_size;
+    coucal_item *<B><FONT COLOR="#228B22">const</FONT></B> next = &amp;e-&gt;table-&gt;stash.items[index];
+    e-&gt;index++;
+    <B><FONT COLOR="#A020F0">return</FONT></B> next;
+  }
+  <I><FONT COLOR="#B22222">/* eof */</FONT></I>
+  <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  }
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_global_assert_handler</FONT></B>(t_coucal_loghandler log,
+                                      t_coucal_asserthandler fatal) {
+  global_log_handler = log;
+  global_assert_handler = fatal;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/coucal.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+</HTML>

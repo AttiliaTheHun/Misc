@@ -1,0 +1,148 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsconcat.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsconcat.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsconcat.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2013 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Subroutines                                            */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">// concat, concatène deux chaines et renvoi le résultat
+</FONT></I><I><FONT COLOR="#B22222">// permet d'alléger grandement le code
+</FONT></I>#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">concat</FONT>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">concat</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b) {
+  size_t max = 0;
+
+  RUNTIME_TIME_CHECK_SIZE(size);
+
+  catbuff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (a != NULL &amp;&amp; a[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    max += strlen(a);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (max + 1 &gt;= size) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> catbuff;
+    }
+    strcat(catbuff, a);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (b != NULL &amp;&amp; b[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    max += strlen(b);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (max + 1 &gt;= size) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> catbuff;
+    }
+    strcat(catbuff, b);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> catbuff;
+}
+
+<I><FONT COLOR="#B22222">// conversion fichier / -&gt; antislash
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">__fconv</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *a) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_DOSNAME</FONT>
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; a[i] != 0; i++)
+    <B><FONT COLOR="#A020F0">if</FONT></B> (a[i] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)            <I><FONT COLOR="#B22222">// Unix-to-DOS style
+</FONT></I>      a[i] = <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> a;
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">fconcat</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">concat</FONT>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fconcat</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b) {
+  RUNTIME_TIME_CHECK_SIZE(size);
+  <B><FONT COLOR="#A020F0">return</FONT></B> __fconv(concat(catbuff, size, a, b));
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">fconv</FONT>
+HTSEXT_API <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fconv</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a) {
+  RUNTIME_TIME_CHECK_SIZE(size);
+  <B><FONT COLOR="#A020F0">return</FONT></B> __fconv(concat(catbuff, size, a, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>));
+}
+
+<I><FONT COLOR="#B22222">/* / et \\ en / */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">__fslash</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *a) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; a[i] != 0; i++)
+    <B><FONT COLOR="#A020F0">if</FONT></B> (a[i] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)           <I><FONT COLOR="#B22222">// convertir
+</FONT></I>      a[i] = <B><FONT COLOR="#BC8F8F">'/'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> a;
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">fslash</FONT>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">fslash</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a) {
+  RUNTIME_TIME_CHECK_SIZE(size);
+  <B><FONT COLOR="#A020F0">return</FONT></B> __fslash(concat(catbuff, size, a, NULL));
+}
+
+<I><FONT COLOR="#B22222">// extension : html,gif..
+</FONT></I>HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">get_ext</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *catbuff, size_t size, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  size_t i, last;
+
+  RUNTIME_TIME_CHECK_SIZE(size);
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0, last = 0 ; fil[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; fil[i] != <B><FONT COLOR="#BC8F8F">'?'</FONT></B> ; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fil[i] == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+      last = i + 1;
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (last != 0 &amp;&amp; i &gt; last) {
+    <B><FONT COLOR="#228B22">const</FONT></B> size_t len = i - last;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (len &lt; size) {
+      catbuff[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      strncat(catbuff, &amp;fil[last], size);
+      <B><FONT COLOR="#A020F0">return</FONT></B> catbuff;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsconcat.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

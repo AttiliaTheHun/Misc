@@ -1,0 +1,109 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/httrack.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:19 GMT -->
+<HEAD>
+<TITLE>./httrack.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./httrack.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsshow.c console progress info                        */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTSTOOLS_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTSTOOLS_DEFH</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_StatsBuffer</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_StatsBuffer</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_StatsBuffer t_StatsBuffer;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_StatsBuffer {
+  <B><FONT COLOR="#228B22">char</FONT></B> name[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> file[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> state[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK url_sav[HTS_URLMAXSIZE * 2];      <I><FONT COLOR="#B22222">// pour cancel
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK url_adr[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK url_fil[HTS_URLMAXSIZE * 2];
+  LLint size;
+  LLint sizetot;
+  <B><FONT COLOR="#228B22">int</FONT></B> offset;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> back;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> actived;                  <I><FONT COLOR="#B22222">// pour disabled
+</FONT></I>};
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_InpInfo</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_t_InpInfo</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> t_InpInfo t_InpInfo;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> t_InpInfo {
+  <B><FONT COLOR="#228B22">int</FONT></B> ask_refresh;
+  <B><FONT COLOR="#228B22">int</FONT></B> refresh;
+  LLint stat_bytes;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_time;
+  <B><FONT COLOR="#228B22">int</FONT></B> lien_n;
+  <B><FONT COLOR="#228B22">int</FONT></B> lien_tot;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_nsocket;
+  <B><FONT COLOR="#228B22">int</FONT></B> rate;
+  <B><FONT COLOR="#228B22">int</FONT></B> irate;
+  <B><FONT COLOR="#228B22">int</FONT></B> ft;
+  LLint stat_written;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_updated;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_errors;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_warnings;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_infos;
+  TStamp stat_timestart;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_back;
+};
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> HTSEXT_API hts_stat_struct HTS_STAT;
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> _DEBUG_HEAD;
+<B><FONT COLOR="#228B22">extern</FONT></B> FILE *ioinfo;
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/httrack.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:19 GMT -->
+</HTML>

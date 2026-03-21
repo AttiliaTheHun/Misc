@@ -1,0 +1,2400 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/proxy/store.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:48 GMT -->
+<HEAD>
+<TITLE>./proxy/store.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./proxy/store.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Parts (inside ARC format routines) by Lars Clausen (lc@statsbiblioteket.dk) */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Cache manager for ProxyTrack                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;time.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__ANDROID__</FONT>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>  timezone = 0;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Locking */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;process.h&gt;</FONT></B>            <I><FONT COLOR="#B22222">/* _beginthread, _endthread */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;pthread.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTSSAFE_ABORT_FUNCTION</FONT></B>(A,B,C)
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;coucal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmd5.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;../minizip/mztools.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;../minizip/zip.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsback.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;store.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;proxystrings.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;proxytrack.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Unlocked functions */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__New_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__New_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags);
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Old_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Old_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags);
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Arc_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Arc_u</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags);
+
+<I><FONT COLOR="#B22222">/* Locking */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexInit</FONT></B>(PT_Mutex * pMutex) {
+  *pMutex = CreateMutex(NULL, FALSE, NULL);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexLock</FONT></B>(PT_Mutex * pMutex) {
+  WaitForSingleObject(*pMutex, INFINITE);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexUnlock</FONT></B>(PT_Mutex * pMutex) {
+  ReleaseMutex(*pMutex);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexFree</FONT></B>(PT_Mutex * pMutex) {
+  CloseHandle(*pMutex);
+  *pMutex = NULL;
+}
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexInit</FONT></B>(PT_Mutex * pMutex) {
+  (<B><FONT COLOR="#228B22">void</FONT></B>) pthread_mutex_init(pMutex, 0);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexLock</FONT></B>(PT_Mutex * pMutex) {
+  pthread_mutex_lock(pMutex);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexUnlock</FONT></B>(PT_Mutex * pMutex) {
+  pthread_mutex_unlock(pMutex);
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">MutexFree</FONT></B>(PT_Mutex * pMutex) {
+  pthread_mutex_destroy(pMutex);
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Indexes */</FONT></I>
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__New _PT_Index__New;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Old _PT_Index__Old;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Arc _PT_Index__Arc;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index_Functions _PT_Index_Functions;
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__New *PT_Index__New;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Old *PT_Index__Old;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Arc *PT_Index__Arc;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index_Functions *PT_Index_Functions;
+
+<B><FONT COLOR="#228B22">enum</FONT></B> {
+  PT_CACHE_UNDEFINED = -1,
+  PT_CACHE_MIN = 0,
+  PT_CACHE__NEW = PT_CACHE_MIN,
+  PT_CACHE__OLD,
+  PT_CACHE__ARC,
+  PT_CACHE_MAX = PT_CACHE__ARC
+};
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LoadCache__New</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__New</FONT></B>(PT_Index * pindex);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__New</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__New</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__New</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+ <I><FONT COLOR="#B22222">/**/</FONT></I> <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> PT_LoadCache__Old(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__Old</FONT></B>(PT_Index * pindex);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Old</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Old</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+ <I><FONT COLOR="#B22222">/**/</FONT></I> <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> PT_LoadCache__Arc(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__Arc</FONT></B>(PT_Index * pindex);
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Arc</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Arc</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__Arc</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index_Functions {
+  <I><FONT COLOR="#B22222">/* Mandatory services */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> (*PT_LoadCache) (PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+  <B><FONT COLOR="#228B22">void</FONT></B> (*PT_Index_Delete) (PT_Index * pindex);
+    PT_Element(*PT_ReadCache) (PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags);
+  <B><FONT COLOR="#228B22">int</FONT></B> (*PT_LookupCache) (PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url);
+
+  <I><FONT COLOR="#B22222">/* Optional services */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> (*PT_SaveCache) (PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename);
+};
+
+<B><FONT COLOR="#228B22">static</FONT></B> _PT_Index_Functions _IndexFuncts[] = {
+  {PT_LoadCache__New, PT_Index_Delete__New, PT_ReadCache__New,
+   PT_LookupCache__New, PT_SaveCache__New},
+  {PT_LoadCache__Old, PT_Index_Delete__Old, PT_ReadCache__Old,
+   PT_LookupCache__Old, NULL},
+  {PT_LoadCache__Arc, PT_Index_Delete__Arc, PT_ReadCache__Arc,
+   PT_LookupCache__Arc, PT_SaveCache__Arc},
+  {NULL, NULL, NULL, NULL}
+};
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">PT_INDEX_COMMON_STRUCTURE</FONT> \
+	time_t timestamp;								\
+	coucal hash;										\
+	char startUrl[1024]
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__New {
+  PT_INDEX_COMMON_STRUCTURE;
+  <B><FONT COLOR="#228B22">char</FONT></B> path[1024];              <I><FONT COLOR="#B22222">/* either empty, or must include ending / */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> fixedPath;
+  <B><FONT COLOR="#228B22">int</FONT></B> safeCache;
+  unzFile zFile;
+  PT_Mutex zFileLock;
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Old {
+  PT_INDEX_COMMON_STRUCTURE;
+  <B><FONT COLOR="#228B22">char</FONT></B> filenameDat[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> filenameNdx[1024];
+  FILE *dat, *ndx;
+  PT_Mutex fileLock;
+  <B><FONT COLOR="#228B22">int</FONT></B> version;
+  <B><FONT COLOR="#228B22">char</FONT></B> lastmodified[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> path[1024];              <I><FONT COLOR="#B22222">/* either empty, or must include ending / */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> fixedPath;
+  <B><FONT COLOR="#228B22">int</FONT></B> safeCache;
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index__Arc {
+  PT_INDEX_COMMON_STRUCTURE;
+  FILE *file;
+  PT_Mutex fileLock;
+  <B><FONT COLOR="#228B22">int</FONT></B> version;
+  <B><FONT COLOR="#228B22">char</FONT></B> lastmodified[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> line[2048];
+  <B><FONT COLOR="#228B22">char</FONT></B> filenameIndexBuff[2048];
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index {
+  <B><FONT COLOR="#228B22">int</FONT></B> type;
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    _PT_Index__New formatNew;
+    _PT_Index__Old formatOld;
+    _PT_Index__Arc formatArc;
+    <B><FONT COLOR="#228B22">struct</FONT></B> {
+      PT_INDEX_COMMON_STRUCTURE;
+    } common;
+  } slots;
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Indexes {
+  coucal cil;
+  <B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index **index;
+  <B><FONT COLOR="#228B22">int</FONT></B> index_size;
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_CacheItem {
+  time_t lastUsed;
+  size_t size;
+  <B><FONT COLOR="#228B22">void</FONT></B> *data;
+};
+
+<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Cache {
+  coucal index;
+  size_t maxSize;
+  size_t totalSize;
+  <B><FONT COLOR="#228B22">int</FONT></B> count;
+};
+
+PT_Indexes <B><FONT COLOR="#0000FF">PT_New</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  PT_Indexes index = (PT_Indexes) calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Indexes), 1);
+
+  index-&gt;cil = coucal_new(0);
+  coucal_set_name(index-&gt;cil, <B><FONT COLOR="#BC8F8F">&quot;index-&gt;cil&quot;</FONT></B>);
+  index-&gt;index_size = 0;
+  index-&gt;index = NULL;
+  <B><FONT COLOR="#A020F0">return</FONT></B> index;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Delete</FONT></B>(PT_Indexes index) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL) {
+    coucal_delete(&amp;index-&gt;cil);
+    free(index);
+  }
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_RemoveIndex</FONT></B>(PT_Indexes index, <B><FONT COLOR="#228B22">int</FONT></B> indexId) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">binput</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> count = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> destCount = 0;
+
+  <I><FONT COLOR="#B22222">// Note: \0 will return 1
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>(destCount &lt; max &amp;&amp; buff[count] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; buff[count] != <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buff[count] != <B><FONT COLOR="#BC8F8F">'\r'</FONT></B>) {
+      s[destCount++] = buff[count];
+    }
+    count++;
+  }
+  s[destCount] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <I><FONT COLOR="#B22222">// then return the supplemental jump offset
+</FONT></I>  <B><FONT COLOR="#A020F0">return</FONT></B> count + 1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> time_t <B><FONT COLOR="#0000FF">file_timestamp</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> stat buf;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat(file, &amp;buf) == 0) {
+    time_t tt = buf.st_mtime;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (tt != (time_t) 0 &amp;&amp; tt != (time_t) - 1) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> tt;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Check__</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;type &gt;= PT_CACHE_MIN &amp;&amp; index-&gt;type &lt;= PT_CACHE_MAX)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  proxytrack_print_log(CRITICAL, <B><FONT COLOR="#BC8F8F">&quot;index corrupted in memory at %s:%d&quot;</FONT></B>, file,
+                       line);
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SAFE_INDEX</FONT></B>(index) PT_Index_Check__(index, __FILE__, __LINE__)
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* Generic cache dispatch                                       */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete</FONT></B>(PT_Index * pindex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pindex != NULL &amp;&amp; (*pindex) != NULL) {
+    PT_Index index = *pindex;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (SAFE_INDEX(index)) {
+      _IndexFuncts[index-&gt;type].PT_Index_Delete(pindex);
+    }
+    free(index);
+    *pindex = NULL;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__New</FONT></B>(PT_Index * pindex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pindex != NULL &amp;&amp; (*pindex) != NULL) {
+    PT_Index__New index = &amp;(*pindex)-&gt;slots.formatNew;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;zFile != NULL) {
+      unzClose(index-&gt;zFile);
+      index-&gt;zFile = NULL;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;hash != NULL) {
+      coucal_delete(&amp;index-&gt;hash);
+      index-&gt;hash = NULL;
+    }
+    MutexFree(&amp;index-&gt;zFileLock);
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__Old</FONT></B>(PT_Index * pindex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pindex != NULL &amp;&amp; (*pindex) != NULL) {
+    PT_Index__Old index = &amp;(*pindex)-&gt;slots.formatOld;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;dat != NULL) {
+      fclose(index-&gt;dat);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;ndx != NULL) {
+      fclose(index-&gt;ndx);
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;hash != NULL) {
+      coucal_delete(&amp;index-&gt;hash);
+      index-&gt;hash = NULL;
+    }
+    MutexFree(&amp;index-&gt;fileLock);
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Index_Delete__Arc</FONT></B>(PT_Index * pindex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pindex != NULL &amp;&amp; (*pindex) != NULL) {
+    PT_Index__Arc index = &amp;(*pindex)-&gt;slots.formatArc;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;file != NULL) {
+      fclose(index-&gt;file);
+    }
+    MutexFree(&amp;index-&gt;fileLock);
+  }
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_AddIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  PT_Index index = PT_LoadCache(path);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> ret = PT_IndexMerge(indexes, &amp;index);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL) {
+      PT_Index_Delete(&amp;index);
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+PT_Element <B><FONT COLOR="#0000FF">PT_Index_HTML_BuildRootInfo</FONT></B>(PT_Indexes indexes) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL) {
+    PT_Element elt = PT_ElementNew();
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+    String html = STRING_EMPTY;
+
+    StringClear(html);
+    StringCat(html,
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;html&gt;&quot;</FONT></B> PROXYTRACK_COMMENT_HEADER
+              DISABLE_IE_FRIENDLY_HTTP_ERROR_MESSAGES <B><FONT COLOR="#BC8F8F">&quot;&lt;head&gt;\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;title&gt;ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot; Catalog&lt;/title&gt;&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;/head&gt;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;body&gt;\r\n&quot;</FONT></B>
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;h3&gt;Available sites in this cache:&lt;/h3&gt;&lt;br /&gt;&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&lt;br /&gt;&quot;</FONT></B>);
+    StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;ul&gt;\r\n&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; indexes-&gt;index_size; i++) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (indexes-&gt;index[i] != NULL
+          &amp;&amp; indexes-&gt;index[i]-&gt;slots.common.startUrl[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url = indexes-&gt;index[i]-&gt;slots.common.startUrl;
+
+        StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;li&gt;\r\n&quot;</FONT></B>);
+        StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;a href=\&quot;&quot;</FONT></B>);
+        StringCat(html, url);
+        StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;\&quot;&gt;&quot;</FONT></B>);
+        StringCat(html, url);
+        StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/a&gt;\r\n&quot;</FONT></B>);
+        StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/li&gt;\r\n&quot;</FONT></B>);
+      }
+    }
+    StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/ul&gt;\r\n&quot;</FONT></B>);
+    StringCat(html, <B><FONT COLOR="#BC8F8F">&quot;&lt;/body&gt;&lt;/html&gt;\r\n&quot;</FONT></B>);
+    elt-&gt;size = StringLength(html);
+    elt-&gt;adr = StringAcquire(&amp;html);
+    elt-&gt;statuscode = HTTP_OK;
+    strcpy(elt-&gt;charset, <B><FONT COLOR="#BC8F8F">&quot;iso-8859-1&quot;</FONT></B>);
+    strcpy(elt-&gt;contenttype, <B><FONT COLOR="#BC8F8F">&quot;text/html&quot;</FONT></B>);
+    strcpy(elt-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;OK&quot;</FONT></B>);
+    StringFree(html);
+    <B><FONT COLOR="#A020F0">return</FONT></B> elt;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strchr_stop</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *str, <B><FONT COLOR="#228B22">char</FONT></B> c, <B><FONT COLOR="#228B22">char</FONT></B> stop) {
+  <B><FONT COLOR="#A020F0">for</FONT></B>(; *str != 0 &amp;&amp; *str != stop &amp;&amp; *str != c; str++) ;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (*str == c)
+    <B><FONT COLOR="#A020F0">return</FONT></B> str;
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> **<B><FONT COLOR="#0000FF">PT_Enumerate</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> subtree) {
+  <I><FONT COLOR="#B22222">// should be cached!
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL &amp;&amp; indexes-&gt;cil != NULL) {
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> urlSize;
+    String list = STRING_EMPTY;
+    String listindexes = STRING_EMPTY;
+    String subitem = STRING_EMPTY;
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> listCount = 0;
+    struct_coucal_enum en = coucal_enum_new(indexes-&gt;cil);
+    coucal_item *chain;
+    coucal hdupes = NULL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!subtree) {
+      hdupes = coucal_new(0);
+      coucal_set_name(hdupes, <B><FONT COLOR="#BC8F8F">&quot;hdupes&quot;</FONT></B>);
+    }
+    StringClear(list);
+    StringClear(listindexes);
+    StringClear(subitem);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+      url += 7;
+    urlSize = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen(url);
+    <B><FONT COLOR="#A020F0">while</FONT></B>((chain = coucal_enum_next(&amp;en))) {
+      <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> index = (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) chain-&gt;value.intg;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (urlSize == 0 || strncmp(chain-&gt;name, url, urlSize) == 0) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (index &gt;= 0 &amp;&amp; index &lt; indexes-&gt;index_size) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *item = (<B><FONT COLOR="#228B22">char</FONT></B>*) chain-&gt;name + urlSize;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (*item == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+            item++;
+          {
+            <B><FONT COLOR="#228B22">char</FONT></B> *pos = subtree ? 0 : strchr_stop(item, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+            <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> len =
+              pos ? (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) (pos - item) : (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) strlen(item);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0 <I><FONT COLOR="#B22222">/* default document */</FONT></I>  || *item == 0) {
+              <B><FONT COLOR="#228B22">int</FONT></B> isFolder = (item[len] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>);
+
+              StringClear(subitem);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0)
+                StringMemcat(subitem, item, len);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (len == 0 || !coucal_exists(hdupes, StringBuff(subitem))) {
+                <B><FONT COLOR="#228B22">char</FONT></B> *ptr = NULL;
+
+                ptr += StringLength(list);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0)
+                  StringCat(list, StringBuff(subitem));
+                <B><FONT COLOR="#A020F0">if</FONT></B> (isFolder)
+                  StringCat(list, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+                StringMemcat(list, <B><FONT COLOR="#BC8F8F">&quot;\0&quot;</FONT></B>, 1);    <I><FONT COLOR="#B22222">/* NULL terminated strings */</FONT></I>
+                StringMemcat(listindexes, (<B><FONT COLOR="#228B22">char</FONT></B>*) &amp;ptr, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ptr));
+                listCount++;
+                coucal_write(hdupes, StringBuff(subitem), 0);
+              }
+            }
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          proxytrack_print_log(CRITICAL,
+                               <B><FONT COLOR="#BC8F8F">&quot;PT_Enumerate:Corrupted central index locator&quot;</FONT></B>);
+        }
+      }
+    }
+    StringFree(subitem);
+    coucal_delete(&amp;hdupes);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (listCount &gt; 0) {
+      <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> i;
+      <B><FONT COLOR="#228B22">void</FONT></B> *blk;
+      <B><FONT COLOR="#228B22">char</FONT></B> *nullPointer = NULL;
+      <B><FONT COLOR="#228B22">char</FONT></B> *startStrings;
+
+      <I><FONT COLOR="#B22222">/* NULL terminated index */</FONT></I>
+      StringMemcat(listindexes, (<B><FONT COLOR="#228B22">char</FONT></B>*) &amp;nullPointer, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(nullPointer));
+      <I><FONT COLOR="#B22222">/* start of all strings (index) */</FONT></I>
+      startStrings = nullPointer + StringLength(listindexes);
+      <I><FONT COLOR="#B22222">/* copy list of URLs after indexes */</FONT></I>
+      StringMemcat(listindexes, StringBuff(list), StringLength(list));
+      <I><FONT COLOR="#B22222">/* ---- no reallocation beyond this point (fixed addresses) ---- */</FONT></I>
+      <I><FONT COLOR="#B22222">/* start of all strings (pointer) */</FONT></I>
+      startStrings = (startStrings - nullPointer) + StringBuffRW(listindexes);
+      <I><FONT COLOR="#B22222">/* transform indexes into references */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; listCount; i++) {
+        <B><FONT COLOR="#228B22">char</FONT></B> *ptr = NULL;
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ndx;
+
+        memcpy(&amp;ptr, &amp;StringBuff(listindexes)[i * <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *)],
+               <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *));
+        ndx = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) (ptr - nullPointer);
+        ptr = startStrings + ndx;
+        memcpy(&amp;StringBuffRW(listindexes)[i * <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *)], &amp;ptr,
+               <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *));
+      }
+      blk = StringAcquire(&amp;listindexes);
+      StringFree(list);
+      StringFree(listindexes);
+      <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">char</FONT></B> **) blk;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Enumerate_Delete</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> ***plist) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (plist != NULL &amp;&amp; *plist != NULL) {
+    free(*plist);
+    *plist = NULL;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_GetType</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *dot = strrchr(filename, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dot != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(dot, <B><FONT COLOR="#BC8F8F">&quot;.zip&quot;</FONT></B>) == 0) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> PT_CACHE__NEW;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(dot, <B><FONT COLOR="#BC8F8F">&quot;.ndx&quot;</FONT></B>) == 0 || strcasecmp(dot, <B><FONT COLOR="#BC8F8F">&quot;.dat&quot;</FONT></B>) == 0) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> PT_CACHE__OLD;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcasecmp(dot, <B><FONT COLOR="#BC8F8F">&quot;.arc&quot;</FONT></B>) == 0) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> PT_CACHE__ARC;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> PT_CACHE_UNDEFINED;
+}
+
+PT_Index <B><FONT COLOR="#0000FF">PT_LoadCache</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#228B22">int</FONT></B> type = PT_GetType(filename);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (type != PT_CACHE_UNDEFINED) {
+    PT_Index index = calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Index), 1);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL) {
+      index-&gt;type = type;
+      index-&gt;slots.common.timestamp = (time_t) time(NULL);
+      index-&gt;slots.common.startUrl[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      index-&gt;slots.common.hash = coucal_new(0);
+      coucal_set_name(index-&gt;slots.common.hash, <B><FONT COLOR="#BC8F8F">&quot;index-&gt;slots.common.hash&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!_IndexFuncts[type].PT_LoadCache(index, filename)) {
+        proxytrack_print_log(DEBUG,
+                             <B><FONT COLOR="#BC8F8F">&quot;reading httrack cache (format #%d) %s : error&quot;</FONT></B>,
+                             type, filename);
+        free(index);
+        index = NULL;
+        <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        proxytrack_print_log(DEBUG,
+                             <B><FONT COLOR="#BC8F8F">&quot;reading httrack cache (format #%d) %s : success&quot;</FONT></B>,
+                             type, filename);
+      }
+      <I><FONT COLOR="#B22222">/* default starting URL is the first hash entry */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;slots.common.startUrl[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+        struct_coucal_enum en = coucal_enum_new(index-&gt;slots.common.hash);
+        coucal_item *chain;
+
+        chain = coucal_enum_next(&amp;en);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (chain != NULL &amp;&amp; strstr(chain-&gt;name, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) != NULL) {
+          chain = coucal_enum_next(&amp;en);
+        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (chain != NULL) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(chain-&gt;name))
+            strcat(index-&gt;slots.common.startUrl, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+          strcat(index-&gt;slots.common.startUrl, chain-&gt;name);
+        }
+      }
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> index;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">filesize</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> stat st;
+
+  memset(&amp;st, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(st));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat(filename, &amp;st) == 0) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) st.st_size;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL &amp;&amp; SAFE_INDEX(index)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> _IndexFuncts[index-&gt;type].PT_LookupCache(index, url);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#228B22">int</FONT></B> type = PT_GetType(filename);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (type != PT_CACHE_UNDEFINED) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (_IndexFuncts[type].PT_SaveCache != NULL) {
+      <B><FONT COLOR="#228B22">int</FONT></B> ret = _IndexFuncts[type].PT_SaveCache(indexes, filename);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ret == 0) {
+        (<B><FONT COLOR="#228B22">void</FONT></B>) set_filetime_time_t(filename, PT_GetTimeIndex(indexes));
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_EnumCache</FONT></B>(PT_Indexes indexes,
+                 <B><FONT COLOR="#228B22">int</FONT></B> (*callback) (<B><FONT COLOR="#228B22">void</FONT></B> *, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, PT_Element),
+                 <B><FONT COLOR="#228B22">void</FONT></B> *arg) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL &amp;&amp; indexes-&gt;cil != NULL) {
+    struct_coucal_enum en = coucal_enum_new(indexes-&gt;cil);
+    coucal_item *chain;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>((chain = coucal_enum_next(&amp;en))) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> index_id = (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) chain-&gt;value.intg;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> url = chain-&gt;name;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (index_id &gt;= 0 &amp;&amp; index_id &lt;= indexes-&gt;index_size) {
+        PT_Element item =
+          PT_ReadCache(indexes-&gt;index[index_id], url,
+                       FETCH_HEADERS | FETCH_BODY);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (item != NULL) {
+          <B><FONT COLOR="#228B22">int</FONT></B> ret = callback(arg, url, item);
+
+          PT_Element_Delete(&amp;item);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (ret != 0)
+            <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        proxytrack_print_log(CRITICAL,
+                             <B><FONT COLOR="#BC8F8F">&quot;PT_ReadCache:Corrupted central index locator&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+time_t <B><FONT COLOR="#0000FF">PT_Index_Timestamp</FONT></B>(PT_Index index) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> index-&gt;slots.common.timestamp;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__New</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#228B22">int</FONT></B> retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatNew.zFileLock);
+  {
+    retCode = PT_LookupCache__New_u(index, url);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatNew.zFileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__New_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL) {
+    PT_Index__New index = &amp;index_-&gt;slots.formatNew;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;hash != NULL &amp;&amp; index-&gt;zFile != NULL &amp;&amp; url != NULL &amp;&amp; *url != 0) {
+      <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+        url += 7;
+      hash_pos_return = coucal_read(index-&gt;hash, url, NULL);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_IndexMerge</FONT></B>(PT_Indexes indexes, PT_Index * pindex) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pindex != NULL &amp;&amp; *pindex != NULL &amp;&amp; (*pindex)-&gt;slots.common.hash != NULL
+      &amp;&amp; indexes != NULL) {
+    PT_Index index = *pindex;
+    struct_coucal_enum en = coucal_enum_new(index-&gt;slots.common.hash);
+    coucal_item *chain;
+    <B><FONT COLOR="#228B22">int</FONT></B> index_id = indexes-&gt;index_size++;
+    <B><FONT COLOR="#228B22">int</FONT></B> nMerged = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((indexes-&gt;index =
+         realloc(indexes-&gt;index,
+                 <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> _PT_Index) * indexes-&gt;index_size)) != NULL) {
+      indexes-&gt;index[index_id] = index;
+      *pindex = NULL;
+      <B><FONT COLOR="#A020F0">while</FONT></B>((chain = coucal_enum_next(&amp;en)) != NULL) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url = chain-&gt;name;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (url != NULL &amp;&amp; url[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+          intptr_t previous_index_id = 0;
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(indexes-&gt;cil, url, &amp;previous_index_id)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (previous_index_id &gt;= 0
+                &amp;&amp; previous_index_id &lt; indexes-&gt;index_size) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (indexes-&gt;index[previous_index_id]-&gt;slots.common.timestamp &gt; index-&gt;slots.common.timestamp)    <I><FONT COLOR="#B22222">// existing entry is newer
+</FONT></I>                <B><FONT COLOR="#A020F0">break</FONT></B>;
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              proxytrack_print_log(CRITICAL,
+                                   <B><FONT COLOR="#BC8F8F">&quot;PT_IndexMerge:Corrupted central index locator&quot;</FONT></B>);
+            }
+          }
+          coucal_write(indexes-&gt;cil, chain-&gt;name, index_id);
+          nMerged++;
+        }
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      proxytrack_print_log(CRITICAL, <B><FONT COLOR="#BC8F8F">&quot;PT_IndexMerge:Memory exhausted&quot;</FONT></B>);
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> nMerged;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">PT_Element_Delete</FONT></B>(PT_Element * pentry) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pentry != NULL) {
+    PT_Element entry = *pentry;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (entry != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (entry-&gt;adr != NULL) {
+        free(entry-&gt;adr);
+        entry-&gt;adr = NULL;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (entry-&gt;headers != NULL) {
+        free(entry-&gt;headers);
+        entry-&gt;headers = NULL;
+      }
+      <B><FONT COLOR="#A020F0">if</FONT></B> (entry-&gt;location != NULL) {
+        free(entry-&gt;location);
+        entry-&gt;location = NULL;
+      }
+      free(entry);
+    }
+    *pentry = NULL;
+  }
+}
+
+PT_Element <B><FONT COLOR="#0000FF">PT_ReadIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL) {
+    intptr_t index_id;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+      url += 7;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(indexes-&gt;cil, url, &amp;index_id)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (index_id &gt;= 0 &amp;&amp; index_id &lt;= indexes-&gt;index_size) {
+        PT_Element item = PT_ReadCache(indexes-&gt;index[index_id], url, flags);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (item != NULL) {
+          item-&gt;indexId = (<B><FONT COLOR="#228B22">int</FONT></B>) index_id;
+          <B><FONT COLOR="#A020F0">return</FONT></B> item;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        proxytrack_print_log(CRITICAL,
+                             <B><FONT COLOR="#BC8F8F">&quot;PT_ReadCache:Corrupted central index locator&quot;</FONT></B>);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL) {
+    intptr_t index_id;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+      url += 7;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(indexes-&gt;cil, url, &amp;index_id)) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (index_id &gt;= 0 &amp;&amp; index_id &lt;= indexes-&gt;index_size) {
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        proxytrack_print_log(CRITICAL,
+                             <B><FONT COLOR="#BC8F8F">&quot;PT_ReadCache:Corrupted central index locator&quot;</FONT></B>);
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+time_t <B><FONT COLOR="#0000FF">PT_GetTimeIndex</FONT></B>(PT_Indexes indexes) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL &amp;&amp; indexes-&gt;index_size &gt; 0) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+    time_t maxt = indexes-&gt;index[0]-&gt;slots.common.timestamp;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 1; i &lt; indexes-&gt;index_size; i++) {
+      <B><FONT COLOR="#228B22">const</FONT></B> time_t currt = indexes-&gt;index[i]-&gt;slots.common.timestamp;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (currt &gt; maxt) {
+        maxt = currt;
+      }
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> maxt;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) - 1;
+}
+
+PT_Index <B><FONT COLOR="#0000FF">PT_GetIndex</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">int</FONT></B> indexId) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (indexes != NULL &amp;&amp; indexId &gt;= 0 &amp;&amp; indexId &lt; indexes-&gt;index_size) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> indexes-&gt;index[indexId];
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+PT_Element <B><FONT COLOR="#0000FF">PT_ElementNew</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  PT_Element r = NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((r = calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Element), 1)) == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  r-&gt;statuscode = STATUSCODE_INVALID;
+  r-&gt;indexId = -1;
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index != NULL &amp;&amp; SAFE_INDEX(index)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> _IndexFuncts[index-&gt;type].PT_ReadCache(index, url, flags);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__New</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Element retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatNew.zFileLock);
+  {
+    retCode = PT_ReadCache__New_u(index, url, flags);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatNew.zFileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* New HTTrack cache (new.zip) format                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_STRING</FONT></B>(headers, headersSize, field, value) do { \
+  if ( (value != NULL) &amp;&amp; (value)[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) { \
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: %s\r\n&quot;</FONT></B>, field, (value != NULL) ? (value) : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>); \
+    (headersSize) += (int) strlen(headers + headersSize); \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_INT</FONT></B>(headers, headersSize, field, value) do { \
+  if ( (value != 0) ) { \
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: &quot;</FONT></B>LLintP<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>, field, (LLint)(value)); \
+    (headersSize) += (int) strlen(headers + headersSize); \
+  } \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_FIELD_INT_FORCE</FONT></B>(headers, headersSize, field, value) do { \
+  sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;%s: &quot;</FONT></B>LLintP<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>, field, (LLint)(value)); \
+  (headersSize) += (int) strlen(headers + headersSize); \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_READFIELD_STRING</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    strcpy(refvalue, value); \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ZIP_READFIELD_INT</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    int intval = 0; \
+    sscanf(value, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;intval); \
+    (refvalue) = intval; \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LoadCache__New</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL &amp;&amp; filename != NULL) {
+    PT_Index__New index = &amp;index_-&gt;slots.formatNew;
+    unzFile zFile = index-&gt;zFile = unzOpen(filename);
+
+    index-&gt;timestamp = file_timestamp(filename);
+    MutexInit(&amp;index-&gt;zFileLock);
+
+    <I><FONT COLOR="#B22222">// Opened ?
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (zFile != NULL) {
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *abpath;
+      <B><FONT COLOR="#228B22">int</FONT></B> slashes;
+      coucal hashtable = index-&gt;hash;
+
+      <I><FONT COLOR="#B22222">/* Compute base path for this index - the filename MUST be absolute! */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(slashes = 2, abpath = filename + (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(filename) - 1;
+          abpath &gt; filename &amp;&amp; ((*abpath != <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; *abpath != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)
+                                || --slashes &gt; 0);
+          abpath--) ;
+      index-&gt;path[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (slashes == 0 &amp;&amp; *abpath != 0) {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        strncat(index-&gt;path, filename, (<B><FONT COLOR="#228B22">int</FONT></B>) (abpath - filename) + 1);
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; index-&gt;path[i] != 0; i++) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;path[i] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>) {
+            index-&gt;path[i] = <B><FONT COLOR="#BC8F8F">'/'</FONT></B>;
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Ready directory entries */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (unzGoToFirstFile(zFile) == Z_OK) {
+        <B><FONT COLOR="#228B22">char</FONT></B> comment[128];
+        <B><FONT COLOR="#228B22">char</FONT></B> filename[HTS_URLMAXSIZE * 4];
+        <B><FONT COLOR="#228B22">int</FONT></B> entries = 0;
+        <B><FONT COLOR="#228B22">int</FONT></B> firstSeen = 0;
+
+        memset(comment, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment));    <I><FONT COLOR="#B22222">// for truncated reads
+</FONT></I>        <B><FONT COLOR="#A020F0">do</FONT></B> {
+          <B><FONT COLOR="#228B22">int</FONT></B> readSizeHeader = 0;
+
+          filename[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          comment[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (unzOpenCurrentFile(zFile) == Z_OK) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((readSizeHeader =
+                 unzGetLocalExtrafield(zFile, comment, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment) - 2)) &gt; 0
+                &amp;&amp; unzGetCurrentFileInfo(zFile, NULL, filename,
+                                         <B><FONT COLOR="#A020F0">sizeof</FONT></B>(filename) - 2, NULL, 0, NULL,
+                                         0) == Z_OK) {
+              <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> pos = (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) unzGetOffset(zFile);
+
+              assertf(readSizeHeader &lt; <B><FONT COLOR="#A020F0">sizeof</FONT></B>(comment));
+              comment[readSizeHeader] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              entries++;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (pos &gt; 0) {
+                <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;    <I><FONT COLOR="#B22222">// data in cache ?
+</FONT></I>                <B><FONT COLOR="#228B22">char</FONT></B> *filenameIndex = filename;
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(filenameIndex, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0) {
+                  filenameIndex += 7;
+                }
+                <B><FONT COLOR="#A020F0">if</FONT></B> (comment[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                  <B><FONT COLOR="#228B22">int</FONT></B> maxLine = 2;
+                  <B><FONT COLOR="#228B22">char</FONT></B> *a = comment;
+
+                  <B><FONT COLOR="#A020F0">while</FONT></B>(*a &amp;&amp; maxLine-- &gt; 0) {  <I><FONT COLOR="#B22222">// parse only few first lines
+</FONT></I>                    <B><FONT COLOR="#228B22">char</FONT></B> line[1024];
+
+                    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                    a += binput(a, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2);
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(line, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache:&quot;</FONT></B>, 11) == 0) {
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(line, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache: 1&quot;</FONT></B>) == 0) {
+                        dataincache = 1;
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        dataincache = 0;
+                      }
+                      <B><FONT COLOR="#A020F0">break</FONT></B>;
+                    }
+                  }
+                }
+                <B><FONT COLOR="#A020F0">if</FONT></B> (dataincache)
+                  coucal_add(hashtable, filenameIndex, pos);
+                <B><FONT COLOR="#A020F0">else</FONT></B>
+                  coucal_add(hashtable, filenameIndex, -pos);
+
+                <I><FONT COLOR="#B22222">/* First link as starting URL */</FONT></I>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!firstSeen) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(filenameIndex, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) == NULL) {
+                    firstSeen = 1;
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(filenameIndex))
+                      strcat(index-&gt;startUrl, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+                    strcat(index-&gt;startUrl, filenameIndex);
+                  }
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache meta entry #%d&quot;</FONT></B> LF,
+                        (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache entry #%d&quot;</FONT></B> LF, (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+            }
+            unzCloseCurrentFile(zFile);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache entry #%d&quot;</FONT></B> LF, (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+          }
+        } <B><FONT COLOR="#A020F0">while</FONT></B>(unzGoToNextFile(zFile) == Z_OK);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        coucal_delete(&amp;index-&gt;hash);
+        index = NULL;
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      index = NULL;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__New_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Index__New index = (PT_Index__New) &amp; index_-&gt;slots.formatNew;
+  <B><FONT COLOR="#228B22">char</FONT></B> location_default[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> previous_save[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> previous_save_[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  intptr_t hash_pos;
+  <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+  PT_Element r = NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index == NULL || index-&gt;hash == NULL || index-&gt;zFile == NULL
+      || url == NULL || *url == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((r = PT_ElementNew()) == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  location_default[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  previous_save[0] = previous_save_[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  memset(r, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Element));
+  r-&gt;location = location_default;
+  strcpy(r-&gt;location, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+    url += 7;
+  hash_pos_return = coucal_read(index-&gt;hash, url, &amp;hash_pos);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return) {
+    uLong posInZip;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos &gt; 0) {
+      posInZip = (uLong) hash_pos;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      posInZip = (uLong) - hash_pos;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unzSetOffset(index-&gt;zFile, posInZip) == Z_OK) {
+      <I><FONT COLOR="#B22222">/* Read header (Max 8KiB) */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (unzOpenCurrentFile(index-&gt;zFile) == Z_OK) {
+        <B><FONT COLOR="#228B22">char</FONT></B> headerBuff[8192 + 2];
+        <B><FONT COLOR="#228B22">int</FONT></B> readSizeHeader;
+        <I><FONT COLOR="#B22222">//int totalHeader = 0;
+</FONT></I>        <B><FONT COLOR="#228B22">int</FONT></B> dataincache = 0;
+
+        <I><FONT COLOR="#B22222">/* For BIG comments */</FONT></I>
+        headerBuff[0]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 1]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 2]
+          = headerBuff[<B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 3] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((readSizeHeader =
+             unzGetLocalExtrafield(index-&gt;zFile, headerBuff,
+                                   <B><FONT COLOR="#A020F0">sizeof</FONT></B>(headerBuff) - 2)) &gt; 0) {
+          <B><FONT COLOR="#228B22">int</FONT></B> offset = 0;
+          <B><FONT COLOR="#228B22">char</FONT></B> line[HTS_URLMAXSIZE + 2];
+          <B><FONT COLOR="#228B22">int</FONT></B> lineEof = 0;
+
+          headerBuff[readSizeHeader] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          <B><FONT COLOR="#A020F0">do</FONT></B> {
+            <B><FONT COLOR="#228B22">char</FONT></B> *value;
+
+            line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            offset += binput(headerBuff + offset, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line) - 2);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+              lineEof = 1;
+            }
+            value = strchr(line, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (value != NULL) {
+              *value++ = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (*value == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || *value == <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>)
+                value++;
+              ZIP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache&quot;</FONT></B>, dataincache);
+              ZIP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Statuscode&quot;</FONT></B>, r-&gt;statuscode);
+              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-StatusMessage&quot;</FONT></B>, r-&gt;msg);     <I><FONT COLOR="#B22222">// msg
+</FONT></I>              ZIP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Size&quot;</FONT></B>, r-&gt;size);        <I><FONT COLOR="#B22222">// size
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Type&quot;</FONT></B>, r-&gt;contenttype);        <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Charset&quot;</FONT></B>, r-&gt;charset);       <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Last-Modified&quot;</FONT></B>, r-&gt;lastmodified);      <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Etag&quot;</FONT></B>, r-&gt;etag);       <I><FONT COLOR="#B22222">// Etag
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Location&quot;</FONT></B>, r-&gt;location);       <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Disposition&quot;</FONT></B>, r-&gt;cdispo);      <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>              <I><FONT COLOR="#B22222">//ZIP_READFIELD_STRING(line, value, &quot;X-Addr&quot;, ..);            // Original address
+</FONT></I>              <I><FONT COLOR="#B22222">//ZIP_READFIELD_STRING(line, value, &quot;X-Fil&quot;, ..);            // Original URI filename
+</FONT></I>              ZIP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;X-Save&quot;</FONT></B>, previous_save_);      <I><FONT COLOR="#B22222">// Original save filename
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                <B><FONT COLOR="#228B22">int</FONT></B> len = r-&gt;headers ? ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(r-&gt;headers)) : 0;
+                <B><FONT COLOR="#228B22">int</FONT></B> nlen =
+                  (<B><FONT COLOR="#228B22">int</FONT></B>) (strlen(line) + 2 + strlen(value) + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>) + 1);
+                r-&gt;headers = realloc(r-&gt;headers, len + nlen);
+                r-&gt;headers[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                strcat(r-&gt;headers, line);
+                strcat(r-&gt;headers, <B><FONT COLOR="#BC8F8F">&quot;: &quot;</FONT></B>);
+                strcat(r-&gt;headers, value);
+                strcat(r-&gt;headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+              }
+            }
+          } <B><FONT COLOR="#A020F0">while</FONT></B>(offset &lt; readSizeHeader &amp;&amp; !lineEof);
+          <I><FONT COLOR="#B22222">//totalHeader = offset;
+</FONT></I>
+          <I><FONT COLOR="#B22222">/* Previous entry */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (previous_save_[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+            <B><FONT COLOR="#228B22">int</FONT></B> pathLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(index-&gt;path);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pathLen &gt; 0 &amp;&amp; strncmp(previous_save_, index-&gt;path, pathLen) == 0) {    <I><FONT COLOR="#B22222">// old (&lt;3.40) buggy format
+</FONT></I>              strcpy(previous_save, previous_save_);
+            }
+            <I><FONT COLOR="#B22222">// relative ? (hack)
+</FONT></I>            <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;safeCache || (previous_save_[0] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>      <I><FONT COLOR="#B22222">// /home/foo/bar.gif
+</FONT></I>                                          &amp;&amp; (!isalpha(previous_save_[0]) || previous_save_[1] != <B><FONT COLOR="#BC8F8F">':'</FONT></B>)) <I><FONT COLOR="#B22222">// c:/home/foo/bar.gif
+</FONT></I>              ) {
+              index-&gt;safeCache = 1;
+              sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path, previous_save_);
+            }
+            <I><FONT COLOR="#B22222">// bogus format (includes buggy absolute path)
+</FONT></I>            <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <I><FONT COLOR="#B22222">/* guess previous path */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath == 0) {
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *start = jump_protocol_and_auth(url);
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *end = start ? strchr(start, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) : NULL;
+                <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) (end - start);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (start != NULL &amp;&amp; end != NULL &amp;&amp; len &gt; 0 &amp;&amp; len &lt; 128) {
+                  <B><FONT COLOR="#228B22">char</FONT></B> piece[128 + 2];
+                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *where;
+
+                  piece[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  strncat(piece, start, len);
+                  <B><FONT COLOR="#A020F0">if</FONT></B> ((where = strstr(previous_save_, piece)) != NULL) {
+                    index-&gt;fixedPath = (<B><FONT COLOR="#228B22">int</FONT></B>) (where - previous_save_);  <I><FONT COLOR="#B22222">// offset to relative path
+</FONT></I>                  }
+                }
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath &gt; 0) {
+                <B><FONT COLOR="#228B22">int</FONT></B> saveLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(previous_save_);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath &lt; saveLen) {
+                  sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path,
+                          previous_save_ + index-&gt;fixedPath);
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  sprintf(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Bogus fixePath prefix for %s (prefixLen=%d)&quot;</FONT></B>,
+                          previous_save_, (<B><FONT COLOR="#228B22">int</FONT></B>) index-&gt;fixedPath);
+                  r-&gt;statuscode = STATUSCODE_INVALID;
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path, previous_save_);
+              }
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* Complete fields */</FONT></I>
+          r-&gt;adr = NULL;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;statuscode != STATUSCODE_INVALID) {    <I><FONT COLOR="#B22222">/* Can continue */</FONT></I>
+            <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+
+            <I><FONT COLOR="#B22222">// Court-circuit:
+</FONT></I>            <I><FONT COLOR="#B22222">// Peut-on stocker le fichier directement sur disque?
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+              <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;msg[0] == <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Unexpected error&quot;</FONT></B>);
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {            <I><FONT COLOR="#B22222">// lire en mémoire
+</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!dataincache) {
+                <I><FONT COLOR="#B22222">/* Read in memory from cache */</FONT></I>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (flags &amp; FETCH_BODY) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(previous_save)) {
+                    FILE *fp = fopen(file_convert(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                      r-&gt;adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(r-&gt;size + 4);
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;adr != NULL) {
+                        <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;size &gt; 0
+                            &amp;&amp; fread(r-&gt;adr, 1, r-&gt;size, fp) != r-&gt;size) {
+                          <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+                          r-&gt;statuscode = STATUSCODE_INVALID;
+                          sprintf(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error in cache disk data: %s&quot;</FONT></B>,
+                                  strerror(last_errno));
+                        }
+                      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                        r-&gt;statuscode = STATUSCODE_INVALID;
+                        strcpy(r-&gt;msg,
+                               <B><FONT COLOR="#BC8F8F">&quot;Read error (memory exhausted) from cache&quot;</FONT></B>);
+                      }
+                      fclose(fp);
+                    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                      r-&gt;statuscode = STATUSCODE_INVALID;
+                      sprintf(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error (can't open '%s') from cache&quot;</FONT></B>,
+                              file_convert(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), previous_save));
+                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    r-&gt;statuscode = STATUSCODE_INVALID;
+                    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cached file name is invalid&quot;</FONT></B>);
+                  }
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                <I><FONT COLOR="#B22222">// lire fichier (d'un coup)
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (flags &amp; FETCH_BODY) {
+                  r-&gt;adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(r-&gt;size + 1);
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;adr != NULL) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (unzReadCurrentFile(index-&gt;zFile, r-&gt;adr, (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;size) != r-&gt;size) {  <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                      free(r-&gt;adr);
+                      r-&gt;adr = NULL;
+                      r-&gt;statuscode = STATUSCODE_INVALID;
+                      strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Data&quot;</FONT></B>);
+                    } <B><FONT COLOR="#A020F0">else</FONT></B>
+                      *(r-&gt;adr + r-&gt;size) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                    <I><FONT COLOR="#B22222">//printf(&quot;&gt;%s status %d\n&quot;,back[p].r-&gt;contenttype,back[p].r-&gt;statuscode);
+</FONT></I>                  } <B><FONT COLOR="#A020F0">else</FONT></B> {      <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                    r-&gt;statuscode = STATUSCODE_INVALID;
+                    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Memory Error&quot;</FONT></B>);
+                  }
+                }
+              }
+            }
+          }                     <I><FONT COLOR="#B22222">// si save==null, ne rien charger (juste en tête)
+</FONT></I>        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          r-&gt;statuscode = STATUSCODE_INVALID;
+          strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header Data&quot;</FONT></B>);
+        }
+        unzCloseCurrentFile(index-&gt;zFile);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        r-&gt;statuscode = STATUSCODE_INVALID;
+        strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Open File&quot;</FONT></B>);
+      }
+
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      r-&gt;statuscode = STATUSCODE_INVALID;
+      strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Bad Offset&quot;</FONT></B>);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;statuscode = STATUSCODE_INVALID;
+    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;File Cache Entry Not Found&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;location[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    r-&gt;location = strdup(r-&gt;location);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;location = NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__New_Fun</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, PT_Element element) {
+  zipFile zFileOut = (zipFile) arg;
+  <B><FONT COLOR="#228B22">char</FONT></B> headers[8192];
+  <B><FONT COLOR="#228B22">int</FONT></B> headersSize;
+  zip_fileinfo fi;
+  <B><FONT COLOR="#228B22">int</FONT></B> zErr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_adr = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_fil = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+
+  headers[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  headersSize = 0;
+
+  <I><FONT COLOR="#B22222">/* Fields */</FONT></I>
+  headers[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  headersSize = 0;
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *message;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(element-&gt;msg) &lt; 32) {
+      message = element-&gt;msg;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      message = <B><FONT COLOR="#BC8F8F">&quot;(See X-StatusMessage)&quot;</FONT></B>;
+    }
+    <I><FONT COLOR="#B22222">/* 64 characters MAX for first line */</FONT></I>
+    sprintf(headers + headersSize, <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.%c %d %s\r\n&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">'1'</FONT></B>,
+            element-&gt;statuscode, message);
+  }
+  headersSize += (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(headers + headersSize);
+
+  <I><FONT COLOR="#B22222">/* Second line MUST ALWAYS be X-In-Cache */</FONT></I>
+  ZIP_FIELD_INT_FORCE(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-In-Cache&quot;</FONT></B>, 1);
+  ZIP_FIELD_INT(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-StatusCode&quot;</FONT></B>, element-&gt;statuscode);
+  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-StatusMessage&quot;</FONT></B>, element-&gt;msg);
+  ZIP_FIELD_INT(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Size&quot;</FONT></B>, element-&gt;size); <I><FONT COLOR="#B22222">// size
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Content-Type&quot;</FONT></B>, element-&gt;contenttype); <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Charset&quot;</FONT></B>, element-&gt;charset);        <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Last-Modified&quot;</FONT></B>, element-&gt;lastmodified);       <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Etag&quot;</FONT></B>, element-&gt;etag);        <I><FONT COLOR="#B22222">// Etag
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Location&quot;</FONT></B>, element-&gt;location);        <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;Content-Disposition&quot;</FONT></B>, element-&gt;cdispo);       <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Addr&quot;</FONT></B>, url_adr);    <I><FONT COLOR="#B22222">// Original address
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Fil&quot;</FONT></B>, url_fil);     <I><FONT COLOR="#B22222">// Original URI filename
+</FONT></I>  ZIP_FIELD_STRING(headers, headersSize, <B><FONT COLOR="#BC8F8F">&quot;X-Save&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>); <I><FONT COLOR="#B22222">// Original save filename
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Time */</FONT></I>
+  memset(&amp;fi, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(fi));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (element-&gt;lastmodified[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm buffer;
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm_s = convert_time_rfc822(&amp;buffer, element-&gt;lastmodified);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (tm_s) {
+      fi.tmz_date.tm_sec = (uInt) tm_s-&gt;tm_sec;
+      fi.tmz_date.tm_min = (uInt) tm_s-&gt;tm_min;
+      fi.tmz_date.tm_hour = (uInt) tm_s-&gt;tm_hour;
+      fi.tmz_date.tm_mday = (uInt) tm_s-&gt;tm_mday;
+      fi.tmz_date.tm_mon = (uInt) tm_s-&gt;tm_mon;
+      fi.tmz_date.tm_year = (uInt) tm_s-&gt;tm_year;
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Open file - NOTE: headers in &quot;comment&quot; */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipOpenNewFileInZip(zFileOut, url, &amp;fi,
+                                  <I><FONT COLOR="#B22222">/* 
+                                     Store headers in realtime in the local file directory as extra field
+                                     In case of crash, we'll be able to recover the whole ZIP file by rescanning it
+                                   */</FONT></I>
+                                  headers, (uInt) strlen(headers), NULL, 0, NULL,       <I><FONT COLOR="#B22222">/* comment */</FONT></I>
+                                  Z_DEFLATED, Z_DEFAULT_COMPRESSION)) != Z_OK) {
+    assertf(! <B><FONT COLOR="#BC8F8F">&quot;zip_zipOpenNewFileInZip_failed&quot;</FONT></B>);
+  }
+
+  <I><FONT COLOR="#B22222">/* Write data in cache */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (element-&gt;size &gt; 0 &amp;&amp; element-&gt;adr != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr =
+         zipWriteInFileInZip(zFileOut, element-&gt;adr,
+                             (<B><FONT COLOR="#228B22">int</FONT></B>) element-&gt;size)) != Z_OK) {
+      assertf(! <B><FONT COLOR="#BC8F8F">&quot;zip_zipWriteInFileInZip_failed&quot;</FONT></B>);
+    }
+  }
+
+  <I><FONT COLOR="#B22222">/* Close */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipCloseFileInZip(zFileOut)) != Z_OK) {
+    assertf(! <B><FONT COLOR="#BC8F8F">&quot;zip_zipCloseFileInZip_failed&quot;</FONT></B>);
+  }
+
+  <I><FONT COLOR="#B22222">/* Flush */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((zErr = zipFlush(zFileOut)) != 0) {
+    assertf(! <B><FONT COLOR="#BC8F8F">&quot;zip_zipFlush_failed&quot;</FONT></B>);
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__New</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  zipFile zFileOut = zipOpen(filename, 0);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (zFileOut != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> ret = PT_EnumCache(indexes, PT_SaveCache__New_Fun, (<B><FONT COLOR="#228B22">void</FONT></B> *) zFileOut);
+
+    zipClose(zFileOut,
+             <B><FONT COLOR="#BC8F8F">&quot;Created by HTTrack Website Copier/ProxyTrack &quot;</FONT></B>
+             PROXYTRACK_VERSION);
+    zFileOut = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ret != 0)
+      (<B><FONT COLOR="#228B22">void</FONT></B>) unlink(filename);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* Old HTTrack cache (dat/ndx) format                           */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cache_brstr</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  <B><FONT COLOR="#228B22">int</FONT></B> off;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 1];
+
+  off = binput(adr, buff, 256);
+  adr += off;
+  sscanf(buff, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0)
+    strncpy(s, adr, i);
+  *(s + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  off += i;
+  <B><FONT COLOR="#A020F0">return</FONT></B> off;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rstr</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  INTsys i;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  linput(fp, buff, 256);
+  sscanf(buff, INTsysP, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &lt; 0 || i &gt; 32768)       <I><FONT COLOR="#B22222">/* error, something nasty happened */</FONT></I>
+    i = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) fread(s, 1, i, fp) != i) {
+      assertf(! <B><FONT COLOR="#BC8F8F">&quot;fread_cache_failed&quot;</FONT></B>);
+    }
+  }
+  *(s + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cache_rstr_addr</FONT></B>(FILE * fp) {
+  INTsys i;
+  <B><FONT COLOR="#228B22">char</FONT></B> *addr = NULL;
+  <B><FONT COLOR="#228B22">char</FONT></B> buff[256 + 4];
+
+  linput(fp, buff, 256);
+  sscanf(buff, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;i);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &lt; 0 || i &gt; 32768)       <I><FONT COLOR="#B22222">/* error, something nasty happened */</FONT></I>
+    i = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (i &gt; 0) {
+    addr = malloc(i + 1);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (addr != NULL) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) fread(addr, 1, i, fp) != i) {
+        assertf(! <B><FONT COLOR="#BC8F8F">&quot;fread_cache_failed&quot;</FONT></B>);
+      }
+      *(addr + i) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> addr;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">int</FONT></B> *i) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  cache_rstr(fp, s);
+  sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, i);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cache_rLLint</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> *i) {
+  <B><FONT COLOR="#228B22">int</FONT></B> l;
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  cache_rstr(fp, s);
+  sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;l);
+  *i = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>) l;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LoadCache__Old</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL &amp;&amp; filename != NULL) {
+    <B><FONT COLOR="#228B22">char</FONT></B> *pos = strrchr(filename, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>);
+    PT_Index__Old cache = &amp;index_-&gt;slots.formatOld;
+    <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ndxSize;
+
+    cache-&gt;filenameDat[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    cache-&gt;filenameNdx[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    cache-&gt;path[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+    {
+      PT_Index__Old index = cache;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *abpath;
+      <B><FONT COLOR="#228B22">int</FONT></B> slashes;
+
+      <I><FONT COLOR="#B22222">/* -------------------- COPY OF THE __New() CODE -------------------- */</FONT></I>
+      <I><FONT COLOR="#B22222">/* Compute base path for this index - the filename MUST be absolute! */</FONT></I>
+      <B><FONT COLOR="#A020F0">for</FONT></B>(slashes = 2, abpath = filename + (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(filename) - 1;
+          abpath &gt; filename &amp;&amp; ((*abpath != <B><FONT COLOR="#BC8F8F">'/'</FONT></B> &amp;&amp; *abpath != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>)
+                                || --slashes &gt; 0);
+          abpath--) ;
+      index-&gt;path[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (slashes == 0 &amp;&amp; *abpath != 0) {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        strncat(index-&gt;path, filename, (<B><FONT COLOR="#228B22">int</FONT></B>) (abpath - filename) + 1);
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; index-&gt;path[i] != 0; i++) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;path[i] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>) {
+            index-&gt;path[i] = <B><FONT COLOR="#BC8F8F">'/'</FONT></B>;
+          }
+        }
+      }
+      <I><FONT COLOR="#B22222">/* -------------------- END OF COPY OF THE __New() CODE -------------------- */</FONT></I>
+    }
+
+    <I><FONT COLOR="#B22222">/* Index/data filenames */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+      <B><FONT COLOR="#228B22">int</FONT></B> nLen = (<B><FONT COLOR="#228B22">int</FONT></B>) (pos - filename);
+
+      strncat(cache-&gt;filenameDat, filename, nLen);
+      strncat(cache-&gt;filenameNdx, filename, nLen);
+      strcat(cache-&gt;filenameDat, <B><FONT COLOR="#BC8F8F">&quot;.dat&quot;</FONT></B>);
+      strcat(cache-&gt;filenameNdx, <B><FONT COLOR="#BC8F8F">&quot;.ndx&quot;</FONT></B>);
+    }
+    ndxSize = filesize(cache-&gt;filenameNdx);
+    cache-&gt;timestamp = file_timestamp(cache-&gt;filenameDat);
+    cache-&gt;dat = fopen(cache-&gt;filenameDat, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+    cache-&gt;ndx = fopen(cache-&gt;filenameNdx, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;dat != NULL &amp;&amp; cache-&gt;ndx != NULL &amp;&amp; ndxSize &gt; 0) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *use = malloc(ndxSize + 1);
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (fread(use, 1, ndxSize, cache-&gt;ndx) == ndxSize) {
+        <B><FONT COLOR="#228B22">char</FONT></B> firstline[256];
+        <B><FONT COLOR="#228B22">char</FONT></B> *a = use;
+
+        use[ndxSize] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        a += cache_brstr(a, firstline);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(firstline, <B><FONT COLOR="#BC8F8F">&quot;CACHE-&quot;</FONT></B>, 6) == 0) {     <I><FONT COLOR="#B22222">// Nouvelle version du cache
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(firstline, <B><FONT COLOR="#BC8F8F">&quot;CACHE-1.&quot;</FONT></B>, 8) == 0) { <I><FONT COLOR="#B22222">// Version 1.1x
+</FONT></I>            cache-&gt;version = (<B><FONT COLOR="#228B22">int</FONT></B>) (firstline[8] - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>);        <I><FONT COLOR="#B22222">// cache 1.x
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &lt;= 5) {
+              a += cache_brstr(a, firstline);
+              strcpy(cache-&gt;lastmodified, firstline);
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              <I><FONT COLOR="#B22222">// fprintf(opt-&gt;errlog,&quot;Cache: version 1.%d not supported, ignoring current cache&quot;LF,cache-&gt;version);
+</FONT></I>              fclose(cache-&gt;dat);
+              cache-&gt;dat = NULL;
+              free(use);
+              use = NULL;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {              <I><FONT COLOR="#B22222">// non supporté
+</FONT></I>            <I><FONT COLOR="#B22222">// fspc(opt-&gt;errlog,&quot;error&quot;); fprintf(opt-&gt;errlog,&quot;Cache: %s not supported, ignoring current cache&quot;LF,firstline);
+</FONT></I>            fclose(cache-&gt;dat);
+            cache-&gt;dat = NULL;
+            free(use);
+            use = NULL;
+          }
+          <I><FONT COLOR="#B22222">/* */</FONT></I>
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">// Vieille version du cache
+</FONT></I>          <I><FONT COLOR="#B22222">/* */</FONT></I>
+          <I><FONT COLOR="#B22222">// hts_log_print(opt, LOG_WARNING, &quot;Cache: importing old cache format&quot;);
+</FONT></I>          cache-&gt;version = 0;   <I><FONT COLOR="#B22222">// cache 1.0
+</FONT></I>          strcpy(cache-&gt;lastmodified, firstline);
+        }
+
+        <I><FONT COLOR="#B22222">/* Create hash table for the cache (MUCH FASTER!) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (use) {
+          <B><FONT COLOR="#228B22">char</FONT></B> line[HTS_URLMAXSIZE * 2];
+          <B><FONT COLOR="#228B22">char</FONT></B> linepos[256];
+          <B><FONT COLOR="#228B22">int</FONT></B> pos;
+          <B><FONT COLOR="#228B22">int</FONT></B> firstSeen = 0;
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((a != NULL) &amp;&amp; (a &lt; (use + ndxSize))) {
+            a = strchr(a + 1, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>);    <I><FONT COLOR="#B22222">/* start of line */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+              a++;
+              <I><FONT COLOR="#B22222">/* read &quot;host/file&quot; */</FONT></I>
+              a += binput(a, line, HTS_URLMAXSIZE);
+              a += binput(a, line + strlen(line), HTS_URLMAXSIZE);
+              <I><FONT COLOR="#B22222">/* read position */</FONT></I>
+              a += binput(a, linepos, 200);
+              sscanf(linepos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;pos);
+
+              <I><FONT COLOR="#B22222">/* Add entry */</FONT></I>
+              coucal_add(cache-&gt;hash, line, pos);
+
+              <I><FONT COLOR="#B22222">/* First link as starting URL */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> (!firstSeen) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strstr(line, <B><FONT COLOR="#BC8F8F">&quot;/robots.txt&quot;</FONT></B>) == NULL) {
+                  PT_Index__Old index = cache;
+
+                  firstSeen = 1;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (!link_has_authority(line))
+                    strcat(index-&gt;startUrl, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>);
+                  strcat(index-&gt;startUrl, line);
+                }
+              }
+
+            }
+          }
+          <I><FONT COLOR="#B22222">/* Not needed anymore! */</FONT></I>
+          free(use);
+          use = NULL;
+          <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+        }
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> String <B><FONT COLOR="#0000FF">DecodeUrl</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  String s = STRING_EMPTY;
+
+  StringClear(s);
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; url[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (url[i] == <B><FONT COLOR="#BC8F8F">'+'</FONT></B>) {
+      StringAddchar(s, <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (url[i] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (url[i + 1] == <B><FONT COLOR="#BC8F8F">'%'</FONT></B>) {
+        StringAddchar(s, <B><FONT COLOR="#BC8F8F">'%'</FONT></B>);
+        i++;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (url[i + 1] != 0 &amp;&amp; url[i + 2] != 0) {
+        <B><FONT COLOR="#228B22">char</FONT></B> tmp[3];
+        <B><FONT COLOR="#228B22">int</FONT></B> codepoint = 0;
+
+        tmp[0] = url[i + 1];
+        tmp[1] = url[i + 2];
+        tmp[2] = 0;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(tmp, <B><FONT COLOR="#BC8F8F">&quot;%x&quot;</FONT></B>, &amp;codepoint) == 1) {
+          StringAddchar(s, (<B><FONT COLOR="#228B22">char</FONT></B>) codepoint);
+        }
+        i += 2;
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      StringAddchar(s, url[i]);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Old</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Element retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatOld.fileLock);
+  {
+    retCode = PT_ReadCache__Old_u(index, url, flags);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatOld.fileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Old_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Index__Old cache = (PT_Index__Old) &amp; index_-&gt;slots.formatOld;
+  intptr_t hash_pos;
+  <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+  <B><FONT COLOR="#228B22">char</FONT></B> location_default[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> previous_save[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> previous_save_[HTS_URLMAXSIZE * 2];
+  PT_Element r;
+  <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cache == NULL || cache-&gt;hash == NULL || url == NULL || *url == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((r = PT_ElementNew()) == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  location_default[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  previous_save[0] = previous_save_[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  memset(r, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Element));
+  r-&gt;location = location_default;
+  strcpy(r-&gt;location, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+    url += 7;
+  hash_pos_return = coucal_read(cache-&gt;hash, url, &amp;hash_pos);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return) {
+    <B><FONT COLOR="#228B22">int</FONT></B> pos = (<B><FONT COLOR="#228B22">int</FONT></B>) hash_pos;   <I><FONT COLOR="#B22222">/* simply */</FONT></I>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fseek(cache-&gt;dat, (pos &gt; 0) ? pos : (-pos), SEEK_SET) == 0) {
+      <I><FONT COLOR="#B22222">/* Importer cache1.0 */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version == 0) {
+        OLD_htsblk old_r;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fread((<B><FONT COLOR="#228B22">char</FONT></B> *) &amp;old_r, 1, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(old_r), cache-&gt;dat) == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(old_r)) {    <I><FONT COLOR="#B22222">// lire tout (y compris statuscode etc)
+</FONT></I>          <B><FONT COLOR="#228B22">int</FONT></B> i;
+          String urlDecoded;
+
+          r-&gt;statuscode = old_r.statuscode;
+          r-&gt;size = old_r.size; <I><FONT COLOR="#B22222">// taille fichier
+</FONT></I>          strcpy(r-&gt;msg, old_r.msg);
+          strcpy(r-&gt;contenttype, old_r.contenttype);
+
+          <I><FONT COLOR="#B22222">/* Guess the destination filename.. this sucks, because this method is not reliable.
+             Yes, the old 1.0 cache format was *that* bogus. /rx */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FORBIDDEN_CHAR</FONT></B>(c) (c == <B><FONT COLOR="#BC8F8F">'~'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">':'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'*'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'?'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'|'</FONT></B> \
+	|| c == <B><FONT COLOR="#BC8F8F">'@'</FONT></B> \
+	|| ((unsigned char) c ) &lt;= 31 \
+	|| ((unsigned char) c ) == 127 \
+	)
+          urlDecoded = DecodeUrl(jump_protocol_and_auth(url));
+          strcpy(previous_save_, StringBuff(urlDecoded));
+          StringFree(urlDecoded);
+          <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; previous_save_[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; previous_save_[i] != <B><FONT COLOR="#BC8F8F">'?'</FONT></B>; i++) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (FORBIDDEN_CHAR(previous_save_[i])) {
+              previous_save_[i] = <B><FONT COLOR="#BC8F8F">'_'</FONT></B>;
+            }
+          }
+          previous_save_[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FORBIDDEN_CHAR</FONT>
+          ok = 1;               <I><FONT COLOR="#B22222">/* import  ok */</FONT></I>
+        }
+        <I><FONT COLOR="#B22222">/* */</FONT></I>
+        <I><FONT COLOR="#B22222">/* Cache 1.1 */</FONT></I>
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <B><FONT COLOR="#228B22">char</FONT></B> check[256];
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> size_read;
+        <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> size_;
+
+        check[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        cache_rint(cache-&gt;dat, &amp;r-&gt;statuscode);
+        cache_rLLint(cache-&gt;dat, &amp;size_);
+        r-&gt;size = (size_t) size_;
+        cache_rstr(cache-&gt;dat, r-&gt;msg);
+        cache_rstr(cache-&gt;dat, r-&gt;contenttype);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 3)
+          cache_rstr(cache-&gt;dat, r-&gt;charset);
+        cache_rstr(cache-&gt;dat, r-&gt;lastmodified);
+        cache_rstr(cache-&gt;dat, r-&gt;etag);
+        cache_rstr(cache-&gt;dat, r-&gt;location);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 2)
+          cache_rstr(cache-&gt;dat, r-&gt;cdispo);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 4) {
+          cache_rstr(cache-&gt;dat, previous_save_);       <I><FONT COLOR="#B22222">// adr
+</FONT></I>          cache_rstr(cache-&gt;dat, previous_save_);       <I><FONT COLOR="#B22222">// fil
+</FONT></I>          previous_save[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+          cache_rstr(cache-&gt;dat, previous_save_);       <I><FONT COLOR="#B22222">// save
+</FONT></I>        }
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cache-&gt;version &gt;= 5) {
+          r-&gt;headers = cache_rstr_addr(cache-&gt;dat);
+        }
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        cache_rstr(cache-&gt;dat, check);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(check, <B><FONT COLOR="#BC8F8F">&quot;HTS&quot;</FONT></B>) == 0) {        <I><FONT COLOR="#B22222">/* intégrité OK */</FONT></I>
+          ok = 1;
+        }
+        cache_rLLint(cache-&gt;dat, &amp;size_read);   <I><FONT COLOR="#B22222">/* lire size pour être sûr de la taille déclarée (réécrire) */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (size_read &gt; 0) {    <I><FONT COLOR="#B22222">/* si inscrite ici */</FONT></I>
+          r-&gt;size = size_read;
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">/* pas de données directement dans le cache, fichier présent? */</FONT></I>
+          r-&gt;size = 0;
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* Check destination filename */</FONT></I>
+
+      {
+        PT_Index__Old index = cache;
+
+        <I><FONT COLOR="#B22222">/* -------------------- COPY OF THE __New() CODE -------------------- */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (previous_save_[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+          <B><FONT COLOR="#228B22">int</FONT></B> pathLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(index-&gt;path);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (pathLen &gt; 0 &amp;&amp; strncmp(previous_save_, index-&gt;path, pathLen) == 0) {      <I><FONT COLOR="#B22222">// old (&lt;3.40) buggy format
+</FONT></I>            strcpy(previous_save, previous_save_);
+          }
+          <I><FONT COLOR="#B22222">// relative ? (hack)
+</FONT></I>          <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;safeCache || (previous_save_[0] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>        <I><FONT COLOR="#B22222">// /home/foo/bar.gif
+</FONT></I>                                        &amp;&amp; (!isalpha(previous_save_[0]) || previous_save_[1] != <B><FONT COLOR="#BC8F8F">':'</FONT></B>))   <I><FONT COLOR="#B22222">// c:/home/foo/bar.gif
+</FONT></I>            ) {
+            index-&gt;safeCache = 1;
+            sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path, previous_save_);
+          }
+          <I><FONT COLOR="#B22222">// bogus format (includes buggy absolute path)
+</FONT></I>          <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">/* guess previous path */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath == 0) {
+              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *start = jump_protocol_and_auth(url);
+              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *end = start ? strchr(start, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) : NULL;
+              <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) (end - start);
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (start != NULL &amp;&amp; end != NULL &amp;&amp; len &gt; 0 &amp;&amp; len &lt; 128) {
+                <B><FONT COLOR="#228B22">char</FONT></B> piece[128 + 2];
+                <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *where;
+
+                piece[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                strncat(piece, start, len);
+                <B><FONT COLOR="#A020F0">if</FONT></B> ((where = strstr(previous_save_, piece)) != NULL) {
+                  index-&gt;fixedPath = (<B><FONT COLOR="#228B22">int</FONT></B>) (where - previous_save_);    <I><FONT COLOR="#B22222">// offset to relative path
+</FONT></I>                }
+              }
+            }
+            <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath &gt; 0) {
+              <B><FONT COLOR="#228B22">int</FONT></B> saveLen = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(previous_save_);
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;fixedPath &lt; saveLen) {
+                sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path,
+                        previous_save_ + index-&gt;fixedPath);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                sprintf(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Bogus fixePath prefix for %s (prefixLen=%d)&quot;</FONT></B>,
+                        previous_save_, (<B><FONT COLOR="#228B22">int</FONT></B>) index-&gt;fixedPath);
+                r-&gt;statuscode = STATUSCODE_INVALID;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              sprintf(previous_save, <B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, index-&gt;path, previous_save_);
+            }
+          }
+        }
+        <I><FONT COLOR="#B22222">/* -------------------- END OF COPY OF THE __New() CODE -------------------- */</FONT></I>
+      }
+
+      <I><FONT COLOR="#B22222">/* Read data */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+        r-&gt;adr = NULL;
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((r-&gt;statuscode &gt;= 0) &amp;&amp; (r-&gt;statuscode &lt;= 999)) {
+          r-&gt;adr = NULL;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (pos &lt; 0) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (flags &amp; FETCH_BODY) {
+              FILE *fp = fopen(previous_save, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+                r-&gt;adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(r-&gt;size + 1);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;adr != NULL) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;size &gt; 0 &amp;&amp; fread(r-&gt;adr, 1, r-&gt;size, fp) != r-&gt;size) {
+                    r-&gt;statuscode = STATUSCODE_INVALID;
+                    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error in cache disk data&quot;</FONT></B>);
+                  }
+                  r-&gt;adr[r-&gt;size] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  r-&gt;statuscode = STATUSCODE_INVALID;
+                  strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error (memory exhausted) from cache&quot;</FONT></B>);
+                }
+                fclose(fp);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                r-&gt;statuscode = STATUSCODE_INVALID;
+                strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Previous cache file not found (2)&quot;</FONT></B>);
+              }
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <I><FONT COLOR="#B22222">// lire fichier (d'un coup)
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (flags &amp; FETCH_BODY) {
+              r-&gt;adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(r-&gt;size + 1);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;adr != NULL) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (fread(r-&gt;adr, 1, r-&gt;size, cache-&gt;dat) != r-&gt;size) { <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                  free(r-&gt;adr);
+                  r-&gt;adr = NULL;
+                  r-&gt;statuscode = STATUSCODE_INVALID;
+                  strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Data&quot;</FONT></B>);
+                } <B><FONT COLOR="#A020F0">else</FONT></B>
+                  r-&gt;adr[r-&gt;size] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {          <I><FONT COLOR="#B22222">// erreur
+</FONT></I>                r-&gt;statuscode = STATUSCODE_INVALID;
+                strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Memory Error&quot;</FONT></B>);
+              }
+            }
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          r-&gt;statuscode = STATUSCODE_INVALID;
+          strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Bad Data&quot;</FONT></B>);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {                  <I><FONT COLOR="#B22222">// erreur
+</FONT></I>        r-&gt;statuscode = STATUSCODE_INVALID;
+        strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header&quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      r-&gt;statuscode = STATUSCODE_INVALID;
+      strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Seek Failed&quot;</FONT></B>);
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;statuscode = STATUSCODE_INVALID;
+    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;File Cache Entry Not Found&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;location[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    r-&gt;location = strdup(r-&gt;location);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;location = NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Old</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#228B22">int</FONT></B> retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatOld.fileLock);
+  {
+    retCode = PT_LookupCache__Old_u(index, url);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatOld.fileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Old_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL) {
+    PT_Index__New cache = (PT_Index__New) &amp; index_-&gt;slots.formatNew;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cache == NULL || cache-&gt;hash == NULL || url == NULL || *url == 0)
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+      url += 7;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(cache-&gt;hash, url, NULL))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* Internet Archive Arc 1.0 (arc) format                        */</FONT></I>
+<I><FONT COLOR="#B22222">/* Xavier Roche (roche@httrack.com)                             */</FONT></I>
+<I><FONT COLOR="#B22222">/* Lars Clausen (lc@statsbiblioteket.dk)                        */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">ARC_SP</FONT> <B><FONT COLOR="#BC8F8F">' '</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">getArcField</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *line, <B><FONT COLOR="#228B22">int</FONT></B> pos) {
+  <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; line[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; pos &gt; 0; i++) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (line[i] == ARC_SP)
+      pos--;
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pos == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> &amp;line[i];
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">copyArcField</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *line, <B><FONT COLOR="#228B22">int</FONT></B> npos, <B><FONT COLOR="#228B22">char</FONT></B> *dest, <B><FONT COLOR="#228B22">int</FONT></B> destMax) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = getArcField(line, npos)) != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; pos[i] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; pos[i] != ARC_SP &amp;&amp; (--destMax) &gt; 0; i++) {
+      dest[i] = pos[i];
+    }
+    dest[i] = 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> dest;
+  }
+  dest[0] = 0;
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">getArcLength</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *line) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = getArcField(line, 9)) != NULL
+      || (pos = getArcField(line, 4)) != NULL
+      || (pos = getArcField(line, 2)) != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> length;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(pos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;length) == 1) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> length;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">skipArcNl</FONT></B>(FILE * file) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fgetc(file) == 0x0a) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">skipArcData</FONT></B>(FILE * file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *line) {
+  <B><FONT COLOR="#228B22">int</FONT></B> jump = getArcLength(line);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (jump != -1) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fseek(file, jump, SEEK_CUR) == 0 <I><FONT COLOR="#B22222">/* &amp;&amp; skipArcNl(file) == 0 */</FONT></I> ) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">getDigit</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> digit) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>) (digit - <B><FONT COLOR="#BC8F8F">'0'</FONT></B>);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">getDigit2</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> pos) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> getDigit(pos[0]) * 10 + getDigit(pos[1]);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">getDigit4</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> pos) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> getDigit(pos[0]) * 1000 + getDigit(pos[1]) * 100 +
+    getDigit(pos[2]) * 10 + getDigit(pos[3]);
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> time_t <B><FONT COLOR="#0000FF">getGMT</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> tm *tm) {   <I><FONT COLOR="#B22222">/* hey, time_t is local! */</FONT></I>
+  time_t t = mktime(tm);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (t != (time_t) - 1 &amp;&amp; t != (time_t) 0) {
+    <I><FONT COLOR="#B22222">/* BSD does not have static &quot;timezone&quot; declared */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">BSD</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__OpenBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__NetBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD_kernel__</FONT>))
+    time_t now = time(NULL);
+    time_t timezone = -localtime(&amp;now)-&gt;tm_gmtoff;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) (t - timezone);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) - 1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> time_t <B><FONT COLOR="#0000FF">getArcTimestamp</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> line) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = getArcField(line, 2)) != NULL) {
+    <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+    <I><FONT COLOR="#B22222">/* date == YYYYMMDDhhmmss (Greenwich Mean Time) */</FONT></I>
+    <I><FONT COLOR="#B22222">/* example: 20050405154029  */</FONT></I>
+    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; pos[i] &gt;= <B><FONT COLOR="#BC8F8F">'0'</FONT></B> &amp;&amp; pos[i] &lt;= <B><FONT COLOR="#BC8F8F">'9'</FONT></B>; i++) ;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (i == 14) {
+      <B><FONT COLOR="#228B22">struct</FONT></B> tm tm;
+
+      memset(&amp;tm, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(tm));
+      tm.tm_year = getDigit4(pos + 0) - 1900;   <I><FONT COLOR="#B22222">/* current year minus 1900 */</FONT></I>
+      tm.tm_mon = getDigit2(pos + 4) - 1;       <I><FONT COLOR="#B22222">/* 0 – 11 */</FONT></I>
+      tm.tm_mday = getDigit2(pos + 6);  <I><FONT COLOR="#B22222">/* 1 – 31 */</FONT></I>
+      tm.tm_hour = getDigit2(pos + 8);  <I><FONT COLOR="#B22222">/* 0 – 23 */</FONT></I>
+      tm.tm_min = getDigit2(pos + 10);  <I><FONT COLOR="#B22222">/* 0 – 59 */</FONT></I>
+      tm.tm_sec = getDigit2(pos + 12);  <I><FONT COLOR="#B22222">/* 0 – 59 */</FONT></I>
+      tm.tm_isdst = 0;
+      <B><FONT COLOR="#A020F0">return</FONT></B> getGMT(&amp;tm);
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> (time_t) - 1;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">readArcURLRecord</FONT></B>(PT_Index__Arc index) {
+  index-&gt;line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (linput(index-&gt;file, index-&gt;line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(index-&gt;line) - 1)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">str_begins</FONT></B>(str, sstr) ( strncmp(str, sstr, sizeof(sstr) - 1) == 0 )
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_CompatibleScheme</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> (str_begins(url, <B><FONT COLOR="#BC8F8F">&quot;http:&quot;</FONT></B>)
+          || str_begins(url, <B><FONT COLOR="#BC8F8F">&quot;https:&quot;</FONT></B>)
+          || str_begins(url, <B><FONT COLOR="#BC8F8F">&quot;ftp:&quot;</FONT></B>)
+          || str_begins(url, <B><FONT COLOR="#BC8F8F">&quot;file:&quot;</FONT></B>));
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LoadCache__Arc</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL &amp;&amp; filename != NULL) {
+    PT_Index__Arc index = &amp;index_-&gt;slots.formatArc;
+
+    index-&gt;timestamp = file_timestamp(filename);
+    MutexInit(&amp;index-&gt;fileLock);
+    index-&gt;file = fopen(filename, <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+    <I><FONT COLOR="#B22222">// Opened ?
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (index-&gt;file != NULL) {
+      coucal hashtable = index-&gt;hash;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (readArcURLRecord(index) == 0) {
+        <B><FONT COLOR="#228B22">int</FONT></B> entries = 0;
+
+        <I><FONT COLOR="#B22222">/* Read first line */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(index-&gt;line, <B><FONT COLOR="#BC8F8F">&quot;filedesc://&quot;</FONT></B>, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;filedesc://&quot;</FONT></B>) - 1) != 0) {
+          fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Unexpected bad signature #%s&quot;</FONT></B> LF, index-&gt;line);
+          fclose(index-&gt;file);
+          index-&gt;file = NULL;
+          <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+        }
+        <I><FONT COLOR="#B22222">/* Timestamp */</FONT></I>
+        index-&gt;timestamp = getArcTimestamp(index-&gt;line);
+        <I><FONT COLOR="#B22222">/* Skip first entry */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (skipArcData(index-&gt;file, index-&gt;line) != 0
+            || skipArcNl(index-&gt;file) != 0) {
+          fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Unexpected bad data offset size first entry&quot;</FONT></B> LF);
+          fclose(index-&gt;file);
+          index-&gt;file = NULL;
+          <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+        }
+        <I><FONT COLOR="#B22222">/* Read all meta-entries (not data) */</FONT></I>
+        <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(index-&gt;file)) {
+          <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fpos = ftell(index-&gt;file);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (skipArcNl(index-&gt;file) == 0 &amp;&amp; readArcURLRecord(index) == 0) {
+            <B><FONT COLOR="#228B22">int</FONT></B> length = getArcLength(index-&gt;line);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (length &gt;= 0) {
+              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filenameIndex = copyArcField(index-&gt;line, 0,
+                                                       index-&gt;filenameIndexBuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(index-&gt;filenameIndexBuff) - 1); <I><FONT COLOR="#B22222">/* can not be NULL */</FONT></I>
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(filenameIndex, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0) {
+                filenameIndex += 7;
+              }
+              <B><FONT COLOR="#A020F0">if</FONT></B> (*filenameIndex != 0) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (skipArcData(index-&gt;file, index-&gt;line) != 0) {
+                  fprintf(stderr,
+                          <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache data entry #%d (truncated file?), aborting read&quot;</FONT></B>
+                          LF, (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+                }
+                <I><FONT COLOR="#B22222">/*fprintf(stdout, &quot;adding %s [%d]\n&quot;, filenameIndex, (int)fpos); */</FONT></I>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (PT_CompatibleScheme(index-&gt;filenameIndexBuff)) {
+                  coucal_add(hashtable, filenameIndex, fpos);  <I><FONT COLOR="#B22222">/* position of meta-data */</FONT></I>
+                  entries++;
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache meta entry #%d&quot;</FONT></B> LF,
+                        (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              fprintf(stderr,
+                      <B><FONT COLOR="#BC8F8F">&quot;Corrupted cache meta entry #%d, aborting read&quot;</FONT></B> LF,
+                      (<B><FONT COLOR="#228B22">int</FONT></B>) entries);
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+
+        <I><FONT COLOR="#B22222">/* OK */</FONT></I>
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Bad file (empty ?)&quot;</FONT></B> LF);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Unable to open file&quot;</FONT></B> LF);
+      index = NULL;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Bad arguments&quot;</FONT></B> LF);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_READFIELD_STRING</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    strcpy(refvalue, value); \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTTP_READFIELD_INT</FONT></B>(line, value, refline, refvalue) do { \
+  if (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B> &amp;&amp; strfield2(line, refline)) { \
+    int intval = 0; \
+    sscanf(value, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;intval); \
+    (refvalue) = intval; \
+    line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+	} \
+} while(0)
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Arc</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Element retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatArc.fileLock);
+  {
+    retCode = PT_ReadCache__Arc_u(index, url, flags);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatArc.fileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> PT_Element <B><FONT COLOR="#0000FF">PT_ReadCache__Arc_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> flags) {
+  PT_Index__Arc index = (PT_Index__Arc) &amp; index_-&gt;slots.formatArc;
+  <B><FONT COLOR="#228B22">char</FONT></B> location_default[HTS_URLMAXSIZE * 2];
+  intptr_t hash_pos;
+  <B><FONT COLOR="#228B22">int</FONT></B> hash_pos_return;
+  PT_Element r = NULL;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index == NULL || index-&gt;hash == NULL || url == NULL || *url == 0)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((r = PT_ElementNew()) == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  location_default[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  memset(r, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(_PT_Element));
+  r-&gt;location = location_default;
+  strcpy(r-&gt;location, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+    url += 7;
+  hash_pos_return = coucal_read(index-&gt;hash, url, &amp;hash_pos);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (hash_pos_return) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fseek(index-&gt;file, (<B><FONT COLOR="#228B22">long</FONT></B>) hash_pos, SEEK_SET) == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (skipArcNl(index-&gt;file) == 0 &amp;&amp; readArcURLRecord(index) == 0) {
+        <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fposMeta = ftell(index-&gt;file);
+        <B><FONT COLOR="#228B22">int</FONT></B> dataLength = getArcLength(index-&gt;line);
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *pos;
+
+        <I><FONT COLOR="#B22222">/* Read HTTP headers */</FONT></I>
+        <I><FONT COLOR="#B22222">/* HTTP/1.1 404 Not Found */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (linput(index-&gt;file, index-&gt;line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(index-&gt;line) - 1)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = getArcField(index-&gt;line, 1)) != NULL) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(pos, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;r-&gt;statuscode) != 1) {
+              r-&gt;statuscode = STATUSCODE_INVALID;
+            }
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = getArcField(index-&gt;line, 2)) != NULL) {
+            r-&gt;msg[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            strncat(r-&gt;msg, pos, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(pos) - 1);
+          }
+          <B><FONT COLOR="#A020F0">while</FONT></B>(linput(index-&gt;file, index-&gt;line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(index-&gt;line) - 1)
+                &amp;&amp; index-&gt;line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+            <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> line = index-&gt;line;
+            <B><FONT COLOR="#228B22">char</FONT></B> *value = strchr(line, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (value != NULL) {
+              *value = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <B><FONT COLOR="#A020F0">for</FONT></B>(value++; *value == <B><FONT COLOR="#BC8F8F">' '</FONT></B> || *value == <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>; value++) ;
+              HTTP_READFIELD_INT(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Length&quot;</FONT></B>, r-&gt;size);       <I><FONT COLOR="#B22222">// size
+</FONT></I>              HTTP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Type&quot;</FONT></B>, r-&gt;contenttype);       <I><FONT COLOR="#B22222">// contenttype
+</FONT></I>              HTTP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Last-Modified&quot;</FONT></B>, r-&gt;lastmodified);     <I><FONT COLOR="#B22222">// last-modified
+</FONT></I>              HTTP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Etag&quot;</FONT></B>, r-&gt;etag);      <I><FONT COLOR="#B22222">// Etag
+</FONT></I>              HTTP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Location&quot;</FONT></B>, r-&gt;location);      <I><FONT COLOR="#B22222">// 'location' pour moved
+</FONT></I>              HTTP_READFIELD_STRING(line, value, <B><FONT COLOR="#BC8F8F">&quot;Content-Disposition&quot;</FONT></B>, r-&gt;cdispo);     <I><FONT COLOR="#B22222">// Content-disposition
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+                <B><FONT COLOR="#228B22">int</FONT></B> len = r-&gt;headers ? ((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(r-&gt;headers)) : 0;
+                <B><FONT COLOR="#228B22">int</FONT></B> nlen =
+                  (<B><FONT COLOR="#228B22">int</FONT></B>) (strlen(line) + 2 + strlen(value) + <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>) + 1);
+                r-&gt;headers = realloc(r-&gt;headers, len + nlen);
+                r-&gt;headers[len] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                strcat(r-&gt;headers, line);
+                strcat(r-&gt;headers, <B><FONT COLOR="#BC8F8F">&quot;: &quot;</FONT></B>);
+                strcat(r-&gt;headers, value);
+                strcat(r-&gt;headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+              }
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* FIXME charset */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;contenttype[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+            <B><FONT COLOR="#228B22">char</FONT></B> *pos = strchr(r-&gt;contenttype, <B><FONT COLOR="#BC8F8F">';'</FONT></B>);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+              <I><FONT COLOR="#B22222">/*char *chs = strchr(pos, &quot;charset=&quot;); */</FONT></I>
+              <I><FONT COLOR="#B22222">/*HTTP_READFIELD_STRING(line, value, &quot;X-Charset&quot;, r-&gt;charset); */</FONT></I>
+              *pos = 0;
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((pos = strchr(r-&gt;contenttype, <B><FONT COLOR="#BC8F8F">' '</FONT></B>)) != NULL) {
+                *pos = 0;
+              }
+            }
+          }
+
+          <I><FONT COLOR="#B22222">/* Read data */</FONT></I>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;statuscode != STATUSCODE_INVALID) {    <I><FONT COLOR="#B22222">/* Can continue */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (flags &amp; FETCH_BODY) {
+              <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fposCurrent = ftell(index-&gt;file);
+              <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> metaSize = fposCurrent - fposMeta;
+              <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> fetchSize = (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) r-&gt;size;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (fetchSize &lt;= 0) {
+                fetchSize = dataLength - metaSize;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (fetchSize &gt; dataLength - metaSize) {
+                r-&gt;statuscode = STATUSCODE_INVALID;
+                strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Truncated Data&quot;</FONT></B>);
+              }
+              r-&gt;size = 0;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;statuscode != STATUSCODE_INVALID) {
+                r-&gt;adr = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloc(fetchSize);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;adr != NULL) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (fetchSize &gt; 0
+                      &amp;&amp; (r-&gt;size =
+                          (<B><FONT COLOR="#228B22">int</FONT></B>) fread(r-&gt;adr, 1, fetchSize,
+                                      index-&gt;file)) != fetchSize) {
+                    <B><FONT COLOR="#228B22">int</FONT></B> last_errno = errno;
+
+                    r-&gt;statuscode = STATUSCODE_INVALID;
+                    sprintf(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error in cache disk data: %s&quot;</FONT></B>,
+                            strerror(last_errno));
+                  }
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  r-&gt;statuscode = STATUSCODE_INVALID;
+                  strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Read error (memory exhausted) from cache&quot;</FONT></B>);
+                }
+              }
+            }
+          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          r-&gt;statuscode = STATUSCODE_INVALID;
+          strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header Error&quot;</FONT></B>);
+        }
+
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        r-&gt;statuscode = STATUSCODE_INVALID;
+        strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Read Header Error&quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      r-&gt;statuscode = STATUSCODE_INVALID;
+      strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;Cache Read Error : Seek Error&quot;</FONT></B>);
+    }
+
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;statuscode = STATUSCODE_INVALID;
+    strcpy(r-&gt;msg, <B><FONT COLOR="#BC8F8F">&quot;File Cache Entry Not Found&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (r-&gt;location[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    r-&gt;location = strdup(r-&gt;location);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    r-&gt;location = NULL;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Arc</FONT></B>(PT_Index index, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#228B22">int</FONT></B> retCode;
+
+  MutexLock(&amp;index-&gt;slots.formatArc.fileLock);
+  {
+    retCode = PT_LookupCache__Arc_u(index, url);
+  }
+  MutexUnlock(&amp;index-&gt;slots.formatArc.fileLock);
+  <B><FONT COLOR="#A020F0">return</FONT></B> retCode;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_LookupCache__Arc_u</FONT></B>(PT_Index index_, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (index_ != NULL) {
+    PT_Index__New cache = (PT_Index__New) &amp; index_-&gt;slots.formatNew;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cache == NULL || cache-&gt;hash == NULL || url == NULL || *url == 0)
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(url, <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>, 7) == 0)
+      url += 7;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (coucal_read(cache-&gt;hash, url, NULL))
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> PT_SaveCache__Arc_t {
+  PT_Indexes indexes;
+  FILE *fp;
+  time_t t;
+  <B><FONT COLOR="#228B22">char</FONT></B> filename[64];
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm buff;
+  <B><FONT COLOR="#228B22">char</FONT></B> headers[8192];
+  <B><FONT COLOR="#228B22">char</FONT></B> md5[32 + 2];
+} PT_SaveCache__Arc_t;
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__Arc_Fun</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *arg, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url, PT_Element element) {
+  PT_SaveCache__Arc_t *st = (PT_SaveCache__Arc_t *) arg;
+  FILE *<B><FONT COLOR="#228B22">const</FONT></B> fp = st-&gt;fp;
+  <B><FONT COLOR="#228B22">struct</FONT></B> tm *tm = convert_time_rfc822(&amp;st-&gt;buff, element-&gt;lastmodified);
+  <B><FONT COLOR="#228B22">int</FONT></B> size_headers;
+
+  sprintf(st-&gt;headers,
+          <B><FONT COLOR="#BC8F8F">&quot;HTTP/1.0 %d %s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;X-Server: ProxyTrack &quot;</FONT></B> PROXYTRACK_VERSION
+          <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Content-type: %s%s%s%s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Last-modified: %s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>
+          <B><FONT COLOR="#BC8F8F">&quot;Content-length: %d&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>, element-&gt;statuscode, element-&gt;msg,
+          <I><FONT COLOR="#B22222">/**/</FONT></I> element-&gt;contenttype,
+          (element-&gt;charset[0] ? <B><FONT COLOR="#BC8F8F">&quot;; charset=\&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+          (element-&gt;charset[0] ? element-&gt;charset : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>),
+          (element-&gt;charset[0] ? <B><FONT COLOR="#BC8F8F">&quot;\&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>), <I><FONT COLOR="#B22222">/**/</FONT></I> element-&gt;lastmodified,
+          (<B><FONT COLOR="#228B22">int</FONT></B>) element-&gt;size);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (element-&gt;location != NULL &amp;&amp; element-&gt;location[0] != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+    sprintf(st-&gt;headers + strlen(st-&gt;headers), <B><FONT COLOR="#BC8F8F">&quot;Location: %s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>,
+            element-&gt;location);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (element-&gt;headers != NULL) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(element-&gt;headers) &lt;
+        <B><FONT COLOR="#A020F0">sizeof</FONT></B>(st-&gt;headers) - strlen(element-&gt;headers) - 1) {
+      strcat(st-&gt;headers, element-&gt;headers);
+    }
+  }
+  strcat(st-&gt;headers, <B><FONT COLOR="#BC8F8F">&quot;\r\n&quot;</FONT></B>);
+  size_headers = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(st-&gt;headers);
+
+  <I><FONT COLOR="#B22222">/* doc == &lt;nl&gt;&lt;URL-record&gt;&lt;nl&gt;&lt;network_doc&gt; */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Format: URL IP date mime result checksum location offset filename length */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (element-&gt;adr != NULL) {
+    domd5mem(element-&gt;adr, element-&gt;size, st-&gt;md5, 1);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    strcpy(st-&gt;md5, <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>);
+  }
+  fprintf(fp,
+          <I><FONT COLOR="#B22222">/* nl */</FONT></I>
+          <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>
+          <I><FONT COLOR="#B22222">/* URL-record */</FONT></I>
+          <B><FONT COLOR="#BC8F8F">&quot;%s%s %s %04d%02d%02d%02d%02d%02d %s %d %s %s %ld %s %ld&quot;</FONT></B>
+          <I><FONT COLOR="#B22222">/* nl */</FONT></I>
+          <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>,
+          <I><FONT COLOR="#B22222">/* args */</FONT></I>
+          (link_has_authority(url) ? <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B> : <B><FONT COLOR="#BC8F8F">&quot;http://&quot;</FONT></B>), url, <B><FONT COLOR="#BC8F8F">&quot;0.0.0.0&quot;</FONT></B>,
+          tm-&gt;tm_year + 1900, tm-&gt;tm_mon + 1, tm-&gt;tm_mday, tm-&gt;tm_hour,
+          tm-&gt;tm_min, tm-&gt;tm_sec, element-&gt;contenttype, element-&gt;statuscode,
+          st-&gt;md5, (element-&gt;location ? element-&gt;location : <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>),
+          (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) ftell(fp), st-&gt;filename,
+          (<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>) (size_headers + element-&gt;size));
+  <I><FONT COLOR="#B22222">/* network_doc */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fwrite(st-&gt;headers, 1, size_headers, fp) != size_headers
+      || (element-&gt;size &gt; 0
+          &amp;&amp; fwrite(element-&gt;adr, 1, element-&gt;size, fp) != element-&gt;size)
+    ) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;                   <I><FONT COLOR="#B22222">/* Error */</FONT></I>
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">PT_SaveCache__Arc</FONT></B>(PT_Indexes indexes, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename) {
+  FILE *fp = fopen(filename, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (fp != NULL) {
+    PT_SaveCache__Arc_t st;
+    <B><FONT COLOR="#228B22">int</FONT></B> ret;
+    time_t t = PT_GetTimeIndex(indexes);
+    <B><FONT COLOR="#228B22">struct</FONT></B> tm tm = PT_GetTime(t);
+
+    <I><FONT COLOR="#B22222">/* version-2-block ==
+       filedesc://&lt;path&gt;&lt;sp&gt;&lt;ip_address&gt;&lt;sp&gt;&lt;date&gt;&lt;sp&gt;text/plain&lt;sp&gt;200&lt;sp&gt;-&lt;sp&gt;-&lt;sp&gt;0&lt;sp&gt;&lt;filename&gt;&lt;sp&gt;&lt;length&gt;&lt;nl&gt;
+       2&lt;sp&gt;&lt;reserved&gt;&lt;sp&gt;&lt;origin-code&gt;&lt;nl&gt;
+       URL&lt;sp&gt;IP-address&lt;sp&gt;Archive-date&lt;sp&gt;Content-type&lt;sp&gt;Result-code&lt;sp&gt;Checksum&lt;sp&gt;Location&lt;sp&gt; Offset&lt;sp&gt;Filename&lt;sp&gt;Archive-length&lt;nl&gt;
+       &lt;nl&gt; */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *prefix =
+      <B><FONT COLOR="#BC8F8F">&quot;2 0 HTTrack Website Copier&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>
+      <B><FONT COLOR="#BC8F8F">&quot;URL IP-address Archive-Date Content-Type Result-code Checksum Location Offset Filename Archive-length&quot;</FONT></B>
+      <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>;
+    sprintf(st.filename, <B><FONT COLOR="#BC8F8F">&quot;httrack_%d.arc&quot;</FONT></B>, (<B><FONT COLOR="#228B22">int</FONT></B>) t);
+    fprintf(fp,
+            <B><FONT COLOR="#BC8F8F">&quot;filedesc://%s 0.0.0.0 %04d%02d%02d%02d%02d%02d text/plain 200 - - 0 %s %d&quot;</FONT></B>
+            <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>, st.filename, tm.tm_year + 1900, tm.tm_mon + 1,
+            tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, st.filename,
+            (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(prefix), prefix);
+    st.fp = fp;
+    st.indexes = indexes;
+    st.t = t;
+    ret = PT_EnumCache(indexes, PT_SaveCache__Arc_Fun, (<B><FONT COLOR="#228B22">void</FONT></B> *) &amp;st);
+    fclose(fp);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ret != 0)
+      (<B><FONT COLOR="#228B22">void</FONT></B>) unlink(filename);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/proxy/store.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:48 GMT -->
+</HTML>

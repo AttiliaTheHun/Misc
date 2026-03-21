@@ -1,0 +1,284 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsnet.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsnet.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsnet.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Net definitions                                        */</FONT></I>
+<I><FONT COLOR="#B22222">/*       Used in .c files that needs connect() functions and so */</FONT></I>
+<I><FONT COLOR="#B22222">/* Note: includes htsbasenet.h                                  */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEFNETH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEFNETH</FONT>
+
+<I><FONT COLOR="#B22222">/* basic net definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbasenet.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htssafe.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+ <I><FONT COLOR="#B22222">// pour read
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;io.h&gt;</FONT></B>
+ <I><FONT COLOR="#B22222">// pour FindFirstFile
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;winbase.h&gt;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> USHORT in_port_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> ADDRESS_FAMILY sa_family_t;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+ <I><FONT COLOR="#B22222">//typedef int T_SOC;
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INVALID_SOCKET</FONT> -1
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;netdb.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/types.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/socket.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;netinet/in.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/time.h&gt;</FONT></B>
+ <I><FONT COLOR="#B22222">/* Force for sun env. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">BSD_COMP</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BSD_COMP</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/ioctl.h&gt;</FONT></B>
+ <I><FONT COLOR="#B22222">/* gethostname &amp; co */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;unistd.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+ <I><FONT COLOR="#B22222">/* inet_addr */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;arpa/inet.h&gt;</FONT></B>
+ <I><FONT COLOR="#B22222">// pas la peine normalement..
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DO_NOT_REDEFINE_in_addr_t</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> in_addr_t;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Ipv4 structures */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> in6_addr INaddr;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> in_addr INaddr;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* This should handle all cases */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_SOCaddr</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_SOCaddr</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> SOCaddr SOCaddr;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">struct</FONT></B> SOCaddr {
+  <B><FONT COLOR="#228B22">union</FONT></B> {
+    <I><FONT COLOR="#B22222">/* Generic version, for network functions such as getnameinfo() */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> sockaddr sa;
+    <I><FONT COLOR="#B22222">/* IPv4 */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in in;
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+    <I><FONT COLOR="#B22222">/* IPv6 */</FONT></I>
+    <B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in6 in6;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  } m_addr;
+};
+
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_INLINE HTS_UNUSED in_port_t* <B><FONT COLOR="#0000FF">SOCaddr_sinport_</FONT></B>(SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> addr,
+                                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(addr != NULL, file, line);
+  <B><FONT COLOR="#A020F0">switch</FONT></B>(addr-&gt;m_addr.sa.sa_family) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">AF_INET</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> &amp;addr-&gt;m_addr.in.sin_port;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">AF_INET6</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> &amp;addr-&gt;m_addr.in6.sin6_port;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    assertf_(! <B><FONT COLOR="#BC8F8F">&quot;invalid structure&quot;</FONT></B>, file, line);
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_INLINE HTS_UNUSED socklen_t <B><FONT COLOR="#0000FF">SOCaddr_size_</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> SOCaddr*<B><FONT COLOR="#228B22">const</FONT></B> addr,
+                                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(addr != NULL, file, line);
+  <B><FONT COLOR="#A020F0">switch</FONT></B>(addr-&gt;m_addr.sa.sa_family) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">AF_INET</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#A020F0">sizeof</FONT></B>(addr-&gt;m_addr.in);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">AF_INET6</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#A020F0">sizeof</FONT></B>(addr-&gt;m_addr.in6);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_INLINE HTS_UNUSED <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_clear_</FONT></B>(SOCaddr*<B><FONT COLOR="#228B22">const</FONT></B> addr,
+                                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(addr != NULL, file, line);
+  addr-&gt;m_addr.sa.sa_family = AF_UNSPEC;
+}
+
+<I><FONT COLOR="#B22222">/* Ipv4/6 structure members */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_sinfamily</FONT></B>(server)   ((server).m_addr.sa.sa_family)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_sinport</FONT></B>(server)     (*SOCaddr_sinport_(&amp;(server), __FILE__, __LINE__))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_size</FONT></B>(server)        (SOCaddr_size_(&amp;(server), __FILE__, __LINE__))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_is_valid</FONT></B>(server)    (SOCaddr_size_(&amp;(server), __FILE__, __LINE__) != 0 )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_clear</FONT></B>(server)       SOCaddr_clear_(&amp;(server), __FILE__, __LINE__)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_sockaddr</FONT></B>(server)    ((server).m_addr.sa)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_capacity</FONT></B>(server)    sizeof((server).m_addr)
+
+<I><FONT COLOR="#B22222">/* AF_xx */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">AFinet</FONT> AF_INET6
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">AFinet</FONT> AF_INET
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Set port to sockaddr structure */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_initport</FONT></B>(server, port) do { \
+  SOCaddr_sinport(server) = htons((in_port_t) (port)); \
+} while(0)
+
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_INLINE HTS_UNUSED socklen_t <B><FONT COLOR="#0000FF">SOCaddr_initany_</FONT></B>(SOCaddr*<B><FONT COLOR="#228B22">const</FONT></B> addr,
+                                                        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(addr != NULL, file, line);
+  memset(&amp;addr-&gt;m_addr.in, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(addr-&gt;m_addr.in));
+  addr-&gt;m_addr.in.sin_family = AF_INET;
+  <B><FONT COLOR="#A020F0">return</FONT></B> SOCaddr_size_(addr, file, line);
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_initany</FONT></B>(server) do { \
+  SOCaddr_initany_(&amp;(server), __FILE__, __LINE__); \
+} while(0)
+
+<I><FONT COLOR="#B22222">/*
+  Copy sockaddr_in/sockaddr_in6/raw IPv4/raw IPv6 to our opaque SOCaddr
+*/</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_UNUSED socklen_t <B><FONT COLOR="#0000FF">SOCaddr_copyaddr_</FONT></B>(SOCaddr*<B><FONT COLOR="#228B22">const</FONT></B> server, 
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *data, <B><FONT COLOR="#228B22">const</FONT></B> size_t data_size,
+                                              <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(server != NULL, file, line);
+  assertf_(data != NULL, file, line);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (data_size == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in)) {
+    memcpy(&amp;server-&gt;m_addr.in, data, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in));
+    assertf_(server-&gt;m_addr.sa.sa_family == AF_INET, file, line);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (data_size == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in6)) {
+    memcpy(&amp;server-&gt;m_addr.in6, data, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(<B><FONT COLOR="#228B22">struct</FONT></B> sockaddr_in6));
+    assertf_(server-&gt;m_addr.sa.sa_family == AF_INET6, file, line);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (data_size == 4) {
+    memset(&amp;server-&gt;m_addr.in, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(server-&gt;m_addr.in));
+    server-&gt;m_addr.in.sin_family = AF_INET;
+    server-&gt;m_addr.in.sin_port = 0;
+    memcpy(&amp;server-&gt;m_addr.in.sin_addr, data, 4);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT> != 0
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (data_size == 16) {
+    memset(&amp;server-&gt;m_addr.in6, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(server-&gt;m_addr.in6));
+    server-&gt;m_addr.in6.sin6_family = AF_INET6;
+    server-&gt;m_addr.in6.sin6_port = 0;
+    memcpy(&amp;server-&gt;m_addr.in6.sin6_addr, data, 16);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    server-&gt;m_addr.in.sin_family = AF_INET;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> SOCaddr_size_(server, file, line);
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_copyaddr</FONT></B>(server, server_len, hpaddr, hpsize) do { \
+  server_len = (int) SOCaddr_copyaddr_(&amp;(server), hpaddr, hpsize, __FILE__, __LINE__); \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_copyaddr2</FONT></B>(server, hpaddr, hpsize) do { \
+  (void) SOCaddr_copyaddr_(&amp;(server), hpaddr, hpsize, __FILE__, __LINE__); \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_copy_SOCaddr</FONT></B>(dest, src) do { \
+  SOCaddr_copyaddr_(&amp;(dest), &amp;(src).m_addr.sa, SOCaddr_size(src), __FILE__, __LINE__); \
+} while(0)
+
+<I><FONT COLOR="#B22222">/* Get dotted address */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> HTS_UNUSED <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_inetntoa_</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *namebuf, size_t namebuflen, 
+                                         SOCaddr *<B><FONT COLOR="#228B22">const</FONT></B> ss,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> line) {
+  assertf_(namebuf != NULL, file, line);
+  assertf_(ss != NULL, file, line);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (getnameinfo(&amp;ss-&gt;m_addr.sa, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(ss-&gt;m_addr),
+                  namebuf, namebuflen, 
+                  NULL, 0, 
+                  NI_NUMERICHOST) == 0) {
+    <I><FONT COLOR="#B22222">/* remove scope id(s) */</FONT></I>
+    <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#228B22">const</FONT></B> pos = strchr(namebuf, <B><FONT COLOR="#BC8F8F">'%'</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pos != NULL) {
+      *pos = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    namebuf[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_inetntoa</FONT></B>(namebuf, namebuflen, ss) \
+  SOCaddr_inetntoa_(namebuf, namebuflen, &amp;(ss), __FILE__, __LINE__)
+
+<I><FONT COLOR="#B22222">/* Get protocol ID */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">SOCaddr_getproto</FONT></B>(ss) ( SOCaddr_size(ss) == sizeof(struct sockaddr_in) ? <B><FONT COLOR="#BC8F8F">'1'</FONT></B> : <B><FONT COLOR="#BC8F8F">'2'</FONT></B>)
+
+<I><FONT COLOR="#B22222">/* Socket length type */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> socklen_t SOClen;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsnet.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

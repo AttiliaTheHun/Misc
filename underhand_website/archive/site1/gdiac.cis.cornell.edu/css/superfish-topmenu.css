@@ -1,0 +1,164 @@
+/*** ESSENTIAL STYLES ***/
+.sf-menu, .sf-menu * {
+	margin: 		0;
+	padding: 		0;
+	list-style: 	none;
+	z-index: 		99;
+	white-space:	nowrap;
+}
+.sf-menu 
+{
+	font-size: 		12px;
+	line-height:	18px;
+	width: 			924px;
+	background:		#787878;
+	white-space:	nowrap;
+}
+.sf-menu li {
+	font-size:	12px;
+	float:		left;
+	text-align:	center;
+	position: 	relative;
+}
+.sf-menu ul {
+	position: 	absolute;
+	font-size: 	12px;
+	display: 	none;
+	top: 		100%;
+	left: 		0;
+	z-index: 	99;
+	width:		230px; /* left offset of submenus need to match (see below) */
+}
+.sf-menu ul li 
+{
+	font-size: 		12px;
+	text-align:		left;
+	width:			100%;
+}
+.sf-menu > li {
+	float: left;
+}
+.sf-menu li:hover > ul,
+.sf-menu li.sfHover > ul {
+	display: block;
+}
+
+.sf-menu a {
+	display: block;
+	position: relative;
+}
+.sf-menu ul ul {
+	top: 0;
+	left: 100%;
+}
+
+ul.sf-menu li a.leftmost {
+	width:			41px; /* trigger IE7 hasLayout so spans position accurately */
+}
+ul.sf-menu li a.rightmost {
+	width:			40px; /* trigger IE7 hasLayout so spans position accurately */
+}
+ul.sf-menu li a.interior {
+	width:			95px; /* trigger IE7 hasLayout so spans position accurately */
+}
+.sf-menu li:hover ul,
+.sf-menu li.sfHover ul {
+	left:			0;
+	top:			34px; /* match top ul list item height */
+	z-index:		99;
+}
+ul.sf-menu li:hover li ul,
+ul.sf-menu li.sfHover li ul {
+	top:			-999em;
+}
+ul.sf-menu li li:hover ul,
+ul.sf-menu li li.sfHover ul {
+	left:			230px; /* match ul width */
+	top:			-1px;
+}
+ul.sf-menu li li:hover li ul,
+ul.sf-menu li li.sfHover li ul {
+	top:			-999em;
+}
+ul.sf-menu li li li:hover ul,
+ul.sf-menu li li li.sfHover ul {
+	left:			230px; /* match ul width */
+	top:			0;
+}
+
+
+/*** GDIAC SKIN ***/
+.sf-menu {
+	float: left;
+	margin-bottom: 0px;
+}
+.sf-menu ul {
+	box-shadow: 2px 2px 6px rgba(0,0,0,.2);
+	min-width: 12em; /* allow long menu items to determine submenu width */
+	*width: 12em; /* no auto sub width for IE7, see white-space comment below */
+}
+.sf-menu a {
+	border-right:	1px solid #fff;	
+	padding: 		8px 16px 8px 16px;
+	font-weight: 	bold;
+	text-decoration:none;
+	zoom: 1; /* IE7 */
+}
+.sf-menu a.rightmost
+{
+	border-right:	0px solid #fff;	
+}
+.sf-menu a, .sf-menu a:visited {
+	color:			#fff;
+	font-weight: 	bold;
+	text-decoration:none;	
+	/*text-shadow: #333 1px 1px 1px;*/
+}
+.sf-menu li {
+	background: #787878;
+	white-space: nowrap; /* no need for Supersubs plugin */
+	*white-space: normal; /* ...unless you support IE7 (let it wrap) */
+	font-size: 		12px;
+	-webkit-transition: background .2s;
+	transition: background .2s;
+}
+.sf-menu li li {
+	background:		#787878;
+	border-top:		1px solid #fff;
+	font-size: 		12px;
+}
+.sf-menu li li li {
+	background:		#787878;
+	border-top:		1px solid #fff;
+	font-size: 		12px;
+}
+.sf-menu a:focus, 	.sf-menu a:hover, .sf-menu a:active {
+	background:		#ddd;
+	outline:		0;
+	color:			#333;
+	font-weight: 	bold;
+	text-decoration:none;
+	/*text-shadow: #BBB 1px 1px 3px;*/
+}
+.sf-menu ul li {
+	background: #787878;
+}
+.sf-menu ul ul li {
+	background: #787878;
+}
+.sf-menu li:hover,
+.sf-menu li.sfHover {
+	background: 	#4d4d4d;
+	outline:		0;
+	color:			#333;
+	font-weight: 	bold;
+	text-decoration:none;
+	/* only transition out, not in */
+	-webkit-transition: none;
+	transition: none;
+}
+
+.sf-menu li.current {
+	background:		#4d4d4d;
+	border-right: 	solid 0px white;
+}

@@ -1,0 +1,549 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/coucal.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+<HEAD>
+<TITLE>./coucal.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./coucal.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+Coucal, Cuckoo hashing-based hashtable with stash area.
+Copyright (C) 2013-2014 Xavier Roche (http://www.httrack.com/)
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/**
+ * Coucal, a Cuckoo-hashing-based hashtable with stash area C library.
+ *
+ * This hashtable library provides key/value hashtable, with by default a
+ * string key, and integer/pointer value (with an associated optional
+ * allocator). Both key and value can be of any type, using custom settings.
+ * By default, the string key is dup'ed using a string pool, and the opaque
+ * value is stored as-is (either the pointer, or an uintptr_t integer value).
+ * It features O(1) average insertion, and guaranteed O(1) lookup, replace,
+ * and delete operations.
+ *
+ * Implementation notes:
+ * Implementation is auto-rehashable, and uses cuckoo hashing of size 2**n
+ * with a Murmur or MD5 hash function, with one additional auxiliary hash
+ * function.
+ * It also uses a small stash area to handle rare cases of collisions.
+ * Enumeration of all key/values is possible, deletion is also possible, but
+ * currently without any auto-shrinking (ie. table will never shrink).
+ * Overall, two main blocks are allocated: one for the items, and one for
+ * the keys (pool).
+ * If the string pool is being used (to store dup'ed keys), deleting is only
+ * O(1) average, because the pool needs to be compacted time to time.
+ * Currently the default maximum number of elements in the hashtable is
+ * 2**31 - 1 (that is, 2,147,483,648 elements), but this default can be changed
+ * by setting COUCAL_HASH_SIZE to a higher value (64 is the only higher value
+ * currently supported), and rebuilding the library.
+ *
+ * References: 
+ *
+ * Cuckoo Hashing, by Rasmus Pagh and Flemming Friche Rodler
+ * http://www.it-c.dk/people/pagh/papers/cuckoo-jour.pdf
+ *
+ * Cuckoo Stash, by Adam Kirsch, Michael Mitzenmacher and Udi Wieder
+ * http://research.microsoft.com/pubs/73856/stash-full.9-30.pdf
+ *
+ * MurmurHash3, by Austin Appleby
+ * http://en.wikipedia.org/wiki/MurmurHash
+ *
+ * MD5 http://en.wikipedia.org/wiki/MD5
+ * FNV http://www.isthe.com/chongo/tech/comp/fnv/
+ **/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">COUCAL_DEFH</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_DEFH</FONT>
+
+<I><FONT COLOR="#B22222">/* Includes */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stddef.h&gt;</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int32 uint32_t;
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">unsigned</FONT></B> __int64 uint64_t;
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">SOLARIS</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">sun</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_INTTYPES_H</FONT>) \
+  || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">BSD</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__OpenBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__NetBSD__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__FreeBSD_kernel__</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;inttypes.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdint.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdarg.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* External definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">COUCAL_EXTERN</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">COUCAL_BUILDING</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_EXTERN</FONT> __declspec(dllimport)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_EXTERN</FONT> __declspec(dllexport)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> ( ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__GNUC__</FONT>) &amp;&amp; ( <FONT COLOR="#B8860B">__GNUC__</FONT> &gt;= 4 ) ) \
+        || ( <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_VISIBILITY</FONT>) &amp;&amp; <FONT COLOR="#B8860B">HAVE_VISIBILITY</FONT> ) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_EXTERN</FONT> extern __attribute__ ((visibility(<B><FONT COLOR="#BC8F8F">&quot;default&quot;</FONT></B>)))
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_EXTERN</FONT> extern
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Key opaque type. May be a regular 'const char*'. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* coucal_key;
+
+<I><FONT COLOR="#B22222">/** Key constant (can not be modified) opaque type. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* coucal_key_const;
+
+<I><FONT COLOR="#B22222">/** Opaque user-defined pointer. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* coucal_opaque;
+
+<I><FONT COLOR="#B22222">/** Value (union of any value). **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">union</FONT></B> coucal_value {
+  <I><FONT COLOR="#B22222">/** Integer value. **/</FONT></I>
+  intptr_t intg;
+
+  <I><FONT COLOR="#B22222">/** Unsigned integer value. **/</FONT></I>
+  uintptr_t uintg;
+
+  <I><FONT COLOR="#B22222">/** Pointer value. **/</FONT></I>
+  <B><FONT COLOR="#228B22">void</FONT></B> *ptr;
+} coucal_value;
+
+<I><FONT COLOR="#B22222">/** Value constant. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> coucal_value coucal_value_const;
+
+<I><FONT COLOR="#B22222">/** NULL Value. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTHASH_VALUE_NULL</FONT> { 0 }
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_coucal_item</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_coucal_item</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> coucal_item coucal_item;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Coucal primary hash size. Default is 32-bit. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> 32
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Hash integer type. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 32)
+
+<I><FONT COLOR="#B22222">/** 32-bit hash key. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> uint32_t coucal_hashkey;
+
+#<B><FONT COLOR="#5F9EA0">elif</FONT></B> (<FONT COLOR="#B8860B">COUCAL_HASH_SIZE</FONT> == 64)
+
+<I><FONT COLOR="#B22222">/** 64-bit hash key. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> uint64_t coucal_hashkey;
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;Unsupported COUCAL_HASH_SIZE&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Pair of hashes **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> coucal_hashkeys {
+  coucal_hashkey hash1;
+  coucal_hashkey hash2;
+} coucal_hashkeys;
+
+<I><FONT COLOR="#B22222">/** NULL pair of hashes. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INTHASH_KEYS_NULL</FONT> { 0, 0 }
+
+<I><FONT COLOR="#B22222">/** Item holding a value. **/</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> coucal_item {
+  <I><FONT COLOR="#B22222">/** Key. **/</FONT></I>
+  coucal_key name;
+
+  <I><FONT COLOR="#B22222">/** Value. **/</FONT></I>
+  coucal_value value;
+
+  <I><FONT COLOR="#B22222">/** Hashes of the key. **/</FONT></I>
+  coucal_hashkeys hashes;
+};
+
+<I><FONT COLOR="#B22222">/** Log level. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">enum</FONT></B> coucal_loglevel {
+  coucal_log_critical,
+  coucal_log_warning,
+  coucal_log_info,
+  coucal_log_debug,
+  coucal_log_trace
+} coucal_loglevel;
+
+<I><FONT COLOR="#B22222">/**  free handler. Only used when values are markes as xxc **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_coucal_key_freehandler)(coucal_opaque arg,
+                                         coucal_key key);
+
+<I><FONT COLOR="#B22222">/** Value free handler. Only used when values are markes as xxc **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_coucal_value_freehandler)(coucal_opaque arg,
+                                           coucal_value value);
+
+<I><FONT COLOR="#B22222">/** Key dup handler. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">coucal_key</FONT></B> (*t_coucal_duphandler)(coucal_opaque arg,
+                                          coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/** Key hash computation handler. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">coucal_hashkeys</FONT></B> (*t_coucal_hasheshandler)(coucal_opaque arg,
+                                                  coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/** Hashtable logging handler. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_coucal_loghandler)(coucal_opaque arg, coucal_loglevel level, 
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* format, va_list args);
+
+<I><FONT COLOR="#B22222">/** Hashtable fatal assertion failure. **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">void</FONT></B> (*t_coucal_asserthandler)(coucal_opaque arg, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* exp,
+                                       <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* file, <B><FONT COLOR="#228B22">int</FONT></B> line);
+
+<I><FONT COLOR="#B22222">/** Key printer (debug) **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* (*t_coucal_printkeyhandler)(coucal_opaque arg,
+                                                coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/** Value printer (debug) **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* (*t_coucal_printvaluehandler)(coucal_opaque arg,
+                                                  coucal_value_const value);
+
+<I><FONT COLOR="#B22222">/**
+ * Value comparison handler (returns non-zero value if strings are equal).
+ **/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_coucal_cmphandler)(coucal_opaque arg,
+                                   coucal_key_const a,
+                                   coucal_key_const b);
+
+<I><FONT COLOR="#B22222">/** Hashtable (opaque structure). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> struct_coucal struct_coucal, *coucal;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Hashtable enumeration (opaque structure). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal_enum</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_coucal_enum</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> struct_coucal_enum struct_coucal_enum;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Enumeration. **/</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> struct_coucal_enum {
+  coucal table;
+  size_t index;
+};
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/**
+ * Create a new hashtable, with initial bucket size of 'size'.
+ * If size is 0, use the default minimal bucket size.
+ * Return a non-NULL pointer upon success.
+ *
+ * By default, keys are supposed to be '\0'-terminated strings, which are
+ * duplicated by the library (the passed pointer does not need to be
+ * persistent), and values are opaque pointers (or integers) which are copied
+ * &quot;as is&quot;, without further processing. Use coucal_value_set_key_handler()
+ * and coucal_value_set_value_handler() to alter this default behavior.
+ **/</FONT></I>
+COUCAL_EXTERN coucal <B><FONT COLOR="#0000FF">coucal_new</FONT></B>(size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Was the hashtable successfully created ?
+ * Return non-zero value if the hashtable is valid.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_created</FONT></B>(coucal hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Delete a hashtable, freeing all entries.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_delete</FONT></B>(coucal * hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Return the number of items in the hashtable.
+ **/</FONT></I>
+COUCAL_EXTERN size_t <B><FONT COLOR="#0000FF">coucal_nitems</FONT></B>(coucal hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Return the memory size taken by the hashtable.
+ * (This does not take account of the possible memory taken by values)
+ **/</FONT></I>
+COUCAL_EXTERN size_t <B><FONT COLOR="#0000FF">coucal_memory_size</FONT></B>(coucal hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Return the library hash size compiled.
+ * The returned value MUST match COUCAL_HASH_SIZE.
+ **/</FONT></I>
+COUCAL_EXTERN size_t <B><FONT COLOR="#0000FF">coucal_hash_size</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">/**
+ * If 'flag' is non-zero, calls coucal_value_set_value_handler() with
+ * default system free() handler function, otherwise, free the value handlers.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_is_malloc</FONT></B>(coucal hashtable, <B><FONT COLOR="#228B22">int</FONT></B> flag);
+
+<I><FONT COLOR="#B22222">/**
+ * Set handlers for values.
+ * free: this handler will be called when a value is to be removed from
+ * the hashtable. if NULL, values won't be free'd.
+ * arg: opaque custom argument to be used by functions.
+ * Handler(s) MUST NOT be changed once elements have been added.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_set_value_handler</FONT></B>(coucal hashtable,
+                                                  t_coucal_value_freehandler free,
+                                                  coucal_opaque arg);
+
+<I><FONT COLOR="#B22222">/**
+ * Set handlers for keys.
+ * dup: handler called to duplicate a key. if NULL, the internal pool is used.
+ * free: handler called to free a key. if NULL, the internal pool is used.
+ * hash: hashing handler, called to hash a key. if NULL, the default hash
+ * function is used.
+ * equals: comparison handler, returning non-zero value when two keys are
+ * identical. if NULL, the default comparison function is used.
+ * arg: opaque custom argument to be used by functions.
+ * Handler(s) MUST NOT be changed once elements have been added.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_value_set_key_handler</FONT></B>(coucal hashtable,
+                                                t_coucal_duphandler dup,
+                                                t_coucal_key_freehandler free,
+                                                t_coucal_hasheshandler hash,
+                                                t_coucal_cmphandler equals,
+                                                coucal_opaque arg);
+
+<I><FONT COLOR="#B22222">/**
+ * Set assertion failure handler.
+ * log: handler called upon serious programming error
+ * fatal: handler called upon serious programming error
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_assert_handler</FONT></B>(coucal hashtable,
+                                             t_coucal_loghandler log,
+                                             t_coucal_asserthandler fatal,
+                                             coucal_opaque arg);
+
+<I><FONT COLOR="#B22222">/**
+ * Set pretty print loggers (debug). Both handlers must return a string
+ * pointer which shall be valid until the next call. Both key and value
+ * pointers shall be valid at the same time.
+ * name: handler called to print the string representation of the name
+ * value: handler called to print the string representation of the value
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_print_handler</FONT></B>(coucal hashtable,
+                                            t_coucal_printkeyhandler key,
+                                            t_coucal_printvaluehandler value,
+                                            coucal_opaque arg);
+
+<I><FONT COLOR="#B22222">/**
+ * Set the hashtable name, for degugging purpose.
+ * name: the hashtable name (ASCII or UTF-8)
+ */</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_name</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Get the hashtable name, for degugging purpose.
+ * Return NULL if no name was defined.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* <B><FONT COLOR="#0000FF">coucal_get_name</FONT></B>(coucal hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Read an integer entry from the hashtable.
+ * Return non-zero value upon success and sets intvalue.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read</FONT></B>(coucal hashtable, coucal_key_const name,
+                              intptr_t * intvalue);
+
+<I><FONT COLOR="#B22222">/**
+ * Same as coucal_read(), but return 0 is the value was zero.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_readptr</FONT></B>(coucal hashtable, coucal_key_const name,
+                                 intptr_t * intvalue);
+
+<I><FONT COLOR="#B22222">/**
+ * Read an integer entry from the hashtable.
+ * Return 0 if the entry could not be found.
+ **/</FONT></I>
+COUCAL_EXTERN intptr_t <B><FONT COLOR="#0000FF">coucal_get_intptr</FONT></B>(coucal hashtable,
+                                         coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Return non-zero value if the given entry exists.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_exists</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Read an entry from the hashtable.
+ * Return non-zero value upon success and sets value.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read_value</FONT></B>(coucal hashtable, coucal_key_const name,
+                                    coucal_value *value);
+
+<I><FONT COLOR="#B22222">/**
+ * Write an entry to the hashtable.
+ * Return non-zero value if the entry was added, zero if it was replaced.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write_value</FONT></B>(coucal hashtable, coucal_key_const name,
+                                     coucal_value_const value);
+
+<I><FONT COLOR="#B22222">/**
+ * Read a pointer entry from the hashtable.
+ * Return non-zero value upon success and sets value.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_read_pvoid</FONT></B>(coucal hashtable, coucal_key_const name,
+                                    <B><FONT COLOR="#228B22">void</FONT></B> **value);
+
+<I><FONT COLOR="#B22222">/**
+ * Read a pointer entry from the hashtable and returns its value.
+ * Return NULL if the entry could not be found.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B>* <B><FONT COLOR="#0000FF">coucal_get_pvoid</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Write a pointer entry to the hashtable.
+ * Return non-zero value if the entry was added, zero if it was replaced.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write_pvoid</FONT></B>(coucal hashtable, coucal_key_const name,
+                                     <B><FONT COLOR="#228B22">void</FONT></B> *value);
+
+<I><FONT COLOR="#B22222">/**
+ * Alias to coucal_write_pvoid()
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_add_pvoid</FONT></B>(coucal hashtable, coucal_key_const name,
+                                    <B><FONT COLOR="#228B22">void</FONT></B> *value);
+
+<I><FONT COLOR="#B22222">/**
+ * Write an integer entry to the hashtable.
+ * Return non-zero value if the entry was added, zero if it was replaced.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_write</FONT></B>(coucal hashtable, coucal_key_const name,
+                               intptr_t value);
+
+<I><FONT COLOR="#B22222">/**
+ * Alias to coucal_write()
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_add</FONT></B>(coucal hashtable, coucal_key_const name,
+                              intptr_t value);
+
+<I><FONT COLOR="#B22222">/**
+ * Increment an entry value in the hashtable
+ * (or create a new entry with value 1 if it does not yet exist)
+ * Return non-zero value if the entry was added, zero if it was changed.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_inc</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Decrement an entry value in the hashtable 
+ * (or create a new entry with value -1 if it does not yet exist)
+ * Return non-zero value if the entry was added, zero if it was changed.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_dec</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Fetch an entry value from the hashtable.
+ * Returns NULL if the entry could not be found.
+ * The returned pointer is only valid until next call to this library, and can
+ * be used for read or write operations.
+ **/</FONT></I>
+COUCAL_EXTERN coucal_value* <B><FONT COLOR="#0000FF">coucal_fetch_value</FONT></B>(coucal hashtable,
+                                               coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Fetch an entry value from the hashtable, given a name, and its hashes.
+ * Returns NULL if the entry could not be found.
+ * The returned pointer is only valid until next call to this library, and can
+ * be used for read or write operations.
+ * The hashes MUST have been computed using coucal_calc_hashes(), or by
+ * copying an existing hash during an enumeration.
+ * The use of a non-matching hash is safe, but will return NULL.
+ **/</FONT></I>
+COUCAL_EXTERN coucal_value* <B><FONT COLOR="#0000FF">coucal_fetch_value_hashes</FONT></B>(coucal hashtable,
+                                                      coucal_key_const name,
+                                                      <B><FONT COLOR="#228B22">const</FONT></B> coucal_hashkeys
+                                                      *hashes);
+
+<I><FONT COLOR="#B22222">/**
+ * Remove an entry from the hashtable
+ * Return non-zero value if the entry was removed, zero otherwise.
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">coucal_remove</FONT></B>(coucal hashtable, coucal_key_const name);
+
+<I><FONT COLOR="#B22222">/**
+ * Return a new enumerator.
+ * Note: deleting entries is safe while enumerating, but adding entries 
+ * lead to undefined enumeration behavior (yet safe).
+ **/</FONT></I>
+COUCAL_EXTERN struct_coucal_enum <B><FONT COLOR="#0000FF">coucal_enum_new</FONT></B>(coucal hashtable);
+
+<I><FONT COLOR="#B22222">/**
+ * Enumerate the next entry.
+ **/</FONT></I>
+COUCAL_EXTERN coucal_item *<B><FONT COLOR="#0000FF">coucal_enum_next</FONT></B>(struct_coucal_enum * e);
+
+<I><FONT COLOR="#B22222">/**
+ * Compute a hash of a key for the hashtable 'hashtable'.
+ * The returned hash is suitable for use with coucal_fetch_value_hashes()
+ * Note: the default implementation uses coucal_hash_string()
+ **/</FONT></I>
+COUCAL_EXTERN coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_calc_hashes</FONT></B>(coucal hashtable, 
+                                                 coucal_key_const value);
+
+<I><FONT COLOR="#B22222">/**
+ * Compute a hash, given a string. This is the default function used for
+ * hashing keys, which are by default strings. This function uses
+ * coucal_hash_data() as backend.
+ **/</FONT></I>
+COUCAL_EXTERN coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_hash_string</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *value);
+
+<I><FONT COLOR="#B22222">/**
+ * Compute a hash, given an opaque buffer.
+ **/</FONT></I>
+COUCAL_EXTERN coucal_hashkeys <B><FONT COLOR="#0000FF">coucal_hash_data</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *data, size_t size);
+
+<I><FONT COLOR="#B22222">/**
+ * Set default global assertion failure handler.
+ * The handler will be used if no specific handler was defined in the
+ * hashtable itself.
+ * log: handler called upon serious error log (opaque argument 
+ * is the hashtable itself)
+ * fatal: handler called upon serious programming error (opaque argument 
+ * is the hashtable itself)
+ **/</FONT></I>
+COUCAL_EXTERN <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">coucal_set_global_assert_handler</FONT></B>(t_coucal_loghandler log,
+                                                    t_coucal_asserthandler fatal);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/coucal.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:15 GMT -->
+</HTML>

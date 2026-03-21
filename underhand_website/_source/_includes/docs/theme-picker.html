@@ -1,0 +1,21 @@
+<popover-menu class="themes">
+  <button popovertarget="themes-menu" aria-label="Themes" id="themes-menu-button" class="shadow-md button --fill --primary">
+    {% render "svg/theme-picker.svg" %}
+  </button>
+  <theme-picker id="themes-menu" role="menu" aria-labelledby="themes-menu-button" popover class="anchor-right">
+    <ul role="group" aria-label="Modes">
+      {% for item in modes %}
+        <li role="none">
+          <button class="button --menu --primary" data-type="mode" data-value="{{ item }}" role="menuitem">{{ item }}</button>
+        </li>
+      {% endfor %}
+    </ul>
+    <ul role="group" aria-label="Themes">
+      {% for item in themes %}
+        <li role="none">
+          <button class="button --menu --primary" data-type="theme" data-value="{{ item }}" role="menuitem">{{ item }}</button>
+        </li>
+      {% endfor %}
+    </ul>
+  </theme-picker>
+</popover-menu>

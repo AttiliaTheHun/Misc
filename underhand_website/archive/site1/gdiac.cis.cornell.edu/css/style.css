@@ -1,0 +1,890 @@
+html
+{
+	margin-left: -1px;
+	overflow-Y: scroll;
+}
+body                                                    
+{
+	font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+	font-size: 8pt;
+	color: #333333;
+	background: #fff url(../images/bg.gif) top center repeat-y;
+	margin: 0 auto;
+}
+.indented
+{
+	vertical-align: top;
+	margin-left: 22px;
+}
+p
+{
+	text-align: justify;
+	margin-top: 8px;
+}
+td
+{
+	font-size: 9pt;
+	vertical-align: top;
+}
+a:active
+{
+	color : #336699;
+	text-decoration : underline;
+}
+a, a:link
+{
+	border: 0;
+	color : #336699;
+	text-decoration : none;
+}
+a:visited
+{
+	color : #336699;
+	text-decoration : none;
+}
+a:hover
+{
+	color : #336699;
+	text-decoration : underline;
+}
+.sidemenu
+{
+	font-weight: bold;
+}
+.sidemenu a:active
+{
+	color : #333366;
+	text-decoration : underline;
+}
+.sidemenu a, .sidemenu a:link
+{
+	color : #333366;
+	font-weight: normal;
+	text-decoration : none;
+}
+.sidemenu a:visited
+{
+	color : #333366;
+	text-decoration : none;
+}
+.sidemenu a:hover
+{
+	color : #333366;
+	text-decoration : underline;
+}
+.unjustified
+{
+	text-align : left;
+}
+.caption
+{
+	font-size: 8pt;
+	text-align : left;
+}
+
+.small, table.small td 
+{
+	font-size: 7pt;
+	text-align: left;
+	vertical-align: top;
+	padding-top: 0px;
+}
+
+.embedpic 
+{
+	margin: 0 0 15px 15px; 
+	width: 300px; 
+	font-size: 7pt;
+	text-align: center; 
+	float: right;
+}
+
+.bordered
+{
+	position: relative;
+	border: solid 1px #bbb;
+	padding: 0;
+	margin: 0;
+}
+
+.smallinput
+{
+	font-family: Courier New, Courier, monospace;
+	font-size: 8pt;
+	border-style: solid;
+	border-width: 1px;
+}
+.bigger
+{
+	font-size: 10pt;
+	font-weight: bold;
+}
+.headline
+{
+	font-size: 10pt;
+	font-weight: bold;
+	background: #787878;
+	color: white;
+	text-align: left;
+	padding: 5px;
+}
+.content
+{
+	font-size: 50pt;
+	vertical-align: top;
+}
+.title
+{
+	font-size: 16pt;
+	color: Black;
+	text-align: left;
+	margin-top: 20px;
+}
+.subtitle
+{
+	font-size: 11pt;
+	color: Black;
+	font-weight: bold;
+	text-align: left;
+	margin-bottom: 4px;
+}
+.subsubtitle
+{
+	font-size: 9pt;
+	color: Black;
+	font-weight: bold;
+	text-align: left;
+	margin-bottom: 4px;
+}
+.parhdr
+{
+	font-weight: bold;
+	padding-right: 1.5ex;
+}
+span.parhdr:after {
+	content: "."
+}
+th
+{
+	color: Black;
+	font-size: 10pt;
+}
+.cell
+{
+	font-size: 9pt;
+	color: #666666;
+	font-weight: normal;
+}
+.ctitle
+{
+	font-size: 34pt;
+	color: Black;
+	font-family: "Trebuchet MS", sans-serif;
+}
+.namelist { /* for use in "Faculty and Researchers" columns */
+        vertical-align: top;
+    	text-align: left;
+	font-weight: bold;
+	white-space: nowrap;
+}
+.rowh
+{
+	background-color: #CCCCCC;
+}
+.rowh2
+{
+	background-color: #AAAAAA;
+}
+.row0
+{
+	background-color: #FFFFFF;
+}
+.row1
+{
+	background-color: #EEEEEE;
+}
+
+#wrap
+{
+	background: #ffffff;
+	color: #303030;
+	margin: 0 auto;
+	width: 924px;
+}
+
+#overviewBox
+{
+	font-family: verdana, arial, helvetica, sans-serif;
+	font-size: 12px;		/* translate 1.0em to 10px, 1.5em to 15px, etc. */
+}
+
+#wrap-pre-process
+{
+	background: #ffffff;
+	color: #303030;
+	margin: 0 auto;
+	width: 645px;
+	font-size: 9pt;	
+}
+
+#content
+{
+	margin-left: 24px; 
+	margin-right: 24px; 
+	margin-bottom: 24px;
+	padding-left: 0px;
+}
+
+/****************************************
+ * Cornell Identity
+ ****************************************/
+/* 
+	The following set of rules controls the appearance of the topmost 
+	banner on the page, including height, background color, and text color.
+	The Cornell identity banner should appear on every page of the site.
+	
+	The version of the logo that appears in the XHTML code is hidden from 
+	browsers that can read this stylesheet, and it is replaced by a version
+	of the logo that corresponds to the background color of the banner. 
+	This logo is placed in the background of two elements below (rather than
+	one) to prevent flickering when moused over by IE/Win users who have 
+	disabled the browser cache.
+*/
+#cu-identity {
+	height: 75px;
+	background: #fff;
+	/*
+	Comment out the following line to remove the Ezra Cornell background image from the header.
+	Change 1.jpg to any number up to 8.jpg to use other header background images.
+	*/
+	background: #fff url(../images/banner/background/1.jpg) no-repeat top center;
+	}
+
+#cu-logo {
+	position: absolute;
+	top: 0;
+	left: 50%;
+	margin-left: -453px;
+	width: 920px;
+	height: 75px;
+	background: url(../images/banner/gdiac_signature.gif) no-repeat -8px -1px;
+	}
+	
+#cu-logo a {
+	position: absolute;
+	display: block;
+	border: none;
+	/* hide text link */
+	text-indent: -1000em; 
+	text-decoration: none;
+	}
+	
+#insignia-link {
+	width: 68px;
+	height: 75px;
+	}
+
+#unit-signature-links a {
+	left: 68px;
+	width: 185px;
+	}
+
+#cornell-link {
+	height: 38px;
+	}
+	
+#unit-link {
+	top: 38px;
+	height: 37px;
+	}
+	
+#cu-logo img {
+	display: none;
+	}
+ 
+/*	
+	Search Form
+	-------------------------
+	The following rules control the appearance of the search form interface. 
+	The form is displayed in the Cornell banner, and it is aligned with the 
+	right edge of the page. The search form should appear on every page 
+	of a site. 
+*/
+
+#search-form {
+	position: absolute;
+	top: 18px;
+	right: 50%;
+	margin-right: -452px;
+	}
+	
+#search-form form {
+	margin: 0;
+	padding: 0;
+	text-align: right;
+	}
+	
+#search-form label {
+	color: #333;
+	}
+	
+#search-form-query {
+	padding: 3px;
+	width: 145px;
+	border: none;
+	font-family: verdana, arial, helvetica, sans-serif;
+	font-size: 1.1em;
+	font-weight: bold;
+	color: #333;
+	background: #f3f3f3 url(../images/banner/header_search.gif) no-repeat top left;
+	vertical-align: middle;
+}
+	
+#search-form-submit {
+	padding: 		0px 2px 3px 2px;
+	border-top: 	1px solid #e5e5e5;
+	border-left:	1px solid #e5e5e5;
+	border-right: 	1px solid #b3b3b3;
+	border-bottom: 	1px solid #b3b3b3;
+	font-family: 	verdana, arial, helvetica, sans-serif;
+	font-size: 		1.0em;
+	font-weight: 	bold;
+	color: 			#333;
+	background: 	#f2f2f2;
+	vertical-align: middle;
+}
+	
+#search-filters {
+	margin: 5px 0 0 0;
+}
+
+#search-filters input {
+	vertical-align: middle;
+	margin: 0;
+}
+
+#search-filters label {
+	vertical-align: middle;
+	margin: 0 10px 0 0;
+}
+ 
+/*	
+	Search Navigation 
+	-------------------------
+	The following rules control the appearance of the search navigation 
+	links. These links are displayed horizontally in the Cornell banner, 
+	and they are aligned with the right edge of the page. The baseline
+	of the links is aligned with the baseline of the unit name in the unit
+	signature. Search navigation links should appear on every page of a
+	site. 
+*/
+
+#search-navigation {
+	position: absolute;
+	top: 37px;
+	right: 50%;
+	margin-right: -385px;
+	}
+	
+#search-navigation ul {
+	margin: 0;
+	padding: 0;
+	font-size: 1.1em;
+	}
+	
+#search-navigation li {
+	float: left;
+	margin: 0;
+	padding: 0;
+	background: none;
+	}
+		
+#search-navigation a {
+	float: left;
+	padding: 5px 15px;
+	color: #b31b1b;
+	text-decoration: none;
+	border: none;
+	}
+	
+#search-navigation a:hover {
+	color: #f00;
+	background: #eee;
+	}
+ 
+/****************************************
+ * Header
+ ****************************************/
+ 
+/* 
+	Section Title 
+	-------------------------
+	The following rules control the formatting of the section title, including
+	padding, font family, size, weight, color.
+*/
+ 
+#identity {
+	float: left;
+	width: 100%;
+	padding: 25px 0;
+	background: #fff;
+	}
+ 
+#identity h1 {
+	margin: 0 auto;
+	width: 740px;
+	font-family: georgia, "times new roman", times, serif;
+	font-size: 2.4em;
+	font-weight: normal;
+	color: #73736c;
+	} 
+	 
+/****************************************
+ * Miscellaneous
+ ****************************************/
+
+/* 
+	Hide "skip to content" link from general users. 
+	Do not use display: none, as that will also hide it from some screen readers.
+*/
+#skipnav {
+	position: absolute;
+	top: -1000em;
+	left: -1000em;
+	}
+	
+img
+{  
+	border-style: none;
+}
+
+img.image_shadow {
+	position: relative;
+	top: -2px;
+	background: url(../images/news/image_shadow.png) no-repeat;
+	width: 100px;
+	height: 100px;
+	padding: 8px;
+	margin-top: -3px;
+}
+
+.border-right 
+{
+	border-right: solid 1px #333333;
+}
+
+.border-bottom 
+{
+	border-bottom: solid 1px #333333;
+}
+
+td.news-container {
+	background: 	#E8E8E8;
+	vertical-align: top; 
+	border-left: 	solid 1px #bbb; 
+	border-bottom:	solid 1px #bbb;
+}
+
+.news-layout
+{
+	vertical-align: top;
+	margin-bottom: -3px;
+	border-spacing: 4px 10px;
+}
+
+.news-item
+{
+	vertical-align:	top;
+	background-color: #e2e2e2;
+	margin-top: 2px !important;  /* hack for ie6 */
+	padding-left: 	10px;
+	padding-right:	10px;
+	padding-top: 	10px;
+	padding-bottom: 10px;
+}
+
+.news-icon {
+	vertical-align:	top;
+	margin-top: 2px !important;  /* hack for ie6 */
+	margin-top: 	1px;
+	padding-right: 	10px;
+	
+}
+
+.news-header
+{
+	font-size: 150%;
+	font-weight: bold;
+	font-style:  italic;
+}
+
+a.more {
+	position: absolute; 
+	bottom: 0; 
+	right: 	0;
+}
+
+/****************************************
+ * Gallery Formatting
+ ****************************************/
+
+#download-left
+{
+	width:	200px; 
+}
+
+#download-left td.logo 
+{
+	border:	2px solid black; 
+	background-color:	#BBBBBB;
+}
+
+#download-left td.member-first
+{
+	padding: 		3px; 
+	padding-top: 	10px; 
+	font-size:		115%; 
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+}
+
+#download-left td.member 
+{
+	padding: 		3px; 
+	font-size:		115%; 
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+}
+
+#download-left td.member-last 
+{
+	padding: 		3px; 
+	font-size:		115%; 
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+	border-bottom: 	2px solid black;
+}
+
+#download-left td.member-only 
+{
+	padding: 		3px; 
+	padding-top: 	10px; 
+	font-size:		115%; 
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+	border-bottom: 	2px solid black;
+}
+
+#download-left .heading
+{
+	border:			2px solid black; 
+	padding:		5px; 
+	color:			#FFFFFF;
+	font-size: 		150%;
+	font-weight: 	bold;
+	text-align:		center;
+	background-color: 	#000000; 
+}
+
+#download-right
+{
+	padding-left:	10px; 
+	padding-right:	10px;
+}
+
+#download-right .heading
+{
+	border:			2px solid black; 
+	padding:		5px; 
+	color:			#FFFFFF;
+	font-size: 		150%;
+	font-weight: 	bold;
+	background-color: 	#000000; 
+}
+
+#download-right .description 
+{
+	font-size: 110%;
+}
+
+#download-right td.details-prompt
+{
+	width: 100px;
+	font-size: 110%;
+	font-weight: bold;
+	padding-bottom: 5px;
+}
+
+#download-right td.details
+{
+	font-size: 110%;
+	padding-bottom: 5px;
+}
+
+#download-right td.block
+{
+	padding: 	10px;
+	border: 	2px solid black;
+}
+
+#download-right td.screenshot-left 
+{
+	width:			25%;
+	padding-left: 	5px;
+	padding-top: 	5px;
+	border-left: 	2px solid black;
+}
+
+#download-right td.screenshot
+{
+	width:			25%;
+	padding-left: 	5px;
+	padding-top: 	5px;
+} 
+
+#download-right td.screenshot-right 
+{
+	width:			25%;
+	padding-left: 	5px;
+	padding-right: 	5px;
+	padding-top: 	5px;
+	border-right: 	2px solid black;
+}
+
+#download-right td.screenshot-bottom-left 
+{
+	width:			25%;
+	padding-left: 	5px;
+	padding-top: 	5px;
+	padding-bottom: 5px;
+	border-left: 	2px solid black;
+	border-bottom:	2px solid black;
+}
+
+#download-right td.screenshot-bottom 
+{
+	width:			25%;
+	padding-left: 	5px;
+	padding-top: 	5px;
+	padding-bottom: 5px;
+	border-bottom:	2px solid black;
+}
+
+#download-right td.screenshot-bottom-right 
+{
+	width:			25%;
+	padding: 		5px;
+	border-right: 	2px solid black;
+	border-bottom:	2px solid black;
+}
+
+/****************************************
+ * Flash Formatting
+ ****************************************/
+
+#flash-main
+{
+	width: 100%;
+	border-spacing: 20px;
+	padding: 10px;
+}
+
+#flash-main td.heading
+{
+	border:			2px solid black; 
+	padding:		5px; 
+	color:			#FFFFFF;
+	font-size: 		150%;
+	font-weight: 	bold;
+	text-align:		center;
+	background-color: 	#000000; 
+}
+
+#flash-main td.game
+{
+	padding: 		5px; 
+	text-align: 	center; 
+	height:			200px;
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+}
+
+#flash-main td.description
+{
+	font-size: 100%;
+	padding: 5px;
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+	border-bottom: 	2px solid black;
+}
+
+#flash-left-heading
+{
+	width:	200px; 
+	border:			2px solid black; 
+	padding:		5px; 
+	color:			#FFFFFF;
+	font-size: 		150%;
+	font-weight: 	bold;
+	text-align:		center;
+	vertical-align:	middle;
+	background-color: 	#000000; 
+}
+
+#flash-left
+{
+	width:	200px; 
+	font-size:		115%; 
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+	border-bottom: 	2px solid black;	
+}
+
+#flash-left td.member-first
+{
+	padding: 		3px; 
+	padding-top: 	10px; 
+	font-size:		110%; 
+}
+
+#flash-left td.member 
+{
+	padding: 		3px; 
+	font-size:		110%; 
+}
+
+
+#flash-left td.logo 
+{
+	background-color:	#BBBBBB;
+	border-bottom: 	2px solid black;	
+}
+
+#flash-middle
+{
+	width:	10px; 
+}
+
+#flash-right-heading
+{
+	border:			2px solid black; 
+	padding:		5px; 
+	color:			#FFFFFF;
+	font-size: 		150%;
+	font-weight: 	bold;
+	vertical-align:	middle;
+	background-color: 	#000000; 
+}
+
+#flash-right
+{
+	padding-left:	10px; 
+	padding-right:	10px;
+	border-left:	2px solid black; 
+	border-right: 	2px solid black;
+	border-bottom: 	2px solid black;	
+}
+
+
+#flash-right .description 
+{
+	padding-top: 	5px;
+	font-size: 115%;
+}
+
+#flash-right .submission 
+{
+	padding-bottom: 10px;
+	font-size: 125%;
+}
+
+
+/****************************************
+ * Featured Game Crossfade
+ ****************************************/
+
+.featured_controls  
+{
+	position: 	absolute; 
+	bottom: 	5px; 
+	left: 		0.5em; 
+	width: 		120px; 
+}
+
+.featured_controls img 
+{
+	position:		relative;
+	float:			left;
+	width:			18px;
+	height:			13px;
+	cursor:			pointer;
+}
+#featured_window 
+{
+	width:		545px;
+	height:		215px;
+	overflow:	hidden;
+	margin:		0 auto;
+}
+
+#featured_container 
+{
+	width:	2725px;
+	transition:			all 1.0s ease-in-out;
+	-webkit-transition:	all 1.0s ease-in-out;
+	-moz-transition:	all 1.0s ease-in-out;
+	-o-transition:		all 1.0s ease-in-out;
+}
+
+#featured_image 
+{
+	position: 	relative;
+	float:		left; 
+	width:		545px;
+	height:		215px;
+}
+
+#featured_image img 
+{
+	padding:	0;
+    margin:		0;
+    float:		left;
+}
+
+#featured_caption 
+{
+	position: 	absolute; 
+	text-align: right;
+	bottom: 	5px; 
+	right: 		0.5em; 
+	width: 		545px; 
+	color: 		#ffffff;
+	font-size: 	18pt;
+	text-shadow: 2px 2px #000000;	
+}
+
+.selected {
+	font-weight: bold;
+}
+
+/****************************************
+ * Table Settings
+ ****************************************/
+
+
+table.borders, table.borders td, table.borders th
+{
+	border: solid 1px #666;
+	border-collapse: collapse;
+	padding: 3px;
+}
+
+th
+{
+	text-align: left;
+}
+
+.footer
+{
+	padding:	12px;
+}

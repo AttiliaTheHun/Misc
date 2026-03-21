@@ -1,0 +1,826 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htshelp.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htshelp.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htshelp.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       command-line help system                               */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htshelp.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscoremain.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscatchurl.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsalias.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsmodules.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_UNISTD_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;unistd.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">waitkey</FONT> if (more) { char s[4]; printf(<B><FONT COLOR="#BC8F8F">&quot;\nMORE.. q to quit\n&quot;</FONT></B>); linput(stdin,s,4); if (strcmp(s,<B><FONT COLOR="#BC8F8F">&quot;q&quot;</FONT></B>)==0) quit=1; else printf(<B><FONT COLOR="#BC8F8F">&quot;Page %d\n\n&quot;</FONT></B>,++m); }
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">infomsg</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *msg) {
+  <B><FONT COLOR="#228B22">int</FONT></B> l = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> m = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> more = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> quit = 0;
+  <B><FONT COLOR="#228B22">int</FONT></B> done = 0;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (msg == NULL)
+    quit = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (msg) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!quit) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(msg) == 1) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (msg[0] == <B><FONT COLOR="#BC8F8F">'1'</FONT></B>) {
+          more = 1;
+          <B><FONT COLOR="#A020F0">return</FONT></B>;
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* afficher alias? */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(msg)) &gt; 4) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (msg[0] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (msg[2] != <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((msg[3] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>) || (msg[4] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)) {
+              <B><FONT COLOR="#228B22">char</FONT></B> cmd[32] = <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>;
+              <B><FONT COLOR="#228B22">int</FONT></B> p = 0;
+
+              <B><FONT COLOR="#A020F0">while</FONT></B>(cmd[p] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+                p++;
+              sscanf(msg + p, <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>, cmd + strlen(cmd));
+              <I><FONT COLOR="#B22222">/* clears cN -&gt; c */</FONT></I>
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((p = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(cmd)) &gt; 2)
+                <B><FONT COLOR="#A020F0">if</FONT></B> (cmd[p - 1] == <B><FONT COLOR="#BC8F8F">'N'</FONT></B>)
+                  cmd[p - 1] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              <I><FONT COLOR="#B22222">/* finds alias (if any) */</FONT></I>
+              p = optreal_find(cmd);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (p &gt;= 0) {
+                <I><FONT COLOR="#B22222">/* fings type of parameter: number,param,param concatenated,single cmd */</FONT></I>
+                <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(opttype_value(p), <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>) == 0)
+                  printf(<B><FONT COLOR="#BC8F8F">&quot;%s (--%s[=N])\n&quot;</FONT></B>, msg, optalias_value(p));
+                <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(opttype_value(p), <B><FONT COLOR="#BC8F8F">&quot;param1&quot;</FONT></B>) == 0)
+                  printf(<B><FONT COLOR="#BC8F8F">&quot;%s (--%s &lt;param&gt;)\n&quot;</FONT></B>, msg, optalias_value(p));
+                <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(opttype_value(p), <B><FONT COLOR="#BC8F8F">&quot;param0&quot;</FONT></B>) == 0)
+                  printf(<B><FONT COLOR="#BC8F8F">&quot;%s (--%s&lt;param&gt;)\n&quot;</FONT></B>, msg, optalias_value(p));
+                <B><FONT COLOR="#A020F0">else</FONT></B>
+                  printf(<B><FONT COLOR="#BC8F8F">&quot;%s (--%s)\n&quot;</FONT></B>, msg, optalias_value(p));
+                done = 1;
+              }
+            }
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* sinon */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!done)
+        printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, msg);
+      l++;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (l &gt; 20) {
+        l = 0;
+        waitkey;
+      }
+    }
+  }
+}
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> help_wizard_buffers {
+  <B><FONT COLOR="#228B22">char</FONT></B> urls[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">char</FONT></B> mainpath[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> projname[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> stropt[2048];        <I><FONT COLOR="#B22222">// options
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> stropt2[2048];       <I><FONT COLOR="#B22222">// options longues
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> strwild[2048];       <I><FONT COLOR="#B22222">// wildcards
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> cmd[4096];
+  <B><FONT COLOR="#228B22">char</FONT></B> str[256];
+  <B><FONT COLOR="#228B22">char</FONT></B> *argv[256];
+} help_wizard_buffers;
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">help_wizard</FONT></B>(httrackp * opt) {
+  help_wizard_buffers *buffers = malloct(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(help_wizard_buffers));
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">urls</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">mainpath</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">projname</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">stropt</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">stropt2</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">strwild</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">cmd</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">str</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">argv</FONT>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">urls</FONT> (buffers-&gt;urls)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">mainpath</FONT> (buffers-&gt;mainpath)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">projname</FONT> (buffers-&gt;projname)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">stropt</FONT> (buffers-&gt;stropt)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">stropt2</FONT> (buffers-&gt;stropt2)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">strwild</FONT> (buffers-&gt;strwild)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">cmd</FONT> (buffers-&gt;cmd)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">str</FONT> (buffers-&gt;str)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">argv</FONT> (buffers-&gt;argv)
+
+  <I><FONT COLOR="#B22222">//char *urls = (char *) malloct(HTS_URLMAXSIZE * 2);
+</FONT></I>  <I><FONT COLOR="#B22222">//char *mainpath = (char *) malloct(256);
+</FONT></I>  <I><FONT COLOR="#B22222">//char *projname = (char *) malloct(256);
+</FONT></I>  <I><FONT COLOR="#B22222">//char *stropt = (char *) malloct(2048);        // options
+</FONT></I>  <I><FONT COLOR="#B22222">//char *stropt2 = (char *) malloct(2048);       // options longues
+</FONT></I>  <I><FONT COLOR="#B22222">//char *strwild = (char *) malloct(2048);       // wildcards
+</FONT></I>  <I><FONT COLOR="#B22222">//char *cmd = (char *) malloct(4096);
+</FONT></I>  <I><FONT COLOR="#B22222">//char *str = (char *) malloct(256);
+</FONT></I>  <I><FONT COLOR="#B22222">//char **argv = (char **) malloct(256 * sizeof(char *));
+</FONT></I>
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (urls == NULL || mainpath == NULL || projname == NULL || stropt == NULL
+      || stropt2 == NULL || strwild == NULL || cmd == NULL || str == NULL
+      || argv == NULL) {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;* memory exhausted in %s, line %d\n&quot;</FONT></B>, __FILE__, __LINE__);
+    <B><FONT COLOR="#A020F0">return</FONT></B>;
+  }
+  urls[0] = mainpath[0] = projname[0] = stropt[0] = stropt2[0] = strwild[0] =
+    cmd[0] = str[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  strcpybuff(stropt, <B><FONT COLOR="#BC8F8F">&quot;-&quot;</FONT></B>);
+  mainpath[0] = projname[0] = stropt2[0] = strwild[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <I><FONT COLOR="#B22222">//
+</FONT></I>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Welcome to HTTrack Website Copier (Offline Browser) &quot;</FONT></B> HTTRACK_VERSION
+         <B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, hts_get_version_info(opt));
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Copyright (C) 1998-2015 Xavier Roche and other contributors\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Note: You are running the commandline version,\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;run 'WinHTTrack.exe' to get the GUI version.\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTTRACK_AFF_WARNING</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;NOTE: &quot;</FONT></B> HTTRACK_AFF_WARNING <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_PLATFORM_NAME</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;[compiled: &quot;</FONT></B> HTS_PLATFORM_NAME <B><FONT COLOR="#BC8F8F">&quot; - MT]\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;[compiled: &quot;</FONT></B> HTS_PLATFORM_NAME <B><FONT COLOR="#BC8F8F">&quot;]\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;To see the option list, enter a blank line or try httrack --help\n&quot;</FONT></B>);
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// Project name
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(projname) == 0) {
+    printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+    printf(<B><FONT COLOR="#BC8F8F">&quot;Enter project name :&quot;</FONT></B>);
+    fflush(stdout);
+    linput(stdin, projname, 250);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(projname) == 0)
+      help(<B><FONT COLOR="#BC8F8F">&quot;httrack&quot;</FONT></B>, 1);
+  }
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <I><FONT COLOR="#B22222">// Path
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(hts_gethome()))
+    printf(<B><FONT COLOR="#BC8F8F">&quot;\nBase path (return=%s/websites/) :&quot;</FONT></B>, hts_gethome());
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;\nBase path (return=current directory) :&quot;</FONT></B>);
+  linput(stdin, str, 250);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!strnotempty(str)) {
+    strcatbuff(str, hts_gethome());
+    strcatbuff(str, <B><FONT COLOR="#BC8F8F">&quot;/websites/&quot;</FONT></B>);
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str))
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((str[strlen(str) - 1] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) &amp;&amp; (str[strlen(str) - 1] != <B><FONT COLOR="#BC8F8F">'\\'</FONT></B>))
+      strcatbuff(str, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+  strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;-O \&quot;&quot;</FONT></B>);
+  strcatbuff(stropt2, str);
+  strcatbuff(stropt2, projname);
+  strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;\&quot; &quot;</FONT></B>);
+  <I><FONT COLOR="#B22222">// Créer si ce n'est fait un index.html 1er niveau
+</FONT></I>  make_empty_index(str);
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Enter URLs (separated by commas or blank spaces) :&quot;</FONT></B>);
+  fflush(stdout);
+  linput(stdin, urls, 250);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(urls)) {
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(urls, <B><FONT COLOR="#BC8F8F">','</FONT></B>)))
+      *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(urls, <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>)))
+      *a = <B><FONT COLOR="#BC8F8F">' '</FONT></B>;
+
+    <I><FONT COLOR="#B22222">// Action
+</FONT></I>    printf(<B><FONT COLOR="#BC8F8F">&quot;\nAction:\n&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (help_query
+            (<B><FONT COLOR="#BC8F8F">&quot;Mirror Web Site(s)|Mirror Web Site(s) with Wizard|Just Get Files Indicated|Mirror ALL links in URLs (Multiple Mirror)|Test Links In URLs (Bookmark Test)|Update/Continue a Mirror&quot;</FONT></B>,
+             1)) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:
+      strcatbuff(stropt, <B><FONT COLOR="#BC8F8F">&quot;W&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">3</FONT></B>:
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;--get &quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B>:
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;--mirrorlinks &quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">5</FONT></B>:
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;--testlinks &quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">6</FONT></B>:
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;--update &quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+      <B><FONT COLOR="#A020F0">return</FONT></B>;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+
+    <I><FONT COLOR="#B22222">// Proxy
+</FONT></I>    printf(<B><FONT COLOR="#BC8F8F">&quot;\nProxy (return=none) :&quot;</FONT></B>);
+    linput(stdin, str, 250);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str)) {
+      <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(str, <B><FONT COLOR="#BC8F8F">' '</FONT></B>)))
+        *a = <B><FONT COLOR="#BC8F8F">':'</FONT></B>;               <I><FONT COLOR="#B22222">// port
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (!strchr(jump_identification_const(str), <B><FONT COLOR="#BC8F8F">':'</FONT></B>)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> str2[256];
+
+        printf(<B><FONT COLOR="#BC8F8F">&quot;\nProxy port (return=8080) :&quot;</FONT></B>);
+        linput(stdin, str2, 250);
+        strcatbuff(str, <B><FONT COLOR="#BC8F8F">&quot;:&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str2) == 0)
+          strcatbuff(str, <B><FONT COLOR="#BC8F8F">&quot;8080&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+          strcatbuff(str, str2);
+      }
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot;-P &quot;</FONT></B>);
+      strcatbuff(stropt2, str);
+      strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>);
+    }
+    <I><FONT COLOR="#B22222">// Display
+</FONT></I>    strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot; -%v &quot;</FONT></B>);
+
+    <I><FONT COLOR="#B22222">// Wildcards
+</FONT></I>    printf
+      (<B><FONT COLOR="#BC8F8F">&quot;\nYou can define wildcards, like: -*.gif +www.*.com/*.zip -*img_*.zip\n&quot;</FONT></B>);
+    printf(<B><FONT COLOR="#BC8F8F">&quot;Wildcards (return=none) :&quot;</FONT></B>);
+    linput(stdin, strwild, 250);
+
+    <I><FONT COLOR="#B22222">// Options
+</FONT></I>    <B><FONT COLOR="#A020F0">do</FONT></B> {
+      printf
+        (<B><FONT COLOR="#BC8F8F">&quot;\nYou can define additional options, such as recurse level (-r&lt;number&gt;), separed by blank spaces\n&quot;</FONT></B>);
+      printf(<B><FONT COLOR="#BC8F8F">&quot;To see the option list, type help\n&quot;</FONT></B>);
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Additional options (return=none) :&quot;</FONT></B>);
+      linput(stdin, str, 250);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strfield2(str, <B><FONT COLOR="#BC8F8F">&quot;help&quot;</FONT></B>)) {
+        help(<B><FONT COLOR="#BC8F8F">&quot;httrack&quot;</FONT></B>, 2);
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str)) {
+        strcatbuff(stropt2, str);
+        strcatbuff(stropt2, <B><FONT COLOR="#BC8F8F">&quot; &quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">while</FONT></B>(strfield2(str, <B><FONT COLOR="#BC8F8F">&quot;help&quot;</FONT></B>));
+
+    {
+      <B><FONT COLOR="#228B22">int</FONT></B> argc = 1;
+      <B><FONT COLOR="#228B22">int</FONT></B> g = 0;
+      <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(stropt) == 1)
+        stropt[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;       <I><FONT COLOR="#B22222">// aucune
+</FONT></I>      sprintf(cmd, <B><FONT COLOR="#BC8F8F">&quot;%s %s %s %s&quot;</FONT></B>, urls, stropt, stropt2, strwild);
+      printf(<B><FONT COLOR="#BC8F8F">&quot;---&gt; Wizard command line: httrack %s\n\n&quot;</FONT></B>, cmd);
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Ready to launch the mirror? (Y/n) :&quot;</FONT></B>);
+      fflush(stdout);
+      linput(stdin, str, 250);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(str)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!((str[0] == <B><FONT COLOR="#BC8F8F">'y'</FONT></B>) || (str[0] == <B><FONT COLOR="#BC8F8F">'Y'</FONT></B>)))
+          <B><FONT COLOR="#A020F0">return</FONT></B>;
+      }
+      printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+
+      <I><FONT COLOR="#B22222">// couper en morceaux
+</FONT></I>      argv[0] = strdup(<B><FONT COLOR="#BC8F8F">&quot;winhttrack&quot;</FONT></B>);
+      argv[1] = cmd;
+      argc++;
+      <B><FONT COLOR="#A020F0">while</FONT></B>(cmd[i]) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cmd[i] == <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>)
+          g = !g;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cmd[i] == <B><FONT COLOR="#BC8F8F">' '</FONT></B>) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!g) {
+            cmd[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            argv[argc++] = cmd + i + 1;
+          }
+        }
+        i++;
+      }
+      hts_main(argc, argv);
+    }
+    <I><FONT COLOR="#B22222">//} else {
+</FONT></I>    <I><FONT COLOR="#B22222">//  help(&quot;httrack&quot;,1);
+</FONT></I>  }
+
+  <I><FONT COLOR="#B22222">/* Free buffers */</FONT></I>
+  free(buffers);
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">urls</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">mainpath</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">projname</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">stropt</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">stropt2</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">strwild</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">cmd</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">str</FONT>
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">argv</FONT>
+}
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">help_query</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *list, <B><FONT COLOR="#228B22">int</FONT></B> def) {
+  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a;
+  <B><FONT COLOR="#228B22">int</FONT></B> opt;
+  <B><FONT COLOR="#228B22">int</FONT></B> n = 1;
+
+  a = list;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(a)) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *b = strchr(a, <B><FONT COLOR="#BC8F8F">'|'</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (b) {
+      <B><FONT COLOR="#228B22">char</FONT></B> str[256];
+
+      str[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      strncatbuff(str, a, (<B><FONT COLOR="#228B22">int</FONT></B>) (b - a));
+      <B><FONT COLOR="#A020F0">if</FONT></B> (n == def)
+        printf(<B><FONT COLOR="#BC8F8F">&quot;(enter)\t%d\t%s\n&quot;</FONT></B>, n++, str);
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+        printf(<B><FONT COLOR="#BC8F8F">&quot;\t%d\t%s\n&quot;</FONT></B>, n++, str);
+      a = b + 1;
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      a = list + strlen(list);
+  }
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\t0\tQuit&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    printf(<B><FONT COLOR="#BC8F8F">&quot;\n: &quot;</FONT></B>);
+    fflush(stdout);
+    linput(stdin, s, 250);
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((strnotempty(s) != 0) &amp;&amp; (sscanf(s, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;opt) != 1));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s))
+    <B><FONT COLOR="#A020F0">return</FONT></B> opt;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> def;
+}
+
+<I><FONT COLOR="#B22222">// Capture d'URL
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">help_catchurl</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *dest_path) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK adr_prox[HTS_URLMAXSIZE * 2];
+  <B><FONT COLOR="#228B22">int</FONT></B> port_prox;
+  T_SOC soc = catch_url_init_std(&amp;port_prox, adr_prox);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (soc != INVALID_SOCKET) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK url[HTS_URLMAXSIZE * 2];
+    <B><FONT COLOR="#228B22">char</FONT></B> method[32];
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK data[32768];
+
+    url[0] = method[0] = data[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    printf
+      (<B><FONT COLOR="#BC8F8F">&quot;Okay, temporary proxy installed.\nSet your browser's preferences to:\n\n&quot;</FONT></B>);
+    printf(<B><FONT COLOR="#BC8F8F">&quot;\tProxy's address: \t%s\n\tProxy's port: \t%d\n&quot;</FONT></B>, adr_prox,
+           port_prox);
+    <I><FONT COLOR="#B22222">//
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (catch_url(soc, url, method, data)) {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK dest[HTS_URLMAXSIZE * 2];
+      <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+
+      <B><FONT COLOR="#A020F0">do</FONT></B> {
+        sprintf(dest, <B><FONT COLOR="#BC8F8F">&quot;%s%s%d&quot;</FONT></B>, dest_path, <B><FONT COLOR="#BC8F8F">&quot;hts-post&quot;</FONT></B>, i);
+        i++;
+      } <B><FONT COLOR="#A020F0">while</FONT></B>(fexist(dest));
+      {
+        FILE *fp = fopen(dest, <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+          fwrite(data, strlen(data), 1, fp);
+          fclose(fp);
+        }
+      }
+      <I><FONT COLOR="#B22222">// former URL!
+</FONT></I>      {
+        <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK finalurl[HTS_URLMAXSIZE * 2];
+
+        inplace_escape_check_url(dest, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(dest));
+        sprintf(finalurl, <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B> POSTTOK <B><FONT COLOR="#BC8F8F">&quot;file:%s&quot;</FONT></B>, url, dest);
+        printf(<B><FONT COLOR="#BC8F8F">&quot;\nThe URL is: \&quot;%s\&quot;\n&quot;</FONT></B>, finalurl);
+        printf(<B><FONT COLOR="#BC8F8F">&quot;You can capture it through: httrack \&quot;%s\&quot;\n&quot;</FONT></B>, finalurl);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Unable to analyse the URL\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;Unable to create a temporary proxy (no remaining port)\n&quot;</FONT></B>);
+}
+
+<I><FONT COLOR="#B22222">// Créer un index.html vide
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">make_empty_index</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *str) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!fexist(fconcat(str, <B><FONT COLOR="#BC8F8F">&quot;index.html&quot;</FONT></B>))) {
+    FILE *fp = fopen(fconcat(str, <B><FONT COLOR="#BC8F8F">&quot;index.html&quot;</FONT></B>), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;&lt;!-- &quot;</FONT></B> HTS_TOPINDEX <B><FONT COLOR="#BC8F8F">&quot; --&gt;&quot;</FONT></B> CRLF);
+      fprintf(fp,
+              <B><FONT COLOR="#BC8F8F">&quot;&lt;HTML&gt;&lt;BODY&gt;Index is empty!&lt;BR&gt;(File used to index all HTTrack projects)&lt;/BODY&gt;&lt;/HTML&gt;&quot;</FONT></B>
+              CRLF);
+      fclose(fp);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">// mini-aide  (h: help)
+</FONT></I><I><FONT COLOR="#B22222">//           y
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">help</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *app, <B><FONT COLOR="#228B22">int</FONT></B> more) {
+  <B><FONT COLOR="#228B22">char</FONT></B> info[2048];
+
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (more)
+    infomsg(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (more != 2) {
+    sprintf(info,
+            <B><FONT COLOR="#BC8F8F">&quot;HTTrack version &quot;</FONT></B> HTTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>,
+            hts_is_available());
+    infomsg(info);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTTRACK_AFF_WARNING</FONT>
+    infomsg(<B><FONT COLOR="#BC8F8F">&quot;NOTE: &quot;</FONT></B> HTTRACK_AFF_WARNING);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    sprintf(info,
+            <B><FONT COLOR="#BC8F8F">&quot;\tusage: %s &lt;URLs&gt; [-option] [+&lt;URL_FILTER&gt;] [-&lt;URL_FILTER&gt;] [+&lt;mime:MIME_FILTER&gt;] [-&lt;mime:MIME_FILTER&gt;]&quot;</FONT></B>,
+            app);
+    infomsg(info);
+    infomsg(<B><FONT COLOR="#BC8F8F">&quot;\twith options listed below: (* is the default value)&quot;</FONT></B>);
+    infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  }
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;General options:&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  O  path for mirror/logfiles+cache (-O path_mirror[,path_cache_and_logfiles])&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Action options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  w *mirror web sites&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  W  mirror web sites, semi-automatic (asks questions)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  g  just get files (saved in the current directory)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  i  continue an interrupted mirror using the cache&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  Y   mirror ALL links located in the first level pages (mirror links)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Proxy options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  P  proxy use (-P proxy:port or -P user:pass@proxy:port)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %f *use proxy for ftp (f0 don't use)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %b  use this local hostname to make/send requests (-%b hostname)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Limits options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  rN set the mirror depth to N (* r9999)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %eN set the external links depth to N (* %e0)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  mN maximum file length for a non-html file&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  mN,N2 maximum file length for non html (N) and html (N2)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  MN maximum overall size that can be uploaded/scanned&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  EN maximum mirror time in seconds (60=1 minute, 3600=1 hour)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  AN maximum transfer rate in bytes/seconds (1000=1KB/s max)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %cN maximum number of connections/seconds (*%c10)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  GN pause transfer if N bytes reached, and wait until lock file is deleted&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Flow control:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  cN number of multiple connections (*c8)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  TN timeout, number of seconds after a non-responding link is shutdown&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  RN number of retries, in case of timeout or non-fatal errors (*R1)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  JN traffic jam control, minimum transfert rate (bytes/seconds) tolerated for a link&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  HN host is abandonned if: 0=never, 1=timeout, 2=slow, 3=timeout or slow&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Links options:&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %P *extended parsing, attempt to parse all links, even in unknown tags or Javascript (%P0 don't use)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  n  get non-html files 'near' an html file (ex: an image located outside)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  t  test all URLs (even forbidden ones)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %L &lt;file&gt; add all URL located in this text file (one URL per line)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %S &lt;file&gt; add all scan rules located in this text file (one scan rule per line)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Build options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  NN structure type (0 *original structure, 1+: see below)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;     or user defined structure (-N \&quot;%h%p/%n%q.%t\&quot;)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %N  delayed type check, don't make any link test but wait for files download to start instead (experimental) (%N0 don't use, %N1 use for unknown extensions, * %N2 always use)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %D  cached delayed type check, don't wait for remote type during updates, to speedup them (%D0 wait, * %D1 don't wait)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %M  generate a RFC MIME-encapsulated full-archive (.mht)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  LN long names (L1 *long names / L0 8-3 conversion / L2 ISO9660 compatible)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  KN keep original links (e.g. http://www.adr/link) (K0 *relative link, K absolute links, K4 original links, K3 absolute URI links, K5 transparent proxy link)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  x  replace external html links by error pages&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %x  do not include any password for external password protected websites (%x0 include)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %q *include query string for local files (useless, for information purpose only) (%q0 don't include)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  o *generate output html file in case of error (404..) (o0 don't generate)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  X *purge old files after update (X0 keep delete)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %p  preserve html files 'as is' (identical to '-K4 -%F \&quot;\&quot;')&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %T  links conversion to UTF-8&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Spider options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  bN accept cookies in cookies.txt (0=do not accept,* 1=accept)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  u  check document type if unknown (cgi,asp..) (u0 don't check, * u1 check but /, u2 check always)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  j *parse Java Classes (j0 don't parse, bitmask: |1 parse default, |2 don't parse .class |4 don't parse .js |8 don't be aggressive)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  sN follow robots.txt and meta robots tags (0=never,1=sometimes,* 2=always, 3=always (even strict rules))&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %h  force HTTP/1.0 requests (reduce update features, only for old servers or proxies)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %k  use keep-alive if possible, greately reducing latency for small files and test requests (%k0 don't use)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %B  tolerant requests (accept bogus responses on some servers, but not standard!)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %s  update hacks: various hacks to limit re-transfers when updating (identical size, bogus response..)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %u  url hacks: various hacks to limit duplicate URLs (strip //, www.foo.com==foo.com..)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %A  assume that a type (cgi,asp..) is always linked with a mime type (-%A php3,cgi=text/html;dat,bin=application/x-zip)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;     shortcut: '--assume standard' is equivalent to -%A &quot;</FONT></B>
+          HTS_ASSUME_STANDARD);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;     can also be used to force a specific file type: --assume foo.cgi=text/html&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; @iN internet protocol (0=both ipv6+ipv4, 4=ipv4 only, 6=ipv6 only)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %w  disable a specific external mime module (-%w htsswf -%w htsjava)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Browser ID:&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  F  user-agent field sent in HTTP headers (-F \&quot;user-agent name\&quot;)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %R  default referer field sent in HTTP headers&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %E  from email address sent in HTTP headers&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %F  footer string in Html code (-%F \&quot;Mirrored [from host %s [file %s [at %s]]]\&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %l  preffered language (-%l \&quot;fr, en, jp, *\&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %a  accepted formats (-%a \&quot;text/html,image/png;q=0.9,*/*;q=0.1\&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %X  additional HTTP header line (-%X \&quot;X-Magic: 42\&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Log, index, cache&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  C  create/use a cache for updates and retries (C0 no cache,C1 cache is prioritary,* C2 test update before)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  k  store all files in cache (not useful if files on disk)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %n  do not re-download locally erased files&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %v  display on screen filenames downloaded (in realtime) - * %v1 short version - %v2 full animation&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  Q  no log - quiet mode&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  q  no questions - quiet mode&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  z  log - extra infos&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  Z  log - debug&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  v  log on screen&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  f *log in files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  f2 one single log file&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  I *make an index (I0 don't make)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %i  make a top index for a project folder (* %i0 don't make)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %I  make an searchable index for this mirror (* %I0 don't make)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Expert options:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  pN priority mode: (* p3)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;      p0 just scan, don't save anything (for checking links)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;      p1 save only html files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;      p2 save only non html files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;     *p3 save all files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;      p7 get html files before, then treat other files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  S  stay on the same directory&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  D *can only go down into subdirs&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  U  can only go to upper directories&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  B  can both go up&amp;down into the directory structure&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  a *stay on the same address&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  d  stay on the same principal domain&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  l  stay on the same TLD (eg: .com)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  e  go everywhere on the web&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; %H  debug HTTP headers in logfile&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Guru options: (do NOT use if possible)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #X *use optimized engine (limited memory boundary checks)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #0  filter test (-#0 '*.gif' 'www.bar.com/foo.gif')&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #1  simplify test (-#1 ./foo/bar/../foobar)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #2  type test (-#2 /foo/bar.php)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #C  cache list (-#C '*.com/spider*.gif'&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #R  cache repair (damaged cache)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #d  debug parser&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #E  extract new.zip cache meta-data in meta.zip&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #f  always flush log files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #FN maximum number of filters&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #h  version info&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #K  scan stdin (debug)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #L  maximum number of links (-#L1000000)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #p  display ugly progress information&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #P  catch URL&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #R  old FTP routines (debug)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #T  generate transfer ops. log every minutes&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #u  wait time&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot; #Z  generate transfer rate statictics every minutes&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;Dangerous options: (do NOT use unless you exactly know what you are doing)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %!  bypass built-in security limits aimed to avoid bandwidth abuses (bandwidth, simultaneous connections)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;     IMPORTANT NOTE: DANGEROUS OPTION, ONLY SUITABLE FOR EXPERTS&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;                     USE IT WITH EXTREME CARE&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Command-line specific options:&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  V execute system command after each files ($0 is the filename: -V \&quot;rm \\$0\&quot;)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot; %W use an external library function as a wrapper (-%W myfoo.so[,myparameters])&quot;</FONT></B>);
+  <I><FONT COLOR="#B22222">/* infomsg(&quot; %O do a chroot before setuid&quot;); */</FONT></I>
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Details: Option N&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N0 Site-structure (default)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1 HTML in web/, images/other files in web/images/&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N2 HTML in web/HTML, images/other in web/images&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N3 HTML in web/,  images/other in web/&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N4 HTML in web/, images/other in web/xxx, where xxx is the file extension (all gif will be placed onto web/gif, for example)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N5 Images/other in web/xxx and HTML in web/HTML&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N99 All files in web/, with random names (gadget !)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N100 Site-structure, without www.domain.xxx/&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N101 Identical to N1 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N102 Identical to N2 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N103 Identical to N3 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N104 Identical to N4 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N105 Identical to N5 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N199 Identical to N99 exept that \&quot;web\&quot; is replaced by the site's name&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1001 Identical to N1 exept that there is no \&quot;web\&quot; directory&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1002 Identical to N2 exept that there is no \&quot;web\&quot; directory&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  N1003 Identical to N3 exept that there is no \&quot;web\&quot; directory (option set for g option)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1004 Identical to N4 exept that there is no \&quot;web\&quot; directory&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1005 Identical to N5 exept that there is no \&quot;web\&quot; directory&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  N1099 Identical to N99 exept that there is no \&quot;web\&quot; directory&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Details: User-defined option N&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%n' Name of file without file type (ex: image)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%N' Name of file, including file type (ex: image.gif)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%t' File type (ex: gif)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%p' Path [without ending /] (ex: /someimages)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%h' Host name (ex: www.someweb.com)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%M' URL MD5 (128 bits, 32 ascii bytes)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%Q' query string MD5 (128 bits, 32 ascii bytes)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%k' full query string&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%r' protocol name (ex: http)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%q' small query string MD5 (16 bits, 4 ascii bytes)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;     '%s?' Short name version (ex: %sN)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  '%[param]' param variable in query string&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  '%[param:before:after:empty:notfound]' advanced variable extraction&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Details: User-defined option N and advanced variable extraction&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;   %[param:before:after:empty:notfound]&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;   param : parameter name&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;   before : string to prepend if the parameter was found&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;   after : string to append if the parameter was found&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;   notfound : string replacement if the parameter could not be found&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;   empty : string replacement if the parameter was empty&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;   all fields, except the first one (the parameter name), can be empty&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Details: Option K&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  K0  foo.cgi?q=45  -&gt;  foo4B54.html?q=45 (relative URI, default)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  K                 -&gt;  http://www.foobar.com/folder/foo.cgi?q=45 (absolute URL)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  K3                -&gt;  /folder/foo.cgi?q=45 (absolute URI)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;  K4                -&gt;  foo.cgi?q=45 (original URL)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;  K5                -&gt;  http://www.foobar.com/folder/foo4B54.html?q=45 (transparent proxy URL)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Shortcuts:&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--mirror      &lt;URLs&gt; *make a mirror of site(s) (default)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;--get         &lt;URLs&gt;  get the files indicated, do not seek other URLs (-qg)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--list   &lt;text file&gt;  add all URL located in this text file (-%L)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--mirrorlinks &lt;URLs&gt;  mirror all links in 1st level pages (-Y)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--testlinks   &lt;URLs&gt;  test links in pages (-r1p0C0I0t)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;--spider      &lt;URLs&gt;  spider site(s), to test links: reports Errors &amp; Warnings (-p0C0I0t)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--testsite    &lt;URLs&gt;  identical to --spider&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;--skeleton    &lt;URLs&gt;  make a mirror, but gets only html files (-p1)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--update              update a mirror, without confirmation (-iC2)&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;--continue            continue a mirror, without confirmation (-iC1)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;--catchurl            create a temporary proxy to capture an URL or a form post URL&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--clean               erase cache &amp; log files&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;--http10              force http/1.0 requests (-%h)&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Details: Option %W: External callbacks prototypes&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;see htsdefines.h&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;example: httrack www.someweb.com/bob/&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;means:   mirror site www.someweb.com/bob/ and only this site&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;example: httrack www.someweb.com/bob/ www.anothertest.com/mike/ +*.com/*.jpg -mime:application/*&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;means:   mirror the two sites together (with shared links) and accept any .jpg files on .com sites&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;example: httrack www.someweb.com/bob/bobby.html +* -r6&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;means get all files starting from bobby.html, with 6 link-depth, and possibility of going everywhere on the web&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg
+    (<B><FONT COLOR="#BC8F8F">&quot;example: httrack www.someweb.com/bob/bobby.html --spider -P proxy.myhost.com:8080&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;runs the spider on www.someweb.com/bob/bobby.html using a proxy&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;example: httrack --update&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;updates a mirror in the current folder&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;example: httrack&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;will bring you to the interactive mode&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;example: httrack --continue&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;continues a mirror in the current folder&quot;</FONT></B>);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  sprintf(info, <B><FONT COLOR="#BC8F8F">&quot;HTTrack version &quot;</FONT></B> HTTRACK_VERSION <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>,
+          hts_is_available());
+  infomsg(info);
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;Copyright (C) 1998-2015 Xavier Roche and other contributors&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_PLATFORM_NAME</FONT>
+  infomsg(<B><FONT COLOR="#BC8F8F">&quot;[compiled: &quot;</FONT></B> HTS_PLATFORM_NAME <B><FONT COLOR="#BC8F8F">&quot;]&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  infomsg(NULL);
+
+<I><FONT COLOR="#B22222">//  infomsg(&quot;  R  *relative links (e.g ../link)\n&quot;);
+</FONT></I><I><FONT COLOR="#B22222">//  infomsg(&quot;  A   absolute links (e.g /www.adr/link)\n&quot;);
+</FONT></I>}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htshelp.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

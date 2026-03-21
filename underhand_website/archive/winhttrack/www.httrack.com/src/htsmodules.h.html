@@ -1,0 +1,164 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsmodules.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsmodules.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsmodules.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsmodules.h subroutines:                              */</FONT></I>
+<I><FONT COLOR="#B22222">/*       external modules (parsers)                             */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_MODULES</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_MODULES</FONT>
+
+<I><FONT COLOR="#B22222">/* Forware definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_lien_url</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> lien_url lien_url;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_httrackp</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> httrackp httrackp;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_struct_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> struct_back struct_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_cache_back</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> cache_back cache_back;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_hash_struct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> hash_struct hash_struct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Function type to add links inside the module 
+  link : link to add (absolute or relative)
+  str : structure defined below
+  Returns 1 if the link was added, 0 if not
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStruct</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_htsmoduleStruct</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> htsmoduleStruct htsmoduleStruct;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_htsAddLink) (htsmoduleStruct * str, <B><FONT COLOR="#228B22">char</FONT></B> *link);
+
+<I><FONT COLOR="#B22222">/* Structure passed to the module */</FONT></I>
+<B><FONT COLOR="#228B22">struct</FONT></B> htsmoduleStruct {
+  <I><FONT COLOR="#B22222">/* Read-only elements */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *filename;         <I><FONT COLOR="#B22222">/* filename (C:\My Web Sites\...) */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> size;                     <I><FONT COLOR="#B22222">/* size of filename (should be &gt; 0) */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime;             <I><FONT COLOR="#B22222">/* MIME type of the object */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_host;         <I><FONT COLOR="#B22222">/* incoming hostname (www.foo.com) */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file;         <I><FONT COLOR="#B22222">/* incoming filename (/bar/bar.gny) */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Write-only */</FONT></I>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *wrapper_name;     <I><FONT COLOR="#B22222">/* name of wrapper (static string) */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *err_msg;                <I><FONT COLOR="#B22222">/* if an error occured, the error message (max. 1KB) */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Read/Write */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> relativeToHtmlLink;       <I><FONT COLOR="#B22222">/* set this to 1 if all urls you pass to addLink
+                                   are in fact relative to the html file where your
+                                   module was originally */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Callbacks */</FONT></I>
+  t_htsAddLink addLink;         <I><FONT COLOR="#B22222">/* call this function when links are 
+                                   being detected. it if not your responsability to decide
+                                   if the engine will keep them, or not. */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* Optional */</FONT></I>
+  <B><FONT COLOR="#228B22">char</FONT></B> *localLink;              <I><FONT COLOR="#B22222">/* if non null, the engine will write there the local
+                                   relative filename of the link added by addLink(), or
+                                   the absolute path if the link was refused by the wizard */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> localLinkSize;            <I><FONT COLOR="#B22222">/* size of the optionnal buffer */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* User-defined */</FONT></I>
+  <B><FONT COLOR="#228B22">void</FONT></B> *userdef;                <I><FONT COLOR="#B22222">/* can be used by callback routines
+                                 */</FONT></I>
+
+  <I><FONT COLOR="#B22222">/* The parser httrackp structure (may be used) */</FONT></I>
+  httrackp *opt;
+
+  <I><FONT COLOR="#B22222">/* Internal use - please don't touch */</FONT></I>
+  struct_back *sback;
+  cache_back *cache;
+  hash_struct *hashptr;
+  <B><FONT COLOR="#228B22">int</FONT></B> numero_passe;
+  <I><FONT COLOR="#B22222">/* */</FONT></I>
+  <B><FONT COLOR="#228B22">int</FONT></B> *ptr_;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *page_charset_;
+  <I><FONT COLOR="#B22222">/* Internal use - please don't touch */</FONT></I>
+
+};
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;C&quot;</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Used to wrap module initialization */</FONT></I>
+<I><FONT COLOR="#B22222">/* return 1 if init was ok */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_htsWrapperInit) (<B><FONT COLOR="#228B22">char</FONT></B> *fn, <B><FONT COLOR="#228B22">char</FONT></B> *args);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_htsWrapperExit) (<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#0000FF">int</FONT></B> (*t_htsWrapperPlugInit) (<B><FONT COLOR="#228B22">char</FONT></B> *args);
+
+<I><FONT COLOR="#B22222">/* Library internal definictions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_get_version_info</FONT></B>(httrackp * opt);
+HTSEXT_API <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">hts_is_available</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_init</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">htspe_uninit</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">hts_parse_externals</FONT></B>(htsmoduleStruct * str);
+
+<I><FONT COLOR="#B22222">/*extern int swf_is_available;*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> V6_is_available;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsmodules.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

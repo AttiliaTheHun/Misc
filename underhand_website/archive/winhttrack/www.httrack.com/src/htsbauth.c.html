@@ -1,0 +1,496 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsbauth.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsbauth.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsbauth.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       basic authentication: password storage                 */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbauth.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">// gestion des cookie
+</FONT></I><I><FONT COLOR="#B22222">// ajoute, dans l'ordre
+</FONT></I><I><FONT COLOR="#B22222">// !=0 : erreur
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_add</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_value,
+               <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[8192];
+  <B><FONT COLOR="#228B22">char</FONT></B> *a = cookie-&gt;data;
+  <B><FONT COLOR="#228B22">char</FONT></B> *insert;
+  <B><FONT COLOR="#228B22">char</FONT></B> cook[16384];
+
+  <I><FONT COLOR="#B22222">// effacer éventuel cookie en double
+</FONT></I>  cookie_del(cookie, cook_name, domain, path);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(cook_value) &gt; 1024)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// trop long
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(cook_name) &gt; 256)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// trop long
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(domain) &gt; 256)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// trop long
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(path) &gt; 256)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// trop long
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(cookie-&gt;data)
+             + strlen(cook_value)
+             + strlen(cook_name)
+             + strlen(domain)
+             + strlen(path)
+             + 256 &gt; cookie-&gt;max_len)
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// impossible d'ajouter
+</FONT></I>
+  insert = a;                   <I><FONT COLOR="#B22222">// insérer ici
+</FONT></I>  <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(cookie_get(buffer, a, 2)) &lt; strlen(path))        <I><FONT COLOR="#B22222">// long. path (le + long est prioritaire)
+</FONT></I>      a = cookie-&gt;data + strlen(cookie-&gt;data);  <I><FONT COLOR="#B22222">// fin
+</FONT></I>    <B><FONT COLOR="#A020F0">else</FONT></B> {
+      a = strchr(a, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>);      <I><FONT COLOR="#B22222">// prochain champ
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (a == NULL)
+        a = cookie-&gt;data + strlen(cookie-&gt;data);        <I><FONT COLOR="#B22222">// fin
+</FONT></I>      <B><FONT COLOR="#A020F0">else</FONT></B>
+        a++;
+      <B><FONT COLOR="#A020F0">while</FONT></B>(*a == <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>)
+        a++;
+      insert = a;               <I><FONT COLOR="#B22222">// insérer ici
+</FONT></I>    }
+  }
+  <I><FONT COLOR="#B22222">// construction du cookie
+</FONT></I>  strcpybuff(cook, domain);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;TRUE&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, path);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;FALSE&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;1999999999&quot;</FONT></B>);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, cook_name);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>);
+  strcatbuff(cook, cook_value);
+  strcatbuff(cook, <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!((strlen(cookie-&gt;data) + strlen(cook)) &lt; cookie-&gt;max_len))
+    <B><FONT COLOR="#A020F0">return</FONT></B> -1;                  <I><FONT COLOR="#B22222">// impossible d'ajouter
+</FONT></I>  cookie_insert(insert, cook);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_COOK</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;add_new cookie: name=\&quot;%s\&quot; value=\&quot;%s\&quot; domain=\&quot;%s\&quot; path=\&quot;%s\&quot;\n&quot;</FONT></B>,
+         cook_name, cook_value, domain, path);
+  <I><FONT COLOR="#B22222">//printf(&quot;&gt;&gt;&gt;cook: %s&lt;&lt;&lt;\n&quot;,cookie-&gt;data);
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// effacer cookie si existe
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_del</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *a, *b;
+
+  b = cookie_find(cookie-&gt;data, cook_name, domain, path);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (b) {
+    a = cookie_nextfield(b);
+    cookie_delete(b, a - b);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_COOK</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;deleted old cookie: %s %s %s\n&quot;</FONT></B>, cook_name, domain, path);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// Matches wildcard cookie domains that start with a dot
+</FONT></I><I><FONT COLOR="#B22222">// chk_dom: the domain stored in the cookie (potentially wildcard).
+</FONT></I><I><FONT COLOR="#B22222">// domain: query domain
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_cmp_wildcard_domain</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *chk_dom, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain) {
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t n = strlen(chk_dom);
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t m = strlen(domain);
+  <B><FONT COLOR="#228B22">const</FONT></B> size_t l = n &lt; m ? n : m;
+  size_t i;
+  <B><FONT COLOR="#A020F0">for</FONT></B> (i = l - 1; i &gt;= 0; i--) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (chk_dom[n - i - 1] != domain[m - i - 1]) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (m &lt; n &amp;&amp; chk_dom[0] == <B><FONT COLOR="#BC8F8F">'.'</FONT></B>) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  }
+  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (m != n) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+
+<I><FONT COLOR="#B22222">// rechercher cookie à partir de la position s (par exemple s=cookie.data)
+</FONT></I><I><FONT COLOR="#B22222">// renvoie pointeur sur ligne, ou NULL si introuvable
+</FONT></I><I><FONT COLOR="#B22222">// path est aligné à droite et cook_name peut être vide (chercher alors tout cookie)
+</FONT></I><I><FONT COLOR="#B22222">// .doubleclick.net     TRUE    /       FALSE   1999999999      id      A
+</FONT></I><B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_find</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cook_name, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *domain, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path) {
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[8192];
+  <B><FONT COLOR="#228B22">char</FONT></B> *a = s;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a) {
+    <B><FONT COLOR="#228B22">int</FONT></B> t;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(cook_name) == 0)
+      t = 1;                    <I><FONT COLOR="#B22222">// accepter par défaut
+</FONT></I>    <B><FONT COLOR="#A020F0">else</FONT></B>
+      t = (strcmp(cookie_get(buffer, a, 5), cook_name) == 0);   <I><FONT COLOR="#B22222">// tester si même nom
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (t) {                    <I><FONT COLOR="#B22222">// même nom ou nom qualconque
+</FONT></I>      <I><FONT COLOR="#B22222">//
+</FONT></I>      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *chk_dom = cookie_get(buffer, a, 0); <I><FONT COLOR="#B22222">// domaine concerné par le cookie
+</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> ((strlen(chk_dom) &lt;= strlen(domain) &amp;&amp;
+        strcmp(chk_dom, domain + strlen(domain) - strlen(chk_dom)) == 0) ||
+        !cookie_cmp_wildcard_domain(chk_dom, domain)) {  <I><FONT COLOR="#B22222">// même domaine
+</FONT></I>          <I><FONT COLOR="#B22222">//
+</FONT></I>        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *chk_path = cookie_get(buffer, a, 2);    <I><FONT COLOR="#B22222">// chemin concerné par le cookie
+</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(chk_path) &lt;= strlen(path)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(path, chk_path, strlen(chk_path)) == 0) {       <I><FONT COLOR="#B22222">// même chemin
+</FONT></I>            <B><FONT COLOR="#A020F0">return</FONT></B> a;
+          }
+        }
+      }
+    }
+    a = cookie_nextfield(a);
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">// renvoie prochain champ
+</FONT></I><B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_nextfield</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *a) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *b = a;
+
+  a = strchr(a, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>);          <I><FONT COLOR="#B22222">// prochain champ
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (a == NULL)
+    a = b + strlen(b);          <I><FONT COLOR="#B22222">// fin
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B>
+    a++;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*a == <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>)
+    a++;
+  <B><FONT COLOR="#A020F0">return</FONT></B> a;
+}
+
+<I><FONT COLOR="#B22222">// lire cookies.txt
+</FONT></I><I><FONT COLOR="#B22222">// lire également (Windows seulement) les *@*.txt (cookies IE copiés)
+</FONT></I><I><FONT COLOR="#B22222">// !=0 : erreur
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_load</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fpath, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name) {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[8192];
+
+  <I><FONT COLOR="#B22222">//  cookie-&gt;data[0]='\0';
+</FONT></I>
+  <I><FONT COLOR="#B22222">// Fusionner d'abord les éventuels cookies IE
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  {
+    WIN32_FIND_DATAA find;
+    HANDLE h;
+    <B><FONT COLOR="#228B22">char</FONT></B> pth[MAX_PATH + 32];
+
+    strcpybuff(pth, fpath);
+    strcatbuff(pth, <B><FONT COLOR="#BC8F8F">&quot;*@*.txt&quot;</FONT></B>);
+    h = FindFirstFileA((<B><FONT COLOR="#228B22">char</FONT></B> *) pth, &amp;find);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (h != INVALID_HANDLE_VALUE) {
+      <B><FONT COLOR="#A020F0">do</FONT></B> {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!(find.dwFileAttributes &amp; FILE_ATTRIBUTE_DIRECTORY))
+          <B><FONT COLOR="#A020F0">if</FONT></B> (!(find.dwFileAttributes &amp; FILE_ATTRIBUTE_SYSTEM)) {
+            FILE *fp = fopen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), fpath, find.cFileName), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+              <B><FONT COLOR="#228B22">char</FONT></B> cook_name[256];
+              <B><FONT COLOR="#228B22">char</FONT></B> cook_value[1000];
+              <B><FONT COLOR="#228B22">char</FONT></B> domainpathpath[512];
+              <B><FONT COLOR="#228B22">char</FONT></B> dummy[512];
+
+              <I><FONT COLOR="#B22222">//
+</FONT></I>              lien_adrfil af;   <I><FONT COLOR="#B22222">// chemin (/)
+</FONT></I>              <B><FONT COLOR="#228B22">int</FONT></B> cookie_merged = 0;
+
+              <I><FONT COLOR="#B22222">//
+</FONT></I>              <I><FONT COLOR="#B22222">// Read all cookies
+</FONT></I>              <B><FONT COLOR="#A020F0">while</FONT></B>(!feof(fp)) {
+                cook_name[0] = cook_value[0] = domainpathpath[0]
+                = dummy[0] = af.adr[0] = af.fil[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                linput(fp, cook_name, 250);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (!feof(fp)) {
+                  linput(fp, cook_value, 250);
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (!feof(fp)) {
+                    <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+                    linput(fp, domainpathpath, 500);
+                    <I><FONT COLOR="#B22222">/* Read 6 other useless values */</FONT></I>
+                    <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; !feof(fp) &amp;&amp; i &lt; 6; i++) {
+                      linput(fp, dummy, 500);
+                    }
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(cook_name)
+                        &amp;&amp; strnotempty(cook_value)
+                        &amp;&amp; strnotempty(domainpathpath)) {
+                      <B><FONT COLOR="#A020F0">if</FONT></B> (ident_url_absolute(domainpathpath, &amp;af) &gt;= 0) {
+                        cookie_add(cookie, cook_name, cook_value, af.adr, af.fil);
+                        cookie_merged = 1;
+                      }
+                    }
+                  }
+                }
+              }
+              fclose(fp);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (cookie_merged)
+                remove(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), fpath, find.cFileName));
+            }                   <I><FONT COLOR="#B22222">// if fp
+</FONT></I>          }
+      } <B><FONT COLOR="#A020F0">while</FONT></B>(FindNextFileA(h, &amp;find));
+      FindClose(h);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">// Ensuite, cookies.txt
+</FONT></I>  {
+    FILE *fp = fopen(fconcat(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), fpath, name), <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[8192];
+
+      <B><FONT COLOR="#A020F0">while</FONT></B>((!feof(fp)) &amp;&amp; (((<B><FONT COLOR="#228B22">int</FONT></B>) strlen(cookie-&gt;data)) &lt; cookie-&gt;max_len)) {
+        rawlinput(fp, line, 8100);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(line)) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(line) &lt; 8000) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] != <B><FONT COLOR="#BC8F8F">'#'</FONT></B>) {
+              <B><FONT COLOR="#228B22">char</FONT></B> domain[256]; <I><FONT COLOR="#B22222">// domaine cookie (.netscape.com)
+</FONT></I>              <B><FONT COLOR="#228B22">char</FONT></B> path[256];   <I><FONT COLOR="#B22222">// chemin (/)
+</FONT></I>              <B><FONT COLOR="#228B22">char</FONT></B> cook_name[1024];     <I><FONT COLOR="#B22222">// nom cookie (MYCOOK)
+</FONT></I>              <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK cook_value[8192];     <I><FONT COLOR="#B22222">// valeur (ID=toto,S=1234)
+</FONT></I>
+              strcpybuff(domain, cookie_get(buffer, line, 0));  <I><FONT COLOR="#B22222">// host
+</FONT></I>              strcpybuff(path, cookie_get(buffer, line, 2));    <I><FONT COLOR="#B22222">// path
+</FONT></I>              strcpybuff(cook_name, cookie_get(buffer, line, 5));       <I><FONT COLOR="#B22222">// name
+</FONT></I>              strcpybuff(cook_value, cookie_get(buffer, line, 6));      <I><FONT COLOR="#B22222">// value
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">DEBUG_COOK</FONT>
+              printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, line);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+              cookie_add(cookie, cook_name, cook_value, domain, path);
+            }
+          }
+        }
+      }
+      fclose(fp);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">// écrire cookies.txt
+</FONT></I><I><FONT COLOR="#B22222">// !=0 : erreur
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">cookie_save</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *name) {
+  <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(cookie-&gt;data)) {
+    <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[8192];
+    FILE *fp = fopen(fconv(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), name), <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fp) {
+      <B><FONT COLOR="#228B22">char</FONT></B> *a = cookie-&gt;data;
+
+      fprintf(fp,
+              <B><FONT COLOR="#BC8F8F">&quot;# HTTrack Website Copier Cookie File&quot;</FONT></B> LF
+              <B><FONT COLOR="#BC8F8F">&quot;# This file format is compatible with Netscape cookies&quot;</FONT></B> LF);
+      <B><FONT COLOR="#A020F0">do</FONT></B> {
+        a += binput(a, line, 8000);
+        fprintf(fp, <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B> LF, line);
+      } <B><FONT COLOR="#A020F0">while</FONT></B>(strnotempty(line));
+      fclose(fp);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+
+<I><FONT COLOR="#B22222">// insertion chaine ins avant s
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cookie_insert</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *ins) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *buff;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s) == 0) {    <I><FONT COLOR="#B22222">// rien à faire, juste concat
+</FONT></I>    strcatbuff(s, ins);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    buff = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct(strlen(s) + 1);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buff) {
+      strcpybuff(buff, s);      <I><FONT COLOR="#B22222">// copie temporaire
+</FONT></I>      strcpybuff(s, ins);       <I><FONT COLOR="#B22222">// insérer
+</FONT></I>      strcatbuff(s, buff);      <I><FONT COLOR="#B22222">// copier
+</FONT></I>      freet(buff);
+    }
+  }
+}
+
+<I><FONT COLOR="#B22222">// destruction chaine dans s position pos
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">cookie_delete</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *s, size_t pos) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *buff;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(s + pos) == 0) {      <I><FONT COLOR="#B22222">// rien à faire, effacer
+</FONT></I>    s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    buff = (<B><FONT COLOR="#228B22">char</FONT></B> *) malloct(strlen(s + pos) + 1);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buff) {
+      strcpybuff(buff, s + pos);        <I><FONT COLOR="#B22222">// copie temporaire
+</FONT></I>      strcpybuff(s, buff);      <I><FONT COLOR="#B22222">// copier
+</FONT></I>      freet(buff);
+    }
+  }
+}
+
+<I><FONT COLOR="#B22222">// renvoie champ param de la chaine cookie_base
+</FONT></I><I><FONT COLOR="#B22222">// ex: cookie_get(&quot;ceci est&lt;tab&gt;un&lt;tab&gt;exemple&quot;,1) renvoi &quot;un&quot;
+</FONT></I><B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">cookie_get</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *cookie_base, <B><FONT COLOR="#228B22">int</FONT></B> param) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *limit;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*cookie_base == <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>)
+    cookie_base++;
+  limit = strchr(cookie_base, <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!limit)
+    limit = cookie_base + strlen(cookie_base);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (limit) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (param) {
+      <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; param; i++) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (cookie_base) {
+          cookie_base = strchr(cookie_base, <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>);      <I><FONT COLOR="#B22222">// prochain tab
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (cookie_base)
+            cookie_base++;
+        }
+      }
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (cookie_base) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (cookie_base &lt; limit) {
+        <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *a = cookie_base;
+
+        <B><FONT COLOR="#A020F0">while</FONT></B>((*a) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'\t'</FONT></B>) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>))
+          a++;
+        buffer[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        strncatbuff(buffer, cookie_base, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - cookie_base));
+        <B><FONT COLOR="#A020F0">return</FONT></B> buffer;
+      } <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  } <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+}
+
+<I><FONT COLOR="#B22222">// fin cookies
+</FONT></I>
+<I><FONT COLOR="#B22222">// -- basic auth --
+</FONT></I>
+<I><FONT COLOR="#B22222">/* déclarer un répertoire comme possédant une authentification propre */</FONT></I>
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">bauth_add</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *auth) {
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[HTS_URLMAXSIZE * 2];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cookie) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!bauth_check(cookie, adr, fil)) {       <I><FONT COLOR="#B22222">// n'existe pas déja
+</FONT></I>      bauth_chain *chain = &amp;cookie-&gt;auth;
+      <B><FONT COLOR="#228B22">char</FONT></B> *prefix = bauth_prefix(buffer, adr, fil);
+
+      <I><FONT COLOR="#B22222">/* fin de la chaine */</FONT></I>
+      <B><FONT COLOR="#A020F0">while</FONT></B>(chain-&gt;next)
+        chain = chain-&gt;next;
+      chain-&gt;next = (bauth_chain *) calloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(bauth_chain), 1);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (chain-&gt;next) {
+        chain = chain-&gt;next;
+        chain-&gt;next = NULL;
+        strcpybuff(chain-&gt;auth, auth);
+        strcpybuff(chain-&gt;prefix, prefix);
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+      }
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">/* tester adr et fil, et retourner authentification si nécessaire */</FONT></I>
+<I><FONT COLOR="#B22222">/* sinon, retourne NULL */</FONT></I>
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">bauth_check</FONT></B>(t_cookie * cookie, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[HTS_URLMAXSIZE * 2];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (cookie) {
+    bauth_chain *chain = &amp;cookie-&gt;auth;
+    <B><FONT COLOR="#228B22">char</FONT></B> *prefix = bauth_prefix(buffer, adr, fil);
+
+    <B><FONT COLOR="#A020F0">while</FONT></B>(chain) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(chain-&gt;prefix)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(prefix, chain-&gt;prefix, strlen(chain-&gt;prefix)) == 0) {
+          <B><FONT COLOR="#A020F0">return</FONT></B> chain-&gt;auth;
+        }
+      }
+      chain = chain-&gt;next;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">bauth_prefix</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *prefix, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+  strcpybuff(prefix, jump_identification_const(adr));
+  strcatbuff(prefix, fil);
+  a = strchr(prefix, <B><FONT COLOR="#BC8F8F">'?'</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (a)
+    *a = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strchr(prefix, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)) {
+    a = prefix + strlen(prefix) - 1;
+    <B><FONT COLOR="#A020F0">while</FONT></B>(*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+      a--;
+    *(a + 1) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> prefix;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsbauth.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

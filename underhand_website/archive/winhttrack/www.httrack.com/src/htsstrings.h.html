@@ -1,0 +1,314 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsstrings.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./htsstrings.h - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsstrings.h</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: Strings                                                */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Safer Strings ; standalone .h library */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_STRINGS_DEFSTATIC</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STRINGS_DEFSTATIC</FONT>
+
+<I><FONT COLOR="#B22222">/* System definitions. */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* GCC extension */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">__GNUC__</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT> __attribute__ ((unused))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STATIC</FONT> static __attribute__ ((unused))
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_PRINTF_FUN</FONT></B>(fmt, arg) __attribute__ ((format (printf, fmt, arg)))
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_UNUSED</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_STATIC</FONT> static
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">HTS_PRINTF_FUN</FONT></B>(fmt, arg)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Forward definitions **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_String</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_FWSTRUCT_String</FONT>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> String String;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_STRUCT_String</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_DEF_STRUCT_String</FONT>
+<B><FONT COLOR="#228B22">struct</FONT></B> String {
+  <B><FONT COLOR="#228B22">char</FONT></B> *buffer_;
+  size_t length_;
+  size_t capacity_;
+};
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** Allocator **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">STRING_REALLOC</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">STRING_REALLOC</FONT></B>(BUFF, SIZE) ( (char*) realloc(BUFF, SIZE) )
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">STRING_FREE</FONT></B>(BUFF) free(BUFF)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">STRING_ASSERT</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;assert.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">STRING_ASSERT</FONT></B>(EXP) assert(EXP)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/** An empty string **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STRING_EMPTY</FONT> { (char*) NULL, 0, 0 }
+
+<I><FONT COLOR="#B22222">/** String buffer **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringBuff</FONT></B>(BLK) ( (const char*) ((BLK).buffer_) )
+
+<I><FONT COLOR="#B22222">/** String buffer (read/write) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringBuffRW</FONT></B>(BLK) ((BLK).buffer_)
+
+<I><FONT COLOR="#B22222">/** String length **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringLength</FONT></B>(BLK) ((BLK).length_)
+
+<I><FONT COLOR="#B22222">/** String not empty ? **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringNotEmpty</FONT></B>(BLK) ( StringLength(BLK) &gt; 0 )
+
+<I><FONT COLOR="#B22222">/** String capacity **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCapacity</FONT></B>(BLK) ((BLK).capacity_)
+
+<I><FONT COLOR="#B22222">/** Subcharacter **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringSub</FONT></B>(BLK, POS) ( StringBuff(BLK)[POS] )
+
+<I><FONT COLOR="#B22222">/** Subcharacter (read/write) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringSubRW</FONT></B>(BLK, POS) ( StringBuffRW(BLK)[POS] )
+
+<I><FONT COLOR="#B22222">/** Subcharacter (read/write) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringSubRW</FONT></B>(BLK, POS) ( StringBuffRW(BLK)[POS] )
+
+<I><FONT COLOR="#B22222">/** Right subcharacter **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringRight</FONT></B>(BLK, POS) ( StringBuff(BLK)[StringLength(BLK) - POS] )
+
+<I><FONT COLOR="#B22222">/** Right subcharacter (read/write) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringRightRW</FONT></B>(BLK, POS) ( StringBuffRW(BLK)[StringLength(BLK) - POS] )
+
+<I><FONT COLOR="#B22222">/** Remove the utter right character from the string. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringPopRight</FONT></B>(BLK) do { \
+  StringBuffRW(BLK)[--StringLength(BLK)] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Ensure the string is large enough for exactly CAPACITY bytes overall (including \0). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringRoomTotal</FONT></B>(BLK, CAPACITY) do { \
+  const size_t capacity_ = (size_t) (CAPACITY); \
+  while ((BLK).capacity_ &lt; capacity_) { \
+    if ((BLK).capacity_ &lt; 16) { \
+      (BLK).capacity_ = 16; \
+    } else { \
+      (BLK).capacity_ *= 2; \
+    } \
+    (BLK).buffer_ = STRING_REALLOC((BLK).buffer_, (BLK).capacity_); \
+    STRING_ASSERT((BLK).buffer_ != NULL); \
+  } \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Ensure the string is large enough for exactly SIZE more characters (not including \0). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringRoom</FONT></B>(BLK, SIZE) StringRoomTotal(BLK, StringLength(BLK) + (SIZE) + 1)
+
+<I><FONT COLOR="#B22222">/** Return the RW buffer for a strcat() operation of at most SIZE characters. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringBuffN</FONT></B>(BLK, SIZE) StringBuffN_(&amp;(BLK), SIZE)
+HTS_STATIC <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">StringBuffN_</FONT></B>(String * blk, <B><FONT COLOR="#228B22">int</FONT></B> size) {
+  StringRoom(*blk, size);
+  <B><FONT COLOR="#A020F0">return</FONT></B> StringBuffRW(*blk);
+}
+
+<I><FONT COLOR="#B22222">/** Initialize a string. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringInit</FONT></B>(BLK) do { \
+  (BLK).buffer_ = NULL; \
+  (BLK).capacity_ = 0; \
+  (BLK).length_ = 0; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Clear a string (set its length to 0) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringClear</FONT></B>(BLK) do { \
+  (BLK).length_ = 0; \
+  StringRoom(BLK, 0); \
+  (BLK).buffer_[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Set the length of a string to 'SIZE'. If SIZE is negative, check the size using strlen(). **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringSetLength</FONT></B>(BLK, SIZE) do { \
+  if (SIZE &gt;= 0) { \
+    (BLK).length_ = SIZE; \
+  } else { \
+    (BLK).length_ = strlen((BLK).buffer_); \
+  } \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Free a string (release memory) **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringFree</FONT></B>(BLK) do { \
+  if ((BLK).buffer_ != NULL) { \
+    STRING_FREE((BLK).buffer_); \
+    (BLK).buffer_ = NULL; \
+  } \
+  (BLK).capacity_ = 0; \
+  (BLK).length_ = 0; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Assign an allocated pointer to a a string.
+The pointer _MUST_ be compatible with STRING_REALLOC() and STRING_FREE() **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringSetBuffer</FONT></B>(BLK, STR) do { \
+  size_t len__ = strlen( STR ); \
+  StringFree(BLK); \
+  (BLK).buffer_ = ( STR ); \
+  (BLK).capacity_ = len__; \
+  (BLK).length_ = len__; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Append a memory block to a string **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringMemcat</FONT></B>(BLK, STR, SIZE) do { \
+  const char* str_mc_ = (STR); \
+  const size_t size_mc_ = (size_t) (SIZE); \
+  StringRoom(BLK, size_mc_); \
+  if (size_mc_ &gt; 0) { \
+    memcpy((BLK).buffer_ + (BLK).length_, str_mc_, size_mc_); \
+    (BLK).length_ += size_mc_; \
+  } \
+  *((BLK).buffer_ + (BLK).length_) = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Copy a memory block to a string **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringMemcpy</FONT></B>(BLK, STR, SIZE) do { \
+  (BLK).length_ = 0; \
+  StringMemcat(BLK, STR, SIZE); \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Add a character **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringAddchar</FONT></B>(BLK, c) do { \
+  String * const s__ = &amp;(BLK); \
+  char c__ = (c); \
+  StringRoom(*s__, 1); \
+  StringBuffRW(*s__)[StringLength(*s__)++] = c__; \
+  StringBuffRW(*s__)[StringLength(*s__)  ] = 0; \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Acquire a string ; it's the client's responsability to free() it **/</FONT></I>
+HTS_STATIC <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">StringAcquire</FONT></B>(String * blk) {
+  <B><FONT COLOR="#228B22">char</FONT></B> *buff = StringBuffRW(*blk);
+
+  StringBuffRW(*blk) = NULL;
+  StringCapacity(*blk) = 0;
+  StringLength(*blk) = 0;
+  <B><FONT COLOR="#A020F0">return</FONT></B> buff;
+}
+
+<I><FONT COLOR="#B22222">/** Clone a string. **/</FONT></I>
+HTS_STATIC String <B><FONT COLOR="#0000FF">StringDup</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> String * src) {
+  String s = STRING_EMPTY;
+
+  StringMemcat(s, StringBuff(*src), StringLength(*src));
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+
+<I><FONT COLOR="#B22222">/** Attach a string using a pointer. **/</FONT></I>
+HTS_STATIC <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">StringAttach</FONT></B>(String * blk, <B><FONT COLOR="#228B22">char</FONT></B> **str) {
+  StringFree(*blk);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (str != NULL &amp;&amp; *str != NULL) {
+    StringBuffRW(*blk) = *str;
+    StringCapacity(*blk) = StringLength(*blk) = strlen(StringBuff(*blk));
+    *str = NULL;
+  }
+}
+
+<I><FONT COLOR="#B22222">/** Append a string to another one. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCat</FONT></B>(BLK, STR) do { \
+  const char *const str__ = ( STR ); \
+  if (str__ != NULL) { \
+    const size_t size__ = strlen(str__); \
+    StringMemcat(BLK, str__, size__); \
+  } \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCatN</FONT></B>(BLK, STR, SIZE) do { \
+  const char *str__ = ( STR ); \
+  if (str__ != NULL) { \
+    size_t size__ = strlen(str__); \
+    if (size__ &gt; (SIZE)) { \
+      size__ = (SIZE); \
+    } \
+    StringMemcat(BLK, str__, size__); \
+  } \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCopyN</FONT></B>(BLK, STR, SIZE) do { \
+  const char *str__ = ( STR ); \
+  const size_t usize__ = (SIZE); \
+  (BLK).length_ = 0; \
+  if (str__ != NULL) { \
+    size_t size__ = strlen(str__); \
+    if (size__ &gt; usize__ ) { \
+      size__ = usize__; \
+    } \
+    StringMemcat(BLK, str__, size__); \
+  } else { \
+    StringClear(BLK); \
+  } \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCopyS</FONT></B>(blk, blk2) StringCopyN(blk, (blk2).buffer_, (blk2).length_)
+
+<I><FONT COLOR="#B22222">/** Copy a string to another one. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCopy</FONT></B>(BLK, STR) do { \
+  const char *str__ = ( STR ); \
+  if (str__ != NULL) { \
+    size_t size__ = strlen(str__); \
+    StringMemcpy(BLK, str__, size__); \
+  } else { \
+    StringClear(BLK); \
+  } \
+} while(0)
+
+<I><FONT COLOR="#B22222">/** Copy a (potentially overlapping) string to another one. **/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">StringCopyOverlapped</FONT></B>(BLK, STR) do { \
+  String s__ = STRING_EMPTY; \
+  StringCopy(s__, STR); \
+  StringCopyS(BLK, s__); \
+  StringFree(s__); \
+} while(0)
+
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsstrings.h.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

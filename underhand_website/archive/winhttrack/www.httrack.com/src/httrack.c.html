@@ -1,0 +1,1010 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/httrack.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+<HEAD>
+<TITLE>./httrack.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./httrack.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: htsshow.c console progress info                        */</FONT></I>
+<I><FONT COLOR="#B22222">/* Only used on Linux &amp; FreeBSD versions                        */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">Sleep</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">Sleep</FONT></B>(a) { if (((a)*1000)%1000000) usleep(((a)*1000)%1000000); if (((a)*1000)/1000000) sleep(((a)*1000)/1000000); }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack-library.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsglobal.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsopt.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsdefines.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;httrack.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* Static definitions */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fexist</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max);
+
+<I><FONT COLOR="#B22222">// htswrap_add
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htswrap.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+<I><FONT COLOR="#B22222">//#include &quot;htsbase.h&quot;
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;signal.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_SYS_TYPES_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/types.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_SYS_STAT_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;sys/stat.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_UNISTD_H</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;unistd.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> (<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__linux</FONT>) &amp;&amp; <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">HAVE_EXECINFO_H</FONT>))
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;execinfo.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">USES_BACKTRACE</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_init</FONT></B>(t_hts_callbackarg * carg);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_uninit</FONT></B>(t_hts_callbackarg * carg);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_start</FONT></B>(t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_chopt</FONT></B>(t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_end</FONT></B>(t_hts_callbackarg * carg, httrackp * opt);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_preprocesshtml</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **html, <B><FONT COLOR="#228B22">int</FONT></B> *len,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_postprocesshtml</FONT></B>(t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **html,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> *len, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_checkhtml</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     <B><FONT COLOR="#228B22">char</FONT></B> *html, <B><FONT COLOR="#228B22">int</FONT></B> len,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_loop</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                lien_back * back, <B><FONT COLOR="#228B22">int</FONT></B> back_max, <B><FONT COLOR="#228B22">int</FONT></B> back_index,
+                                <B><FONT COLOR="#228B22">int</FONT></B> lien_n, <B><FONT COLOR="#228B22">int</FONT></B> lien_tot, <B><FONT COLOR="#228B22">int</FONT></B> stat_time,
+                                hts_stat_struct * stats);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query2</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query3</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_check</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">int</FONT></B> status);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_check_mime</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime, <B><FONT COLOR="#228B22">int</FONT></B> status);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_pause</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lockfile);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_filesave</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_filesave2</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">int</FONT></B> is_new,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> is_modified, <B><FONT COLOR="#228B22">int</FONT></B> not_updated);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_linkdetected</FONT></B>(t_hts_callbackarg * carg,
+                                        httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_linkdetected2</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *start_tag);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_xfrstatus</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     lien_back * back);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_savename</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr_complete,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil_complete,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil, <B><FONT COLOR="#228B22">char</FONT></B> *save);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_sendheader</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                      htsblk * outgoing);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_receiveheader</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *buff,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                         htsblk * incoming);
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">vt_clear</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">vt_home</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<I><FONT COLOR="#B22222">// ISO VT100/220 definitions
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_BLACK</FONT>    <B><FONT COLOR="#BC8F8F">&quot;30&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_RED</FONT>      <B><FONT COLOR="#BC8F8F">&quot;31&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_GREEN</FONT>    <B><FONT COLOR="#BC8F8F">&quot;32&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_YELLOW</FONT>   <B><FONT COLOR="#BC8F8F">&quot;33&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_BLUE</FONT>     <B><FONT COLOR="#BC8F8F">&quot;34&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_MAGENTA</FONT>  <B><FONT COLOR="#BC8F8F">&quot;35&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_CYAN</FONT>     <B><FONT COLOR="#BC8F8F">&quot;36&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_TEXT_WHITE</FONT>    <B><FONT COLOR="#BC8F8F">&quot;37&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_BLACK</FONT>    <B><FONT COLOR="#BC8F8F">&quot;40&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_RED</FONT>      <B><FONT COLOR="#BC8F8F">&quot;41&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_GREEN</FONT>    <B><FONT COLOR="#BC8F8F">&quot;42&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_YELLOW</FONT>   <B><FONT COLOR="#BC8F8F">&quot;43&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_BLUE</FONT>     <B><FONT COLOR="#BC8F8F">&quot;44&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_MAGENTA</FONT>  <B><FONT COLOR="#BC8F8F">&quot;45&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_CYAN</FONT>     <B><FONT COLOR="#BC8F8F">&quot;46&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_COL_BACK_WHITE</FONT>    <B><FONT COLOR="#BC8F8F">&quot;47&quot;</FONT></B>
+<I><FONT COLOR="#B22222">//
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">VT_GOTOXY</FONT></B>(X,Y)  <B><FONT COLOR="#BC8F8F">&quot;\33[&quot;</FONT></B>Y<B><FONT COLOR="#BC8F8F">&quot;;&quot;</FONT></B>X<B><FONT COLOR="#BC8F8F">&quot;f&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">VT_COLOR</FONT></B>(C)     <B><FONT COLOR="#BC8F8F">&quot;\33[&quot;</FONT></B>C<B><FONT COLOR="#BC8F8F">&quot;m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_RESET</FONT>        <B><FONT COLOR="#BC8F8F">&quot;\33[m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_REVERSE</FONT>      <B><FONT COLOR="#BC8F8F">&quot;\33[7m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_UNREVERSE</FONT>    <B><FONT COLOR="#BC8F8F">&quot;\33[27m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_BOLD</FONT>         <B><FONT COLOR="#BC8F8F">&quot;\33[1m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_UNBOLD</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[22m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_BLINK</FONT>        <B><FONT COLOR="#BC8F8F">&quot;\33[5m&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_UNBLINK</FONT>      <B><FONT COLOR="#BC8F8F">&quot;\33[25m&quot;</FONT></B>
+<I><FONT COLOR="#B22222">//
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLREOL</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[K&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLRSOL</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[1K&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLRLIN</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[2K&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLREOS</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[J&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLRSOS</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[1J&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">VT_CLRSCR</FONT>       <B><FONT COLOR="#BC8F8F">&quot;\33[2J&quot;</FONT></B>
+<I><FONT COLOR="#B22222">//
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">csi</FONT></B>(X)          printf(s_csi( X ));
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">vt_clear</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  printf(<B><FONT COLOR="#BC8F8F">&quot;%s%s%s&quot;</FONT></B>, VT_RESET, VT_CLRSCR, VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;0&quot;</FONT></B>));
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">vt_home</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+  printf(<B><FONT COLOR="#BC8F8F">&quot;%s%s&quot;</FONT></B>, VT_RESET, VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;0&quot;</FONT></B>));
+}
+
+<I><FONT COLOR="#B22222">//
+</FONT></I>
+<I><FONT COLOR="#B22222">/*
+#define STYLE_STATVALUES VT_COLOR(VT_COL_TEXT_BLACK)
+#define STYLE_STATTEXT   VT_COLOR(VT_COL_TEXT_BLUE)   
+*/</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STYLE_STATVALUES</FONT> VT_BOLD
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STYLE_STATTEXT</FONT>   VT_UNBOLD
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STYLE_STATRESET</FONT>  VT_UNBOLD
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">NStatsBuffer</FONT>     14
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">MAX_LEN_INPROGRESS</FONT> 40
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> use_show;
+<B><FONT COLOR="#228B22">static</FONT></B> httrackp *global_opt = NULL;
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">signal_handlers</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>);
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">main</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> argc, <B><FONT COLOR="#228B22">char</FONT></B> **argv) {
+  <B><FONT COLOR="#228B22">int</FONT></B> ret = 0;
+  httrackp *opt;
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  {
+    WORD wVersionRequested;     <I><FONT COLOR="#B22222">// requested version WinSock API
+</FONT></I>    WSADATA wsadata;            <I><FONT COLOR="#B22222">// Windows Sockets API data
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> stat;
+
+    wVersionRequested = 0x0101;
+    stat = WSAStartup(wVersionRequested, &amp;wsadata);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stat != 0) {
+      printf(<B><FONT COLOR="#BC8F8F">&quot;Winsock not found!\n&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B>;
+    } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (LOBYTE(wsadata.wVersion) != 1 &amp;&amp; HIBYTE(wsadata.wVersion) != 1) {
+      printf(<B><FONT COLOR="#BC8F8F">&quot;WINSOCK.DLL does not support version 1.1\n&quot;</FONT></B>);
+      WSACleanup();
+      <B><FONT COLOR="#A020F0">return</FONT></B>;
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  signal_handlers();
+  hts_init();
+
+  <I><FONT COLOR="#B22222">// Check version compatibility
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (hts_sizeof_opt() != <B><FONT COLOR="#A020F0">sizeof</FONT></B>(httrackp)) {
+    fprintf(stderr,
+      <B><FONT COLOR="#BC8F8F">&quot;incompatible current httrack library version %s, expected version %s&quot;</FONT></B>,
+      hts_version(), HTTRACK_VERSIONID);
+    abortLog(<B><FONT COLOR="#BC8F8F">&quot;incompatible httrack library version, please update both httrack and its library&quot;</FONT></B>);
+  }
+
+  opt = global_opt = hts_create_opt();
+  assert(opt-&gt;size_httrackp == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(httrackp));
+
+  CHAIN_FUNCTION(opt, init, htsshow_init, NULL);
+  CHAIN_FUNCTION(opt, uninit, htsshow_uninit, NULL);
+  CHAIN_FUNCTION(opt, start, htsshow_start, NULL);
+  CHAIN_FUNCTION(opt, end, htsshow_end, NULL);
+  CHAIN_FUNCTION(opt, chopt, htsshow_chopt, NULL);
+  CHAIN_FUNCTION(opt, preprocess, htsshow_preprocesshtml, NULL);
+  CHAIN_FUNCTION(opt, postprocess, htsshow_postprocesshtml, NULL);
+  CHAIN_FUNCTION(opt, check_html, htsshow_checkhtml, NULL);
+  CHAIN_FUNCTION(opt, query, htsshow_query, NULL);
+  CHAIN_FUNCTION(opt, query2, htsshow_query2, NULL);
+  CHAIN_FUNCTION(opt, query3, htsshow_query3, NULL);
+  CHAIN_FUNCTION(opt, loop, htsshow_loop, NULL);
+  CHAIN_FUNCTION(opt, check_link, htsshow_check, NULL);
+  CHAIN_FUNCTION(opt, check_mime, htsshow_check_mime, NULL);
+  CHAIN_FUNCTION(opt, pause, htsshow_pause, NULL);
+  CHAIN_FUNCTION(opt, filesave, htsshow_filesave, NULL);
+  CHAIN_FUNCTION(opt, filesave2, htsshow_filesave2, NULL);
+  CHAIN_FUNCTION(opt, linkdetected, htsshow_linkdetected, NULL);
+  CHAIN_FUNCTION(opt, linkdetected2, htsshow_linkdetected2, NULL);
+  CHAIN_FUNCTION(opt, xfrstatus, htsshow_xfrstatus, NULL);
+  CHAIN_FUNCTION(opt, savename, htsshow_savename, NULL);
+  CHAIN_FUNCTION(opt, sendhead, htsshow_sendheader, NULL);
+  CHAIN_FUNCTION(opt, receivehead, htsshow_receiveheader, NULL);
+
+  ret = hts_main2(argc, argv, opt);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ret) {
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;* %s\n&quot;</FONT></B>, hts_errmsg(opt));
+  }
+  global_opt = NULL;
+  hts_free_opt(opt);
+  htsthread_wait();             <I><FONT COLOR="#B22222">/* wait for pending threads */</FONT></I>
+  hts_uninit();
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+  WSACleanup();
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<I><FONT COLOR="#B22222">/* CALLBACK FUNCTIONS */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Initialize the Winsock */</FONT></I>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_init</FONT></B>(t_hts_callbackarg * carg) {
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_uninit</FONT></B>(t_hts_callbackarg * carg) {
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_start</FONT></B>(t_hts_callbackarg * carg, httrackp * opt) {
+  use_show = 0;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (opt-&gt;verbosedisplay == 2) {
+    use_show = 1;
+    vt_clear();
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_chopt</FONT></B>(t_hts_callbackarg * carg, httrackp * opt) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> htsshow_start(carg, opt);
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_end</FONT></B>(t_hts_callbackarg * carg, httrackp * opt) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_preprocesshtml</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **html, <B><FONT COLOR="#228B22">int</FONT></B> *len,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_postprocesshtml</FONT></B>(t_hts_callbackarg * carg,
+                                           httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> **html,
+                                           <B><FONT COLOR="#228B22">int</FONT></B> *len, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                           <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_checkhtml</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     <B><FONT COLOR="#228B22">char</FONT></B> *html, <B><FONT COLOR="#228B22">int</FONT></B> len,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_address,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *url_file) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_loop</FONT></B>(t_hts_callbackarg * carg, httrackp * opt, lien_back * back, <B><FONT COLOR="#228B22">int</FONT></B> back_max, <B><FONT COLOR="#228B22">int</FONT></B> back_index, <B><FONT COLOR="#228B22">int</FONT></B> lien_n, <B><FONT COLOR="#228B22">int</FONT></B> lien_tot, <B><FONT COLOR="#228B22">int</FONT></B> stat_time, hts_stat_struct * stats) {   <I><FONT COLOR="#B22222">// appelé à chaque boucle de HTTrack
+</FONT></I>  <B><FONT COLOR="#228B22">static</FONT></B> TStamp prev_mytime = 0;        <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+  <B><FONT COLOR="#228B22">static</FONT></B> t_InpInfo SInfo;       <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  TStamp mytime;
+  <B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> rate = 0;
+  <B><FONT COLOR="#228B22">char</FONT></B> st[256];
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> stat_written = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_updated = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_errors = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_warnings = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_infos = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> nbk = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> stat_nsocket = -1;
+  LLint stat_bytes = -1;
+  LLint stat_bytes_recv = -1;
+  <B><FONT COLOR="#228B22">int</FONT></B> irate = -1;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stats) {
+    stat_written = stats-&gt;stat_files;
+    stat_updated = stats-&gt;stat_updated_files;
+    stat_errors = stats-&gt;stat_errors;
+    stat_warnings = stats-&gt;stat_warnings;
+    stat_infos = stats-&gt;stat_infos;
+    nbk = stats-&gt;nbk;
+    stat_nsocket = stats-&gt;stat_nsocket;
+    irate = (<B><FONT COLOR="#228B22">int</FONT></B>) stats-&gt;rate;
+    stat_bytes = stats-&gt;nb;
+    stat_bytes_recv = stats-&gt;HTS_TOTAL_RECV;
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!use_show)
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+
+  mytime = mtime_local();
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((stat_time &gt; 0) &amp;&amp; (stat_bytes_recv &gt; 0))
+    rate = (<B><FONT COLOR="#228B22">int</FONT></B>) (stat_bytes_recv / stat_time);
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    rate = 0;                   <I><FONT COLOR="#B22222">// pas d'infos
+</FONT></I>
+  <I><FONT COLOR="#B22222">/* Infos */</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_bytes &gt;= 0)
+    SInfo.stat_bytes = stat_bytes;      <I><FONT COLOR="#B22222">// bytes
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_time &gt;= 0)
+    SInfo.stat_time = stat_time;        <I><FONT COLOR="#B22222">// time
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (lien_tot &gt;= 0)
+    SInfo.lien_tot = lien_tot;  <I><FONT COLOR="#B22222">// nb liens
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (lien_n &gt;= 0)
+    SInfo.lien_n = lien_n;      <I><FONT COLOR="#B22222">// scanned
+</FONT></I>  SInfo.stat_nsocket = stat_nsocket;    <I><FONT COLOR="#B22222">// socks
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (rate &gt; 0)
+    SInfo.rate = rate;          <I><FONT COLOR="#B22222">// rate
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (irate &gt;= 0)
+    SInfo.irate = irate;        <I><FONT COLOR="#B22222">// irate
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (SInfo.irate &lt; 0)
+    SInfo.irate = SInfo.rate;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (nbk &gt;= 0)
+    SInfo.stat_back = nbk;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_written &gt;= 0)
+    SInfo.stat_written = stat_written;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_updated &gt;= 0)
+    SInfo.stat_updated = stat_updated;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_errors &gt;= 0)
+    SInfo.stat_errors = stat_errors;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_warnings &gt;= 0)
+    SInfo.stat_warnings = stat_warnings;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat_infos &gt;= 0)
+    SInfo.stat_infos = stat_infos;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (((mytime - prev_mytime) &gt; 100) || ((mytime - prev_mytime) &lt; 0)) {
+    strc_int2bytes2 strc, strc2, strc3;
+
+    prev_mytime = mytime;
+
+    st[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    qsec2str(st, stat_time);
+    vt_home();
+    printf(VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>)
+           VT_CLREOL STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Bytes saved:&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot; \t%s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>
+           VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;40&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Links scanned:&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot; \t%d/%d (+%d)&quot;</FONT></B>
+           VT_CLREOL <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;2&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Time:&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B> VT_CLREOL
+           VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;40&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;2&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Files written:&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B> VT_CLREOL
+           <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;3&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Transfer rate:&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%s (%s)&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>
+           VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;40&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;3&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Files updated:&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B> VT_CLREOL
+           <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;1&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;4&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Active connections:&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\t&quot;</FONT></B>
+           VT_CLREOL VT_GOTOXY(<B><FONT COLOR="#BC8F8F">&quot;40&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;4&quot;</FONT></B>)
+           STYLE_STATTEXT <B><FONT COLOR="#BC8F8F">&quot;Errors:&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot; \t&quot;</FONT></B> STYLE_STATVALUES <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>
+           VT_CLREOL <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> STYLE_STATRESET,
+           <I><FONT COLOR="#B22222">/* */</FONT></I>
+           (<B><FONT COLOR="#228B22">char</FONT></B> *) int2bytes(&amp;strc, SInfo.stat_bytes), (<B><FONT COLOR="#228B22">int</FONT></B>) lien_n,
+           (<B><FONT COLOR="#228B22">int</FONT></B>) SInfo.lien_tot, (<B><FONT COLOR="#228B22">int</FONT></B>) nbk, (<B><FONT COLOR="#228B22">char</FONT></B> *) st,
+           (<B><FONT COLOR="#228B22">int</FONT></B>) SInfo.stat_written, (<B><FONT COLOR="#228B22">char</FONT></B> *) int2bytessec(&amp;strc2, SInfo.irate),
+           (<B><FONT COLOR="#228B22">char</FONT></B> *) int2bytessec(&amp;strc3, SInfo.rate), (<B><FONT COLOR="#228B22">int</FONT></B>) SInfo.stat_updated,
+           (<B><FONT COLOR="#228B22">int</FONT></B>) SInfo.stat_nsocket, (<B><FONT COLOR="#228B22">int</FONT></B>) SInfo.stat_errors
+           <I><FONT COLOR="#B22222">/* */</FONT></I>
+      );
+
+    <I><FONT COLOR="#B22222">// parcourir registre des liens
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (back_index &gt;= 0) {      <I><FONT COLOR="#B22222">// seulement si index passé
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> j, k;
+      <B><FONT COLOR="#228B22">int</FONT></B> index = 0;
+      <B><FONT COLOR="#228B22">int</FONT></B> ok = 0;               <I><FONT COLOR="#B22222">// idem
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> l;                    <I><FONT COLOR="#B22222">// idem
+</FONT></I>
+      <I><FONT COLOR="#B22222">//
+</FONT></I>      t_StatsBuffer StatsBuffer[NStatsBuffer];
+
+      {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; NStatsBuffer; i++) {
+          strcpybuff(StatsBuffer[i].state, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+          strcpybuff(StatsBuffer[i].name, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+          strcpybuff(StatsBuffer[i].file, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+          strcpybuff(StatsBuffer[i].url_sav, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+          StatsBuffer[i].back = 0;
+          StatsBuffer[i].size = 0;
+          StatsBuffer[i].sizetot = 0;
+        }
+      }
+      <B><FONT COLOR="#A020F0">for</FONT></B>(k = 0; k &lt; 2; k++) {  <I><FONT COLOR="#B22222">// 0: lien en cours 1: autres liens
+</FONT></I>        <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0; (j &lt; 3) &amp;&amp; (index &lt; NStatsBuffer); j++) {    <I><FONT COLOR="#B22222">// passe de priorité
+</FONT></I>          <B><FONT COLOR="#228B22">int</FONT></B> _i;
+
+          <B><FONT COLOR="#A020F0">for</FONT></B>(_i = 0 + k; (_i &lt; max(back_max * k, 1)) &amp;&amp; (index &lt; NStatsBuffer); _i++) {        <I><FONT COLOR="#B22222">// no lien
+</FONT></I>            <B><FONT COLOR="#228B22">int</FONT></B> i = (back_index + _i) % back_max;       <I><FONT COLOR="#B22222">// commencer par le &quot;premier&quot; (l'actuel)
+</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status &gt;= 0) {  <I><FONT COLOR="#B22222">// signifie &quot;lien actif&quot;
+</FONT></I>              <I><FONT COLOR="#B22222">// int ok=0;  // OPTI
+</FONT></I>              ok = 0;
+              <B><FONT COLOR="#A020F0">switch</FONT></B> (j) {
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:          <I><FONT COLOR="#B22222">// prioritaire
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> ((back[i].status &gt; 0) &amp;&amp; (back[i].status &lt; 99)) {
+                  strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;receive&quot;</FONT></B>);
+                  ok = 1;
+                }
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+                <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_WAIT_HEADERS) {
+                  strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;request&quot;</FONT></B>);
+                  ok = 1;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_CONNECTING) {
+                  strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;connect&quot;</FONT></B>);
+                  ok = 1;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_WAIT_DNS) {
+                  strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;search&quot;</FONT></B>);
+                  ok = 1;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_FTP_TRANSFER) {     <I><FONT COLOR="#B22222">// ohh le beau ftp
+</FONT></I>                  sprintf(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;ftp: %s&quot;</FONT></B>, back[i].info);
+                  ok = 1;
+                }
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+                <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_READY) {   <I><FONT COLOR="#B22222">// prêt
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].r.statuscode == 200) {
+                    strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;ready&quot;</FONT></B>);
+                    ok = 1;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].r.statuscode &gt;= 100
+                             &amp;&amp; back[i].r.statuscode &lt;= 599) {
+                    <B><FONT COLOR="#228B22">char</FONT></B> tempo[256];
+
+                    tempo[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                    infostatuscode(tempo, back[i].r.statuscode);
+                    strcpybuff(StatsBuffer[index].state, tempo);
+                    ok = 1;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    strcpybuff(StatsBuffer[index].state, <B><FONT COLOR="#BC8F8F">&quot;error&quot;</FONT></B>);
+                    ok = 1;
+                  }
+                }
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+                <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK s[HTS_URLMAXSIZE * 2];
+
+                <I><FONT COLOR="#B22222">//
+</FONT></I>                StatsBuffer[index].back = i;    <I><FONT COLOR="#B22222">// index pour + d'infos
+</FONT></I>                <I><FONT COLOR="#B22222">//
+</FONT></I>                s[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                strcpybuff(StatsBuffer[index].url_sav, back[i].url_sav);        <I><FONT COLOR="#B22222">// pour cancel
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(back[i].url_adr, <B><FONT COLOR="#BC8F8F">&quot;file://&quot;</FONT></B>))
+                  strcatbuff(s, back[i].url_adr);
+                <B><FONT COLOR="#A020F0">else</FONT></B>
+                  strcatbuff(s, <B><FONT COLOR="#BC8F8F">&quot;localhost&quot;</FONT></B>);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].url_fil[0] != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+                  strcatbuff(s, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+                strcatbuff(s, back[i].url_fil);
+
+                StatsBuffer[index].file[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                {
+                  <B><FONT COLOR="#228B22">char</FONT></B> *a = strrchr(s, <B><FONT COLOR="#BC8F8F">'/'</FONT></B>);
+
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+                    strncatbuff(StatsBuffer[index].file, a, 200);
+                    *a = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  }
+                }
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> ((l = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(s)) &lt; MAX_LEN_INPROGRESS)
+                  strcpybuff(StatsBuffer[index].name, s);
+                <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  <I><FONT COLOR="#B22222">// couper
+</FONT></I>                  StatsBuffer[index].name[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  strncatbuff(StatsBuffer[index].name, s,
+                              MAX_LEN_INPROGRESS / 2 - 2);
+                  strcatbuff(StatsBuffer[index].name, <B><FONT COLOR="#BC8F8F">&quot;...&quot;</FONT></B>);
+                  strcatbuff(StatsBuffer[index].name,
+                             s + l - MAX_LEN_INPROGRESS / 2 + 2);
+                }
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].r.totalsize &gt;= 0) { <I><FONT COLOR="#B22222">// taille prédéfinie
+</FONT></I>                  StatsBuffer[index].sizetot = back[i].r.totalsize;
+                  StatsBuffer[index].size = back[i].r.size;
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">// pas de taille prédéfinie
+</FONT></I>                  <B><FONT COLOR="#A020F0">if</FONT></B> (back[i].status == STATUS_READY) { <I><FONT COLOR="#B22222">// prêt
+</FONT></I>                    StatsBuffer[index].sizetot = back[i].r.size;
+                    StatsBuffer[index].size = back[i].r.size;
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    StatsBuffer[index].sizetot = 8192;
+                    StatsBuffer[index].size = (back[i].r.size % 8192);
+                  }
+                }
+                index++;
+              }
+            }
+          }
+        }
+      }
+
+      <I><FONT COLOR="#B22222">/* LF */</FONT></I>
+      printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, VT_CLREOL);
+
+      <I><FONT COLOR="#B22222">/* Display current job */</FONT></I>
+      {
+        <B><FONT COLOR="#228B22">int</FONT></B> parsing = 0;
+
+        printf(<B><FONT COLOR="#BC8F8F">&quot;Current job: &quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!(parsing = hts_is_parsing(opt, -1)))
+          printf(<B><FONT COLOR="#BC8F8F">&quot;receiving files&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#A020F0">switch</FONT></B> (hts_is_testing(opt)) {
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;parsing HTML file (%d%%)&quot;</FONT></B>, parsing);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;parsing HTML file: testing links (%d%%)&quot;</FONT></B>, parsing);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;purging files&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">3</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;loading cache&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;waiting (scheduler)&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">5</FONT></B>:
+            printf(<B><FONT COLOR="#BC8F8F">&quot;waiting (throttle)&quot;</FONT></B>);
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+          }
+        }
+        printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, VT_CLREOL);
+      }
+
+      <I><FONT COLOR="#B22222">/* Display background jobs */</FONT></I>
+      {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; NStatsBuffer; i++) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(StatsBuffer[i].state)) {
+            printf(VT_CLREOL <B><FONT COLOR="#BC8F8F">&quot; %s - \t%s%s \t%s / \t%s&quot;</FONT></B>, StatsBuffer[i].state,
+                   StatsBuffer[i].name, StatsBuffer[i].file, int2bytes(&amp;strc,
+                                                                       StatsBuffer
+                                                                       [i].
+                                                                       size),
+                   int2bytes(&amp;strc2, StatsBuffer[i].sizetot)
+              );
+          }
+          printf(<B><FONT COLOR="#BC8F8F">&quot;%s\n&quot;</FONT></B>, VT_CLREOL);
+        }
+      }
+
+    }
+
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> s[12] = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;       <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+
+  printf(<B><FONT COLOR="#BC8F8F">&quot;%s\nPress &lt;Y&gt;&lt;Enter&gt; to confirm, &lt;N&gt;&lt;Enter&gt; to abort\n&quot;</FONT></B>, question);
+  io_flush;
+  linput(stdin, s, 4);
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query2</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> s[12] = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;       <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+
+  printf(<B><FONT COLOR="#BC8F8F">&quot;%s\nPress &lt;Y&gt;&lt;Enter&gt; to confirm, &lt;N&gt;&lt;Enter&gt; to abort\n&quot;</FONT></B>, question);
+  io_flush;
+  linput(stdin, s, 4);
+  <B><FONT COLOR="#A020F0">return</FONT></B> s;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *__cdecl <B><FONT COLOR="#0000FF">htsshow_query3</FONT></B>(t_hts_callbackarg * carg,
+                                          httrackp * opt,
+                                          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *question) {
+  <B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> line[256];        <I><FONT COLOR="#B22222">/* ok */</FONT></I>
+
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;A link, %s, is located beyond this mirror scope.\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;What should I do? (type in the choice + enter)\n\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;* Ignore all further links and do not ask any more questions\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;0 Ignore this link (default if empty entry)\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;1 Ignore directory and lower structures\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;2 Ignore all domain\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;4 Get only this page/link, but not links inside this page\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;5 Mirror this link (useful)\n&quot;</FONT></B>
+         <B><FONT COLOR="#BC8F8F">&quot;6 Mirror all links located on the same domain as this link\n&quot;</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;\n&quot;</FONT></B>,
+         question);
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    printf(<B><FONT COLOR="#BC8F8F">&quot;&gt;&gt; &quot;</FONT></B>);
+    io_flush;
+    linput(stdin, line, 200);
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(!strnotempty(line));
+  printf(<B><FONT COLOR="#BC8F8F">&quot;ok..\n&quot;</FONT></B>);
+  <B><FONT COLOR="#A020F0">return</FONT></B> line;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_check</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">int</FONT></B> status) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_check_mime</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *mime, <B><FONT COLOR="#228B22">int</FONT></B> status) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_pause</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *lockfile) {
+  <B><FONT COLOR="#A020F0">while</FONT></B>(fexist(lockfile)) {
+    Sleep(1000);
+  }
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_filesave</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *file) {
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_filesave2</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *save, <B><FONT COLOR="#228B22">int</FONT></B> is_new,
+                                      <B><FONT COLOR="#228B22">int</FONT></B> is_modified, <B><FONT COLOR="#228B22">int</FONT></B> not_updated) {
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_linkdetected</FONT></B>(t_hts_callbackarg * carg,
+                                        httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_linkdetected2</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *link,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *start_tag) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_xfrstatus</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                     lien_back * back) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_savename</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr_complete,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil_complete,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil, <B><FONT COLOR="#228B22">char</FONT></B> *save) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_sendheader</FONT></B>(t_hts_callbackarg * carg, httrackp * opt,
+                                      <B><FONT COLOR="#228B22">char</FONT></B> *buff, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                      htsblk * outgoing) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> __cdecl <B><FONT COLOR="#0000FF">htsshow_receiveheader</FONT></B>(t_hts_callbackarg * carg,
+                                         httrackp * opt, <B><FONT COLOR="#228B22">char</FONT></B> *buff,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *fil,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_adr,
+                                         <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *referer_fil,
+                                         htsblk * incoming) {
+  <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+}
+
+<I><FONT COLOR="#B22222">/* *** Various functions *** */</FONT></I>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fexist</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *s) {
+  <B><FONT COLOR="#228B22">struct</FONT></B> stat st;
+
+  memset(&amp;st, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(st));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (stat(s, &amp;st) == 0) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (S_ISREG(st.st_mode)) {
+      <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">linput</FONT></B>(FILE * fp, <B><FONT COLOR="#228B22">char</FONT></B> *s, <B><FONT COLOR="#228B22">int</FONT></B> max) {
+  <B><FONT COLOR="#228B22">int</FONT></B> c;
+  <B><FONT COLOR="#228B22">int</FONT></B> j = 0;
+
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    c = fgetc(fp);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (c != EOF) {
+      <B><FONT COLOR="#A020F0">switch</FONT></B> (c) {
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">13</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter CR
+</FONT></I>      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">10</FONT></B>:
+        c = -1;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">9</FONT></B>:
+      <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">12</FONT></B>:
+        <B><FONT COLOR="#A020F0">break</FONT></B>;                  <I><FONT COLOR="#B22222">// sauter ces caractères
+</FONT></I>      <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+        s[j++] = (<B><FONT COLOR="#228B22">char</FONT></B>) c;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+      }
+    }
+  } <B><FONT COLOR="#A020F0">while</FONT></B>((c != -1) &amp;&amp; (c != EOF) &amp;&amp; (j &lt; (max - 1)));
+  s[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> j;
+}
+
+<I><FONT COLOR="#B22222">// routines de détournement de SIGHUP &amp; co (Unix)
+</FONT></I><I><FONT COLOR="#B22222">//
+</FONT></I><B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_ignore</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {      <I><FONT COLOR="#B22222">// ignorer signal
+</FONT></I>}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_term</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {        <I><FONT COLOR="#B22222">// quitter brutalement
+</FONT></I>  fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;\nProgram terminated (signal %d)\n&quot;</FONT></B>, code);
+  exit(0);
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_finish</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {      <I><FONT COLOR="#B22222">// finir et quitter
+</FONT></I>  signal(code, sig_term);       <I><FONT COLOR="#B22222">// quitter si encore
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL) {
+    global_opt-&gt;state.exit_xh = 1;
+  }
+  fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;\nExit requested to engine (signal %d)\n&quot;</FONT></B>, code);
+}
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_ask</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) { <I><FONT COLOR="#B22222">// demander
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  signal(code, sig_term);       <I><FONT COLOR="#B22222">// quitter si encore
+</FONT></I>  printf(<B><FONT COLOR="#BC8F8F">&quot;\nQuit program/Interrupt/Cancel? (Q/I/C) &quot;</FONT></B>);
+  fflush(stdout);
+  scanf(<B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>, s);
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'y'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'Y'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'o'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'O'</FONT></B>)
+      || (s[0] == <B><FONT COLOR="#BC8F8F">'q'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'Q'</FONT></B>))
+    exit(0);                    <I><FONT COLOR="#B22222">// quitter
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'i'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'I'</FONT></B>)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL) {
+      <I><FONT COLOR="#B22222">// ask for stop
+</FONT></I>      global_opt-&gt;state.stop = 1;
+    }
+  }
+  signal(code, sig_ask);        <I><FONT COLOR="#B22222">// remettre signal
+</FONT></I>}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_doback</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> blind);
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_back</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {        <I><FONT COLOR="#B22222">// ignorer et mettre en backing 
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL &amp;&amp; !global_opt-&gt;background_on_suspend) {
+    signal(SIGTSTP, SIG_DFL);   <I><FONT COLOR="#B22222">// ^Z
+</FONT></I>    printf(<B><FONT COLOR="#BC8F8F">&quot;\nInterrupting the program.\n&quot;</FONT></B>);
+    fflush(stdout);
+    kill(getpid(), SIGTSTP);
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    <I><FONT COLOR="#B22222">// Background the process.
+</FONT></I>    signal(code, sig_ignore);
+    sig_doback(0);
+  }
+}
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_ask</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) { <I><FONT COLOR="#B22222">// demander
+</FONT></I>  <B><FONT COLOR="#228B22">char</FONT></B> s[256];
+
+  signal(code, sig_term);       <I><FONT COLOR="#B22222">// quitter si encore
+</FONT></I>  printf
+    (<B><FONT COLOR="#BC8F8F">&quot;\nQuit program/Interrupt/Background/bLind background/Cancel? (Q/I/B/L/C) &quot;</FONT></B>);
+  fflush(stdout);
+  scanf(<B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>, s);
+  <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'y'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'Y'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'o'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'O'</FONT></B>)
+      || (s[0] == <B><FONT COLOR="#BC8F8F">'q'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'Q'</FONT></B>))
+    exit(0);                    <I><FONT COLOR="#B22222">// quitter
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'b'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'B'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'a'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'A'</FONT></B>))
+    sig_doback(0);              <I><FONT COLOR="#B22222">// arrière plan
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'l'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'L'</FONT></B>))
+    sig_doback(1);              <I><FONT COLOR="#B22222">// arrière plan
+</FONT></I>  <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((s[0] == <B><FONT COLOR="#BC8F8F">'i'</FONT></B>) || (s[0] == <B><FONT COLOR="#BC8F8F">'I'</FONT></B>)) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL) {
+      <I><FONT COLOR="#B22222">// ask for stop
+</FONT></I>      printf(<B><FONT COLOR="#BC8F8F">&quot;finishing pending transfers.. please wait\n&quot;</FONT></B>);
+      global_opt-&gt;state.stop = 1;
+    }
+    signal(code, sig_ask);      <I><FONT COLOR="#B22222">// remettre signal
+</FONT></I>  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    printf(<B><FONT COLOR="#BC8F8F">&quot;cancel..\n&quot;</FONT></B>);
+    signal(code, sig_ask);      <I><FONT COLOR="#B22222">// remettre signal
+</FONT></I>  }
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_brpipe</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {      <I><FONT COLOR="#B22222">// treat if necessary
+</FONT></I>  signal(code, sig_brpipe);
+}
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_doback</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> blind) {     <I><FONT COLOR="#B22222">// mettre en backing 
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> out = -1;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  printf(<B><FONT COLOR="#BC8F8F">&quot;\nMoving into background to complete the mirror...\n&quot;</FONT></B>);
+  fflush(stdout);
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL) {
+    <I><FONT COLOR="#B22222">// suppress logging and asking lousy questions
+</FONT></I>    global_opt-&gt;quiet = 1;
+    global_opt-&gt;verbosedisplay = 0;
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (!blind)
+    out = open(<B><FONT COLOR="#BC8F8F">&quot;hts-nohup.out&quot;</FONT></B>, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (out == -1)
+    out = open(<B><FONT COLOR="#BC8F8F">&quot;/dev/null&quot;</FONT></B>, O_WRONLY, S_IRUSR | S_IWUSR);
+  dup2(out, 0);
+  dup2(out, 1);
+  dup2(out, 2);
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  <B><FONT COLOR="#A020F0">switch</FONT></B> (fork()) {
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">-1</FONT></B>:
+    fprintf(stderr, <B><FONT COLOR="#BC8F8F">&quot;Error: can not fork process\n&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  <B><FONT COLOR="#5F9EA0">default</FONT></B>:                     <I><FONT COLOR="#B22222">// pere
+</FONT></I>    _exit(0);
+    <B><FONT COLOR="#A020F0">break</FONT></B>;
+  }
+}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FD_ERR</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FD_ERR</FONT> 2
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">print_backtrace</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">USES_BACKTRACE</FONT>
+  <B><FONT COLOR="#228B22">void</FONT></B> *stack[256];
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> size = backtrace(stack, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(stack)/<B><FONT COLOR="#A020F0">sizeof</FONT></B>(stack[0]));
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size != 0) {
+    backtrace_symbols_fd(stack, size, FD_ERR);
+  }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> msg[] = <B><FONT COLOR="#BC8F8F">&quot;No stack trace available on this OS :(\n&quot;</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (write(FD_ERR, msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msg) - 1) != <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msg) - 1) {
+    <I><FONT COLOR="#B22222">/* sorry GCC */</FONT></I>
+  }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> size_t <B><FONT COLOR="#0000FF">print_num</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *buffer, <B><FONT COLOR="#228B22">int</FONT></B> num) {
+  size_t i, j;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (num &lt; 0) {
+    *(buffer++) = <B><FONT COLOR="#BC8F8F">'-'</FONT></B>;
+    num = -num;
+  }
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0 ; num != 0 || i == 0 ; i++, num /= 10) {
+    buffer[i] = <B><FONT COLOR="#BC8F8F">'0'</FONT></B> + ( num % 10 );
+  }
+  <B><FONT COLOR="#A020F0">for</FONT></B>(j = 0 ; j &lt; i ; j++) {
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c = buffer[i - j - 1];
+    buffer[i - j - 1] = buffer[j];
+    buffer[j] = c;
+  }
+  buffer[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">return</FONT></B> i;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_fatal</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> msg[] = <B><FONT COLOR="#BC8F8F">&quot;\nCaught signal &quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> msgreport[] =
+    <B><FONT COLOR="#BC8F8F">&quot;\nPlease report the problem at http://forum.httrack.com\n&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> buffer[256];
+  size_t size;
+
+  signal(code, SIG_DFL);
+  signal(SIGABRT, SIG_DFL);
+
+  memcpy(buffer, msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msg) - 1);
+  size = <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msg) - 1;
+  size += print_num(&amp;buffer[size], code);
+  buffer[size++] = <B><FONT COLOR="#BC8F8F">'\n'</FONT></B>;
+  (<B><FONT COLOR="#228B22">void</FONT></B>) (write(FD_ERR, buffer, size) == size);
+  print_backtrace();
+  (<B><FONT COLOR="#228B22">void</FONT></B>) (write(FD_ERR, msgreport, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msgreport) - 1)
+    == <B><FONT COLOR="#A020F0">sizeof</FONT></B>(msgreport) - 1);
+  abort();
+}
+
+#<B><FONT COLOR="#5F9EA0">undef</FONT></B> <FONT COLOR="#B8860B">FD_ERR</FONT>
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">sig_leave</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> code) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL &amp;&amp; global_opt-&gt;state._hts_in_mirror) {
+    signal(code, sig_term);     <I><FONT COLOR="#B22222">// quitter si encore
+</FONT></I>    printf(<B><FONT COLOR="#BC8F8F">&quot;\n** Finishing pending transfers.. press again ^C to quit.\n&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (global_opt != NULL) {
+      <I><FONT COLOR="#B22222">// ask for stop
+</FONT></I>      hts_log_print(global_opt, LOG_ERROR, <B><FONT COLOR="#BC8F8F">&quot;Exit requested by shell or user&quot;</FONT></B>);
+      global_opt-&gt;state.stop = 1;
+    }
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+    sig_term(code);
+  }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">signal_handlers</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0                           <I><FONT COLOR="#B22222">/* BUG366763 */</FONT></I>
+  signal(SIGINT, sig_ask);      <I><FONT COLOR="#B22222">// ^C
+</FONT></I>#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  signal(SIGINT, sig_leave);    <I><FONT COLOR="#B22222">// ^C
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  signal(SIGTERM, sig_finish);  <I><FONT COLOR="#B22222">// kill &lt;process&gt;
+</FONT></I>#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0                           <I><FONT COLOR="#B22222">/* BUG366763 */</FONT></I>
+  signal(SIGHUP, sig_back);     <I><FONT COLOR="#B22222">// close window
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  signal(SIGTSTP, sig_back);    <I><FONT COLOR="#B22222">// ^Z
+</FONT></I>  signal(SIGTERM, sig_finish);  <I><FONT COLOR="#B22222">// kill &lt;process&gt;
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0                           <I><FONT COLOR="#B22222">/* BUG366763 */</FONT></I>
+  signal(SIGINT, sig_ask);      <I><FONT COLOR="#B22222">// ^C
+</FONT></I>#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  signal(SIGINT, sig_leave);    <I><FONT COLOR="#B22222">// ^C
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  signal(SIGPIPE, sig_brpipe);  <I><FONT COLOR="#B22222">// broken pipe (write into non-opened socket)
+</FONT></I>  signal(SIGCHLD, sig_ignore);  <I><FONT COLOR="#B22222">// child change status
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIGABRT</FONT>
+  signal(SIGABRT, sig_fatal);    <I><FONT COLOR="#B22222">// abort
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIGBUS</FONT>
+  signal(SIGBUS, sig_fatal);    <I><FONT COLOR="#B22222">// bus error
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIGILL</FONT>
+  signal(SIGILL, sig_fatal);    <I><FONT COLOR="#B22222">// illegal instruction
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIGSEGV</FONT>
+  signal(SIGSEGV, sig_fatal);   <I><FONT COLOR="#B22222">// segmentation violation
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">SIGSTKFLT</FONT>
+  signal(SIGSTKFLT, sig_fatal); <I><FONT COLOR="#B22222">// stack fault
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<I><FONT COLOR="#B22222">// fin routines de détournement de SIGHUP &amp; co
+</FONT></I></PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/httrack.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:18 GMT -->
+</HTML>

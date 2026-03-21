@@ -1,0 +1,1136 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsftp.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsftp.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsftp.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: basic FTP protocol manager                             */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// Gestion protocole ftp
+</FONT></I><I><FONT COLOR="#B22222">// Version .05 (01/2000)
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsftp.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htscore.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsthread.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+<I><FONT COLOR="#B22222">//inet_ntoa
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;arpa/inet.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">__cplusplus</FONT>
+<I><FONT COLOR="#B22222">// DOS
+</FONT></I>#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;process.h&gt;</FONT></B>            <I><FONT COLOR="#B22222">/* _beginthread, _endthread */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// ftp mode passif
+</FONT></I><I><FONT COLOR="#B22222">// #if HTS_INET6==0
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT> 1
+<I><FONT COLOR="#B22222">// #else
+</FONT></I><I><FONT COLOR="#B22222">// no passive mode for v6
+</FONT></I><I><FONT COLOR="#B22222">// #define FTP_PASV 0
+</FONT></I><I><FONT COLOR="#B22222">// #endif
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT> 0
+<I><FONT COLOR="#B22222">//#define FORK_DEBUG 0
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">USE_BEGINTHREAD</FONT>
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">back_launch_ftp</FONT></B>(<B><FONT COLOR="#228B22">void</FONT></B> *pP) {
+  FTPDownloadStruct *pStruct = (FTPDownloadStruct *) pP;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pStruct == NULL)
+    <B><FONT COLOR="#A020F0">return</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (pStruct == NULL) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;[ftp error: no args]\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B>;
+  }
+
+  <I><FONT COLOR="#B22222">/* Initialize */</FONT></I>
+  hts_init();
+
+  <I><FONT COLOR="#B22222">// lancer ftp
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;[Launching main ftp routine]\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  run_launch_ftp(pStruct);
+  <I><FONT COLOR="#B22222">// prêt
+</FONT></I>  pStruct-&gt;pBack-&gt;status = STATUS_FTP_READY;
+
+  <I><FONT COLOR="#B22222">/* Delete structure */</FONT></I>
+  free(pP);
+
+  <I><FONT COLOR="#B22222">/* Uninitialize */</FONT></I>
+  hts_uninit();
+  <B><FONT COLOR="#A020F0">return</FONT></B>;
+}
+
+<I><FONT COLOR="#B22222">// lancer en back
+</FONT></I><B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">launch_ftp</FONT></B>(FTPDownloadStruct * params) {
+  <I><FONT COLOR="#B22222">// DOS
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;[Launching main ftp thread]\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  hts_newthread(back_launch_ftp, (<B><FONT COLOR="#228B22">void</FONT></B> *) params);
+}
+
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">error</FONT></B> <FONT COLOR="#B8860B">No</FONT> <FONT COLOR="#B8860B">more</FONT> <FONT COLOR="#B8860B">supported</FONT>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// pour l'arrêt du ftp
+</FONT></I>#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">_T_SOC_close</FONT></B>(soc)  closesocket(soc); soc=INVALID_SOCKET;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">_T_SOC_close</FONT></B>(soc)  close(soc); soc=INVALID_SOCKET;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_HALT_FTP</FONT> { \
+  if ( soc_ctl     != INVALID_SOCKET ) _T_SOC_close(soc_ctl); \
+  if ( soc_servdat != INVALID_SOCKET ) _T_SOC_close(soc_servdat); \
+  if ( soc_dat     != INVALID_SOCKET ) _T_SOC_close(soc_dat); \
+}
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">_CHECK_HALT_FTP</FONT> \
+  if (stop_ftp(back)) { \
+  _HALT_FTP \
+  return 0; \
+  }
+
+<I><FONT COLOR="#B22222">// la véritable fonction une fois lancées les routines thread/fork
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">run_launch_ftp</FONT></B>(FTPDownloadStruct * pStruct) {
+  lien_back *back = pStruct-&gt;pBack;
+  httrackp *opt = pStruct-&gt;pOpt;
+  <B><FONT COLOR="#228B22">char</FONT></B> user[256] = <B><FONT COLOR="#BC8F8F">&quot;anonymous&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> pass[256] = <B><FONT COLOR="#BC8F8F">&quot;user@&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">char</FONT></B> line_retr[2048];
+  <B><FONT COLOR="#228B22">int</FONT></B> port = 21;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT>
+  <B><FONT COLOR="#228B22">int</FONT></B> port_pasv = 0;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK adr_ip[1024];
+  <B><FONT COLOR="#228B22">char</FONT></B> *adr, *real_adr;
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *ftp_filename = <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>;
+  <B><FONT COLOR="#228B22">int</FONT></B> timeout = 300;            <I><FONT COLOR="#B22222">// timeout
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> timeout_onfly = 8;        <I><FONT COLOR="#B22222">// attente réponse supplémentaire
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> transfer_list = 0;        <I><FONT COLOR="#B22222">// directory
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> rest_understood = 0;      <I><FONT COLOR="#B22222">// rest command understood
+</FONT></I>
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  T_SOC soc_ctl = INVALID_SOCKET;
+  T_SOC soc_servdat = INVALID_SOCKET;
+  T_SOC soc_dat = INVALID_SOCKET;
+  SOCaddr server_data;
+
+  <I><FONT COLOR="#B22222">//
+</FONT></I>  line_retr[0] = adr_ip[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  timeout = 300;
+
+  <I><FONT COLOR="#B22222">// effacer
+</FONT></I>  strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;&quot;</FONT></B>);
+  back-&gt;r.statuscode = 0;
+  back-&gt;r.size = 0;
+
+  <I><FONT COLOR="#B22222">// récupérer user et pass si présents, et sauter user:id@ dans adr
+</FONT></I>  real_adr = strchr(back-&gt;url_adr, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (real_adr)
+    real_adr++;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    real_adr = back-&gt;url_adr;
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*real_adr == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>)
+    real_adr++;                 <I><FONT COLOR="#B22222">// sauter /
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> ((adr = jump_identification(real_adr)) != real_adr) {      <I><FONT COLOR="#B22222">// user
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> i = -1;
+
+    pass[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">do</FONT></B> {
+      i++;
+      user[i] = real_adr[i];
+    } <B><FONT COLOR="#A020F0">while</FONT></B>((real_adr[i] != <B><FONT COLOR="#BC8F8F">':'</FONT></B>) &amp;&amp; (real_adr[i]));
+    user[i] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (real_adr[i] == <B><FONT COLOR="#BC8F8F">':'</FONT></B>) {   <I><FONT COLOR="#B22222">// pass
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> j = -1;
+
+      i++;                      <I><FONT COLOR="#B22222">// oui on saute aussi le :
+</FONT></I>      <B><FONT COLOR="#A020F0">do</FONT></B> {
+        j++;
+        pass[j] = real_adr[i + j];
+      } <B><FONT COLOR="#A020F0">while</FONT></B>(((&amp;real_adr[i + j + 1]) &lt; adr) &amp;&amp; (real_adr[i + j]));
+      pass[j] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    }
+  }
+  <I><FONT COLOR="#B22222">// Calculer RETR &lt;nom&gt;
+</FONT></I>  {
+    <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+    a = back-&gt;url_fil + strlen(back-&gt;url_fil) - 1;
+    <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; back-&gt;url_fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+      a--;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {
+      a = NULL;
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    a = back-&gt;url_fil;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (a != NULL &amp;&amp; *a != <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+      a++;                      <I><FONT COLOR="#B22222">// sauter /
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+      ftp_filename = a;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(a)) {
+        <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+        <B><FONT COLOR="#228B22">char</FONT></B> *ua = unescape_http(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), a);
+        <B><FONT COLOR="#228B22">int</FONT></B> len_a = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(ua);
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (len_a &gt; 0 &amp;&amp; ua[len_a - 1] == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {        <I><FONT COLOR="#B22222">/* obviously a directory listing */</FONT></I>
+          transfer_list = 1;
+          snprintf(line_retr, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line_retr), <B><FONT COLOR="#BC8F8F">&quot;LIST -A %s&quot;</FONT></B>, ua);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((strchr(ua, <B><FONT COLOR="#BC8F8F">' '</FONT></B>))
+                   || (strchr(ua, <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>))
+                   || (strchr(ua, <B><FONT COLOR="#BC8F8F">'\''</FONT></B>))
+          ) {
+          snprintf(line_retr, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line_retr), <B><FONT COLOR="#BC8F8F">&quot;RETR \&quot;%s\&quot;&quot;</FONT></B>, ua);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">/* Regular one */</FONT></I>
+          snprintf(line_retr, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line_retr), <B><FONT COLOR="#BC8F8F">&quot;RETR %s&quot;</FONT></B>, ua);
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        transfer_list = 1;
+        snprintf(line_retr, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line_retr), <B><FONT COLOR="#BC8F8F">&quot;LIST -A&quot;</FONT></B>);
+      }
+    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+      strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unexpected PORT error&quot;</FONT></B>);
+      <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>      back-&gt;r.statuscode = STATUSCODE_INVALID;
+    }
+  }
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;Connecting to %s...\n&quot;</FONT></B>, adr);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  <I><FONT COLOR="#B22222">// connexion
+</FONT></I>  {
+    SOCaddr server;
+    <B><FONT COLOR="#228B22">char</FONT></B> *a;
+    <B><FONT COLOR="#228B22">char</FONT></B> _adr[256];
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *error = <B><FONT COLOR="#BC8F8F">&quot;unknown error&quot;</FONT></B>;
+
+    _adr[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <I><FONT COLOR="#B22222">//T_SOC soc_ctl;
+</FONT></I>    <I><FONT COLOR="#B22222">// effacer structure
+</FONT></I>    memset(&amp;server, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(server));
+
+    <I><FONT COLOR="#B22222">// port
+</FONT></I>    a = strchr(adr, <B><FONT COLOR="#BC8F8F">':'</FONT></B>);       <I><FONT COLOR="#B22222">// port
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+      sscanf(a + 1, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;port);
+      strncatbuff(_adr, adr, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - adr));
+    } <B><FONT COLOR="#A020F0">else</FONT></B>
+      strcpybuff(_adr, adr);
+
+    <I><FONT COLOR="#B22222">// récupérer adresse résolue
+</FONT></I>    strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;host name&quot;</FONT></B>);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hts_dns_resolve2(opt, _adr, &amp;server, &amp;error) == NULL) {
+      snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg),
+               <B><FONT COLOR="#BC8F8F">&quot;Unable to get server's address: %s&quot;</FONT></B>, error);
+      <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>      back-&gt;r.statuscode = STATUSCODE_NON_FATAL;
+      _HALT_FTP <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+    _CHECK_HALT_FTP;
+
+    <I><FONT COLOR="#B22222">// copie adresse pour cnx data
+</FONT></I>    SOCaddr_copy_SOCaddr(server_data, server);
+
+    <I><FONT COLOR="#B22222">// créer (&quot;attachement&quot;) une socket (point d'accès) internet,en flot
+</FONT></I>    soc_ctl = (T_SOC) socket(SOCaddr_sinfamily(server), SOCK_STREAM, 0);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (soc_ctl == INVALID_SOCKET) {
+      strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to create a socket&quot;</FONT></B>);
+      <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>      back-&gt;r.statuscode = STATUSCODE_INVALID;
+      _HALT_FTP <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    }
+
+    SOCaddr_initport(server, port);
+    <I><FONT COLOR="#B22222">// server.sin_port = htons((unsigned short int) port);
+</FONT></I>
+    <I><FONT COLOR="#B22222">// connexion (bloquante, on est en thread)
+</FONT></I>    strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;connect&quot;</FONT></B>);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (connect(soc_ctl, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) != 0) {
+      strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to connect to the server&quot;</FONT></B>);
+      <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>      back-&gt;r.statuscode = STATUSCODE_INVALID;
+      _HALT_FTP <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    _CHECK_HALT_FTP;
+
+    {
+      <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[1024];
+
+      <I><FONT COLOR="#B22222">// envoi du login
+</FONT></I>
+      <I><FONT COLOR="#B22222">// --USER--
+</FONT></I>      get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);     <I><FONT COLOR="#B22222">// en tête
+</FONT></I>      _CHECK_HALT_FTP;
+
+      <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {     <I><FONT COLOR="#B22222">// ok, connecté
+</FONT></I>        strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;login: user&quot;</FONT></B>);
+        snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;USER %s&quot;</FONT></B>, user);
+        send_line(soc_ctl, line);
+        get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+        _CHECK_HALT_FTP;
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((line[0] == <B><FONT COLOR="#BC8F8F">'3'</FONT></B>) || (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>)) {
+          <I><FONT COLOR="#B22222">// --PASS--
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'3'</FONT></B>) {
+            strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;login: pass&quot;</FONT></B>);
+            snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;PASS %s&quot;</FONT></B>, pass);
+            send_line(soc_ctl, line);
+            get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+            _CHECK_HALT_FTP;
+          }
+          <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) { <I><FONT COLOR="#B22222">// ok
+</FONT></I>            send_line(soc_ctl, <B><FONT COLOR="#BC8F8F">&quot;TYPE I&quot;</FONT></B>);
+            get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+            _CHECK_HALT_FTP;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {
+              <I><FONT COLOR="#B22222">// ok
+</FONT></I>            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;TYPE I error&quot;</FONT></B>);
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> 0
+            <I><FONT COLOR="#B22222">// --CWD--
+</FONT></I>            <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+            a = back-&gt;url_fil + strlen(back-&gt;url_fil) - 1;
+            <B><FONT COLOR="#A020F0">while</FONT></B>((a &gt; back-&gt;url_fil) &amp;&amp; (*a != <B><FONT COLOR="#BC8F8F">'/'</FONT></B>))
+              a--;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (*a == <B><FONT COLOR="#BC8F8F">'/'</FONT></B>) {    <I><FONT COLOR="#B22222">// ok repéré
+</FONT></I>              <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK target[1024];
+
+              target[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+              strncatbuff(target, back-&gt;url_fil, (<B><FONT COLOR="#228B22">int</FONT></B>) (a - back-&gt;url_fil));
+              <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(target) == 0)
+                strcatbuff(target, <B><FONT COLOR="#BC8F8F">&quot;/&quot;</FONT></B>);
+              strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;cwd&quot;</FONT></B>);
+              snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;CWD %s&quot;</FONT></B>, target);
+              send_line(soc_ctl, line);
+              get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+              _CHECK_HALT_FTP;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {
+                send_line(soc_ctl, <B><FONT COLOR="#BC8F8F">&quot;TYPE I&quot;</FONT></B>);
+                get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+                _CHECK_HALT_FTP;
+                <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {
+                  <I><FONT COLOR="#B22222">// ok..
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;TYPE I error&quot;</FONT></B>);
+                  <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                  back-&gt;r.statuscode = STATUSCODE_INVALID;
+                }
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;CWD error: %s&quot;</FONT></B>, linejmp(line));
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+              }                 <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unexpected ftp error&quot;</FONT></B>);
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;Bad password: %s&quot;</FONT></B>, linejmp(line));
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;Bad user name: %s&quot;</FONT></B>, linejmp(line));
+          <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>          back-&gt;r.statuscode = STATUSCODE_INVALID;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;Connection refused: %s&quot;</FONT></B>, linejmp(line));
+        <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>        back-&gt;r.statuscode = STATUSCODE_INVALID;
+      }
+
+      <I><FONT COLOR="#B22222">// ok, si on est prêts on écoute sur un port et on demande la sauce
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.statuscode != -1) {
+
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        <I><FONT COLOR="#B22222">// Pré-REST
+</FONT></I>        <I><FONT COLOR="#B22222">//
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (SOCaddr_getproto(server) == <B><FONT COLOR="#BC8F8F">'1'</FONT></B>) {
+          strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;pasv&quot;</FONT></B>);
+          snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;PASV&quot;</FONT></B>);
+          send_line(soc_ctl, line);
+          get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {                <I><FONT COLOR="#B22222">/* ipv6 */</FONT></I>
+          line[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        }
+        _CHECK_HALT_FTP;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {
+          <B><FONT COLOR="#228B22">char</FONT></B> *a, *b, *c;
+
+          a = strchr(line, <B><FONT COLOR="#BC8F8F">'('</FONT></B>);        <I><FONT COLOR="#B22222">// exemple: 227 Entering Passive Mode (123,45,67,89,177,27)
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (a) {
+
+            <I><FONT COLOR="#B22222">// -- analyse de l'adresse IP et du port --
+</FONT></I>            a++;
+            b = strchr(a, <B><FONT COLOR="#BC8F8F">','</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (b)
+              b = strchr(b + 1, <B><FONT COLOR="#BC8F8F">','</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (b)
+              b = strchr(b + 1, <B><FONT COLOR="#BC8F8F">','</FONT></B>);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (b)
+              b = strchr(b + 1, <B><FONT COLOR="#BC8F8F">','</FONT></B>);
+            c = a;
+            <B><FONT COLOR="#A020F0">while</FONT></B>((c = strchr(c, <B><FONT COLOR="#BC8F8F">','</FONT></B>)))
+              *c = <B><FONT COLOR="#BC8F8F">'.'</FONT></B>;         <I><FONT COLOR="#B22222">// remplacer , par .
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (b)
+              *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            <I><FONT COLOR="#B22222">//
+</FONT></I>            strcpybuff(adr_ip, a);      <I><FONT COLOR="#B22222">// copier adresse ip
+</FONT></I>            <I><FONT COLOR="#B22222">//
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (b) {
+              a = b + 1;        <I><FONT COLOR="#B22222">// début du port
+</FONT></I>              b = strchr(a, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (b) {
+                <B><FONT COLOR="#228B22">int</FONT></B> n1, n2;
+
+                <I><FONT COLOR="#B22222">//
+</FONT></I>                *b = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                b++;
+                c = strchr(b, <B><FONT COLOR="#BC8F8F">')'</FONT></B>);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (c) {
+                  *c = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> ((sscanf(a, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n1) == 1) &amp;&amp; (sscanf(b, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n2) == 1)
+                      &amp;&amp; (strlen(adr_ip) &lt;= 16)) {
+                    port_pasv = n2 + (n1 &lt;&lt; 8);
+                  }
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  deletesoc(soc_dat);
+                  soc_dat = INVALID_SOCKET;
+                }               <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>              }
+            }
+            <I><FONT COLOR="#B22222">// -- fin analyse de l'adresse IP et du port --
+</FONT></I>          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;PASV incorrect: %s&quot;</FONT></B>, linejmp(line));
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }                     <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <I><FONT COLOR="#B22222">/*
+           * try epsv (ipv6) *
+           */</FONT></I>
+          strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;pasv&quot;</FONT></B>);
+          snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;EPSV&quot;</FONT></B>);
+          send_line(soc_ctl, line);
+          get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+          _CHECK_HALT_FTP;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) { <I><FONT COLOR="#B22222">/* got it */</FONT></I>
+            <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+            a = strchr(line, <B><FONT COLOR="#BC8F8F">'('</FONT></B>);      <I><FONT COLOR="#B22222">// exemple: 229 Entering Extended Passive Mode (|||6446|)
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> ((a != NULL)
+                &amp;&amp; (*a == <B><FONT COLOR="#BC8F8F">'('</FONT></B>)
+                &amp;&amp; (*(a + 1))
+                &amp;&amp; (*(a + 1) == *(a + 2)) &amp;&amp; (*(a + 1) == *(a + 3))
+                &amp;&amp; (isdigit(*(a + 4)))
+                &amp;&amp; (*(a + 5))
+              ) {
+              <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> n1 = 0;
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(a + 4, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;n1) == 1) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> ((n1 &lt; 65535) &amp;&amp; (n1 &gt; 0)) {
+                  port_pasv = n1;
+                }
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;EPSV incorrect: %s&quot;</FONT></B>, linejmp(line));
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;PASV/EPSV error: %s&quot;</FONT></B>, linejmp(line));
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }                     <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>        }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        <I><FONT COLOR="#B22222">// rien à faire avant
+</FONT></I>#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (port_pasv) {
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          <I><FONT COLOR="#B22222">// SIZE
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.statuscode != -1) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (!transfer_list) {
+              <B><FONT COLOR="#228B22">char</FONT></B> catbuff[CATBUFF_SIZE];
+              <B><FONT COLOR="#228B22">char</FONT></B> *ua = unescape_http(catbuff, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(catbuff), ftp_filename);
+
+              <B><FONT COLOR="#A020F0">if</FONT></B> ((strchr(ua, <B><FONT COLOR="#BC8F8F">' '</FONT></B>))
+                  || (strchr(ua, <B><FONT COLOR="#BC8F8F">'\&quot;'</FONT></B>))
+                  || (strchr(ua, <B><FONT COLOR="#BC8F8F">'\''</FONT></B>))
+                ) {
+                snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;SIZE \&quot;%s\&quot;&quot;</FONT></B>, ua);
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;SIZE %s&quot;</FONT></B>, ua);
+              }
+
+              <I><FONT COLOR="#B22222">// SIZE?
+</FONT></I>              strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;size&quot;</FONT></B>);
+              send_line(soc_ctl, line);
+              get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+              _CHECK_HALT_FTP;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {     <I><FONT COLOR="#B22222">// SIZE compris, ALORS tester REST (sinon pas tester: cf probleme des txt.gz decompresses a la volee)
+</FONT></I>                <B><FONT COLOR="#228B22">char</FONT></B> *szstr = strchr(line, <B><FONT COLOR="#BC8F8F">' '</FONT></B>);
+
+                <B><FONT COLOR="#A020F0">if</FONT></B> (szstr) {
+                  LLint size = 0;
+
+                  szstr++;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(szstr, LLintP, &amp;size) == 1) {
+                    back-&gt;r.totalsize = size;
+                  }
+                }
+                <I><FONT COLOR="#B22222">// REST?
+</FONT></I>                <B><FONT COLOR="#A020F0">if</FONT></B> (fexist(back-&gt;url_sav) &amp;&amp; (transfer_list == 0)) {
+                  strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;rest&quot;</FONT></B>);
+                  snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;REST &quot;</FONT></B> LLintP, (LLint) fsize(back-&gt;url_sav));
+                  send_line(soc_ctl, line);
+                  get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+                  _CHECK_HALT_FTP;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> ((line[0] == <B><FONT COLOR="#BC8F8F">'3'</FONT></B>) || (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>)) {   <I><FONT COLOR="#B22222">// ok
+</FONT></I>                    rest_understood = 1;
+                  }             <I><FONT COLOR="#B22222">// sinon tant pis 
+</FONT></I>                }
+              }                 <I><FONT COLOR="#B22222">// sinon tant pis 
+</FONT></I>            }
+          }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT>
+        }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        <I><FONT COLOR="#B22222">// Post-REST
+</FONT></I>        <I><FONT COLOR="#B22222">//
+</FONT></I>#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_PASV</FONT>
+        <I><FONT COLOR="#B22222">// Ok, se connecter
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (port_pasv) {
+          SOCaddr server;
+          <B><FONT COLOR="#228B22">int</FONT></B> server_size = <B><FONT COLOR="#A020F0">sizeof</FONT></B>(server);
+          <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *error = <B><FONT COLOR="#BC8F8F">&quot;unknown error&quot;</FONT></B>;
+
+          <I><FONT COLOR="#B22222">// effacer structure
+</FONT></I>          memset(&amp;server, 0, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(server));
+
+          <I><FONT COLOR="#B22222">// infos
+</FONT></I>          strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;resolv&quot;</FONT></B>);
+
+          <I><FONT COLOR="#B22222">// résoudre
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (adr_ip[0]) {
+            hts_dns_resolve2(opt, adr_ip, &amp;server, &amp;error);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            SOCaddr_copy_SOCaddr(server, server_data);
+          }
+
+          <I><FONT COLOR="#B22222">// infos
+</FONT></I>          strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;cnxdata&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+          printf(<B><FONT COLOR="#BC8F8F">&quot;Data: Connecting to %s:%d...\n&quot;</FONT></B>, adr_ip, port_pasv);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          <B><FONT COLOR="#A020F0">if</FONT></B> (server_size &gt; 0) {
+            <I><FONT COLOR="#B22222">// socket
+</FONT></I>            soc_dat = (T_SOC) socket(SOCaddr_sinfamily(server), SOCK_STREAM, 0);
+            <B><FONT COLOR="#A020F0">if</FONT></B> (soc_dat != INVALID_SOCKET) {
+              <I><FONT COLOR="#B22222">// structure: connexion au domaine internet, port 80 (ou autre)
+</FONT></I>              SOCaddr_initport(server, port_pasv);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (connect(soc_dat, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) == 0) {
+                strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;retr&quot;</FONT></B>);
+                strcpybuff(line, line_retr);
+                send_line(soc_ctl, line);
+                get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+                _CHECK_HALT_FTP;
+                <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'1'</FONT></B>) {
+                  <I><FONT COLOR="#B22222">// OK
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                  deletesoc(soc_dat);
+                  soc_dat = INVALID_SOCKET;
+                  <I><FONT COLOR="#B22222">//
+</FONT></I>                  snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;RETR command errror: %s&quot;</FONT></B>,
+                          linejmp(line));
+                  <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                  back-&gt;r.statuscode = STATUSCODE_INVALID;
+                }               <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+                printf(<B><FONT COLOR="#BC8F8F">&quot;Data: unable to connect\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+                deletesoc(soc_dat);
+                soc_dat = INVALID_SOCKET;
+                <I><FONT COLOR="#B22222">//
+</FONT></I>                strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to connect&quot;</FONT></B>);
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+              }                 <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to create a socket&quot;</FONT></B>);
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }                   <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg),
+                     <B><FONT COLOR="#BC8F8F">&quot;Unable to resolve IP %s: %s&quot;</FONT></B>, adr_ip, error);
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }                     <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;PASV incorrect: %s&quot;</FONT></B>, linejmp(line));
+          <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>          back-&gt;r.statuscode = STATUSCODE_INVALID;
+        }                       <I><FONT COLOR="#B22222">// sinon on est prêts
+</FONT></I>#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+        <I><FONT COLOR="#B22222">//T_SOC soc_servdat;
+</FONT></I>        strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;listening&quot;</FONT></B>);
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((soc_servdat = get_datasocket(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line))) != INVALID_SOCKET) {
+          _CHECK_HALT_FTP;
+          send_line(soc_ctl, line);     <I><FONT COLOR="#B22222">// envoi du RETR
+</FONT></I>          get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+          _CHECK_HALT_FTP;
+          <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) { <I><FONT COLOR="#B22222">// ok
+</FONT></I>            strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;retr&quot;</FONT></B>);
+            strcpybuff(line, line_retr);
+            send_line(soc_ctl, line);
+            get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+            _CHECK_HALT_FTP;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'1'</FONT></B>) {
+              <I><FONT COLOR="#B22222">//T_SOC soc_dat;
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> ((soc_dat = accept(soc_servdat, NULL, NULL)) == INVALID_SOCKET) {
+                strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to accept connection&quot;</FONT></B>);
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;RETR command errror: %s&quot;</FONT></B>, linejmp(line));
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;PORT command error: %s&quot;</FONT></B>, linejmp(line));
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc_servdat);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc_servdat);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to listen to a port&quot;</FONT></B>);
+          <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>          back-&gt;r.statuscode = STATUSCODE_INVALID;
+        }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+        <I><FONT COLOR="#B22222">//
+</FONT></I>        <I><FONT COLOR="#B22222">// Ok, connexion initiée
+</FONT></I>        <I><FONT COLOR="#B22222">//
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (soc_dat != INVALID_SOCKET) {
+          <B><FONT COLOR="#A020F0">if</FONT></B> (rest_understood) {        <I><FONT COLOR="#B22222">// REST envoyée et comprise
+</FONT></I>            file_notify(opt, back-&gt;url_adr, back-&gt;url_fil, back-&gt;url_sav, 0, 1,
+                        0);
+            back-&gt;r.fp = fileappend(&amp;opt-&gt;state.strc, back-&gt;url_sav);
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            file_notify(opt, back-&gt;url_adr, back-&gt;url_fil, back-&gt;url_sav, 1, 1,
+                        0);
+            back-&gt;r.fp = filecreate(&amp;opt-&gt;state.strc, back-&gt;url_sav);
+          }
+          strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;receiving&quot;</FONT></B>);
+          <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.fp != NULL) {
+            <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK buff[1024];
+            <B><FONT COLOR="#228B22">int</FONT></B> len = 1;
+            <B><FONT COLOR="#228B22">int</FONT></B> read_len = 1024;
+
+            <I><FONT COLOR="#B22222">//HTS_TOTAL_RECV_CHECK(read_len);         // Diminuer au besoin si trop de données reçues
+</FONT></I>
+            <B><FONT COLOR="#A020F0">while</FONT></B>((len &gt; 0) &amp;&amp; (!stop_ftp(back))) {
+              <I><FONT COLOR="#B22222">// attendre les données
+</FONT></I>              len = 1;          <I><FONT COLOR="#B22222">// pas d'erreur pour le moment
+</FONT></I>              <B><FONT COLOR="#A020F0">switch</FONT></B> (wait_socket_receive(soc_dat, timeout)) {
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">-1</FONT></B>:
+                strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;FTP read error&quot;</FONT></B>);
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+                len = 0;        <I><FONT COLOR="#B22222">// fin
+</FONT></I>                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+                snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;Time out (%d)&quot;</FONT></B>, timeout);
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+                len = 0;        <I><FONT COLOR="#B22222">// fin
+</FONT></I>                <B><FONT COLOR="#A020F0">break</FONT></B>;
+              }
+
+              <I><FONT COLOR="#B22222">// réception
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (len) {
+                len = recv(soc_dat, buff, read_len, 0);
+                <B><FONT COLOR="#A020F0">if</FONT></B> (len &gt; 0) {
+                  back-&gt;r.size += len;
+                  HTS_STAT.HTS_TOTAL_RECV += len;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.fp) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> ((INTsys) fwrite(buff, 1, (INTsys) len, back-&gt;r.fp) !=
+                        len) {
+                      <I><FONT COLOR="#B22222">/*
+                         int fcheck;
+                         if ((fcheck=check_fatal_io_errno())) {
+                         opt-&gt;state.exit_xh=-1;
+                         }
+                       */</FONT></I>
+                      strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Write error&quot;</FONT></B>);
+                      <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                      back-&gt;r.statuscode = STATUSCODE_INVALID;
+                      len = 0;  <I><FONT COLOR="#B22222">// error
+</FONT></I>                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                    strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unexpected write error&quot;</FONT></B>);
+                    <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                    back-&gt;r.statuscode = STATUSCODE_INVALID;
+                  }
+                } <B><FONT COLOR="#A020F0">else</FONT></B> {        <I><FONT COLOR="#B22222">// Erreur ou terminé
+</FONT></I>                  <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                  back-&gt;r.statuscode = 0;
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.totalsize &gt; 0
+                      &amp;&amp; back-&gt;r.size != back-&gt;r.totalsize) {
+                    back-&gt;r.statuscode = STATUSCODE_INVALID;
+                    strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;FTP file incomplete&quot;</FONT></B>);
+                  }
+                }
+                read_len = 1024;
+                <I><FONT COLOR="#B22222">//HTS_TOTAL_RECV_CHECK(read_len);         // Diminuer au besoin si trop de données reçues
+</FONT></I>              }
+            }
+            <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.fp) {
+              fclose(back-&gt;r.fp);
+              back-&gt;r.fp = NULL;
+            }
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+            strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Unable to write file&quot;</FONT></B>);
+            <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>            back-&gt;r.statuscode = STATUSCODE_INVALID;
+          }
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc_dat);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc_dat);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+          <I><FONT COLOR="#B22222">// 226 Transfer complete?
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.statuscode != -1) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (wait_socket_receive(soc_ctl, timeout_onfly) &gt; 0) {
+              <I><FONT COLOR="#B22222">// récupérer 226 transfer complete
+</FONT></I>              get_ftp_line(soc_ctl, line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), timeout);
+              <B><FONT COLOR="#A020F0">if</FONT></B> (line[0] == <B><FONT COLOR="#BC8F8F">'2'</FONT></B>) {     <I><FONT COLOR="#B22222">// OK
+</FONT></I>                strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;OK&quot;</FONT></B>);
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = HTTP_OK;
+              } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                snprintf(back-&gt;r.msg, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(back-&gt;r.msg), <B><FONT COLOR="#BC8F8F">&quot;RETR incorrect: %s&quot;</FONT></B>, linejmp(line));
+                <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>                back-&gt;r.statuscode = STATUSCODE_INVALID;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+              strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;FTP read error&quot;</FONT></B>);
+              <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>              back-&gt;r.statuscode = STATUSCODE_INVALID;
+            }
+          }
+
+        }
+
+      }
+
+    }
+
+    _CHECK_HALT_FTP;
+    strcpybuff(back-&gt;info, <B><FONT COLOR="#BC8F8F">&quot;quit&quot;</FONT></B>);
+    send_line(soc_ctl, <B><FONT COLOR="#BC8F8F">&quot;QUIT&quot;</FONT></B>); <I><FONT COLOR="#B22222">// bye bye
+</FONT></I>    get_ftp_line(soc_ctl, NULL, 0, timeout);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+    closesocket(soc_ctl);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    close(soc_ctl);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;r.statuscode != -1) {
+    back-&gt;r.statuscode = HTTP_OK;
+    strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;OK&quot;</FONT></B>);
+  }
+  <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// ouverture d'un port
+</FONT></I>T_SOC <B><FONT COLOR="#0000FF">get_datasocket</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *to_send, size_t to_send_size) {
+  T_SOC soc = INVALID_SOCKET;
+  <B><FONT COLOR="#228B22">char</FONT></B> h_loc[256 + 2];
+
+  to_send[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">if</FONT></B> (gethostname(h_loc, 256) == 0) {   <I><FONT COLOR="#B22222">// host name
+</FONT></I>    SOCaddr server;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hts_dns_resolve_nocache(h_loc, &amp;server) != NULL) {   <I><FONT COLOR="#B22222">// notre host
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((soc =
+           (T_SOC) socket(SOCaddr_sinfamily(server), SOCK_STREAM,
+                          0)) != INVALID_SOCKET) {
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (bind(soc, &amp;SOCaddr_sockaddr(server), SOCaddr_size(server)) == 0) {
+          SOCaddr server2;
+          SOClen len = SOCaddr_capacity(server2);
+
+          <B><FONT COLOR="#A020F0">if</FONT></B> (getsockname(soc, &amp;SOCaddr_sockaddr(server2), &amp;len) == 0) {
+            <I><FONT COLOR="#B22222">// *port=ntohs(server.sin_port);  // récupérer port
+</FONT></I>            <B><FONT COLOR="#A020F0">if</FONT></B> (listen(soc, 1) &gt;= 0) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">HTS_INET6</FONT>==0
+              <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">short</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> a, n1, n2;
+
+              <I><FONT COLOR="#B22222">// calculer port
+</FONT></I>              a = SOCaddr_sinport(server2);
+              n1 = (a &amp; 0xff);
+              n2 = ((a &gt;&gt; 8) &amp; 0xff);
+              {
+                <B><FONT COLOR="#228B22">char</FONT></B> dots[256 + 2];
+                <B><FONT COLOR="#228B22">char</FONT></B> dot[256 + 2];
+                <B><FONT COLOR="#228B22">char</FONT></B> *a;
+
+                SOCaddr_inetntoa(dot, 256, server2);
+                <I><FONT COLOR="#B22222">//
+</FONT></I>                dots[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+                strncatbuff(dots, dot, 128);
+                <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(dots, <B><FONT COLOR="#BC8F8F">'.'</FONT></B>)))
+                  *a = <B><FONT COLOR="#BC8F8F">','</FONT></B>;     <I><FONT COLOR="#B22222">// virgules!
+</FONT></I>                <B><FONT COLOR="#A020F0">while</FONT></B>((a = strchr(dots, <B><FONT COLOR="#BC8F8F">':'</FONT></B>)))
+                  *a = <B><FONT COLOR="#BC8F8F">','</FONT></B>;     <I><FONT COLOR="#B22222">// virgules!
+</FONT></I>                snprintf(to_send, to_send_size, <B><FONT COLOR="#BC8F8F">&quot;PORT %s,%d,%d&quot;</FONT></B>, dots, n1, n2);
+              }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+              <I><FONT COLOR="#B22222">/*
+                 EPRT |1|132.235.1.2|6275|
+                 EPRT |2|1080::8:800:200C:417A|5282|
+               */</FONT></I>
+              {
+                <B><FONT COLOR="#228B22">char</FONT></B> dot[256 + 2];
+
+                SOCaddr_inetntoa(dot, 256, server2);
+                snprintf(to_send, to_send_size, <B><FONT COLOR="#BC8F8F">&quot;EPRT |%c|%s|%d|&quot;</FONT></B>,
+                         SOCaddr_getproto(server2), dot,
+                         SOCaddr_sinport(server2));
+              }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+              closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+              close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+              soc = INVALID_SOCKET;
+            }
+
+          } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+            closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+            close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+            soc = INVALID_SOCKET;
+          }
+
+        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">_WIN32</FONT>
+          closesocket(soc);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+          close(soc);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+          soc = INVALID_SOCKET;
+        }
+      }
+    }
+  }
+
+  <B><FONT COLOR="#A020F0">return</FONT></B> soc;
+}
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+FILE *dd = NULL;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">// routines de réception/émission
+</FONT></I><I><FONT COLOR="#B22222">// 0 = ERROR
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">send_line</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *data) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK line[1024];
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (_DEBUG_HEAD) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ioinfo) {
+      fprintf(ioinfo, <B><FONT COLOR="#BC8F8F">&quot;---&gt; %s\x0d\x0a&quot;</FONT></B>, data);
+      fflush(ioinfo);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dd == NULL)
+    dd = fopen(<B><FONT COLOR="#BC8F8F">&quot;toto.txt&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;w&quot;</FONT></B>);
+  fprintf(dd, <B><FONT COLOR="#BC8F8F">&quot;---&gt; %s\x0d\x0a&quot;</FONT></B>, data);
+  fflush(dd);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;---&gt; %s&quot;</FONT></B>, data);
+  fflush(stdout);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  snprintf(line, <B><FONT COLOR="#A020F0">sizeof</FONT></B>(line), <B><FONT COLOR="#BC8F8F">&quot;%s\x0d\x0a&quot;</FONT></B>, data);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (check_socket_connect(soc) != 1) {
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;!SOC WRITE ERROR\n&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> 0;                   <I><FONT COLOR="#B22222">// erreur, plus connecté!
+</FONT></I>  }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  {
+    <B><FONT COLOR="#228B22">int</FONT></B> r = (send(soc, line, strlen(line), 0) == (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(line));
+
+    printf(<B><FONT COLOR="#BC8F8F">&quot;%s\x0d\x0a&quot;</FONT></B>, data);
+    fflush(stdout);
+    <B><FONT COLOR="#A020F0">return</FONT></B> r;
+  }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> (send(soc, line, (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(line), 0) == (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(line));
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">get_ftp_line</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">char</FONT></B> *ptrline, size_t line_size, <B><FONT COLOR="#228B22">int</FONT></B> timeout) {
+  <B><FONT COLOR="#228B22">char</FONT></B> BIGSTK data[1024];
+  <B><FONT COLOR="#228B22">int</FONT></B> i, ok, multiline;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (dd == NULL)
+    dd = fopen(<B><FONT COLOR="#BC8F8F">&quot;toto.txt&quot;</FONT></B>, <B><FONT COLOR="#BC8F8F">&quot;w&quot;</FONT></B>);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+  data[0] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  i = ok = multiline = 0;
+  data[3] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+  <B><FONT COLOR="#A020F0">do</FONT></B> {
+    <B><FONT COLOR="#228B22">char</FONT></B> b;
+
+    <I><FONT COLOR="#B22222">// vérifier données
+</FONT></I>    <B><FONT COLOR="#A020F0">switch</FONT></B> (wait_socket_receive(soc, timeout)) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">-1</FONT></B>:                   <I><FONT COLOR="#B22222">// erreur de lecture
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (ptrline)
+        snprintf(ptrline, line_size, <B><FONT COLOR="#BC8F8F">&quot;500 *read error&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">0</FONT></B>:
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ptrline)
+        snprintf(ptrline, line_size, <B><FONT COLOR="#BC8F8F">&quot;500 *read timeout (%d)&quot;</FONT></B>, timeout);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+
+    <I><FONT COLOR="#B22222">//HTS_TOTAL_RECV_CHECK(dummy);     // Diminuer au besoin si trop de données reçues
+</FONT></I>    <B><FONT COLOR="#A020F0">switch</FONT></B> (recv(soc, &amp;b, 1, 0)) {
+      <I><FONT COLOR="#B22222">//case 0: break;    // pas encore --&gt; erreur (on attend)!
+</FONT></I>    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">1</FONT></B>:
+      HTS_STAT.HTS_TOTAL_RECV += 1;     <I><FONT COLOR="#B22222">// compter flux entrant
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((b != 10) &amp;&amp; (b != 13))
+        data[i++] = b;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>:
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ptrline)
+        snprintf(ptrline, line_size, <B><FONT COLOR="#BC8F8F">&quot;500 *read error&quot;</FONT></B>);
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;                 <I><FONT COLOR="#B22222">// error
+</FONT></I>      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (((b == 13) || (b == 10)) &amp;&amp; (i &gt; 0)) {  <I><FONT COLOR="#B22222">// CR/LF
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((data[3] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>)
+          || ((multiline) &amp;&amp; (!isdigit((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) data[0])))
+        ) {
+        data[3] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+        i = 0;
+        multiline = 1;
+      } <B><FONT COLOR="#A020F0">else</FONT></B>
+        ok = 1;                 <I><FONT COLOR="#B22222">// sortir
+</FONT></I>    }
+  } <B><FONT COLOR="#A020F0">while</FONT></B>(!ok);
+  data[i++] = <B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (_DEBUG_HEAD) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ioinfo) {
+      fprintf(ioinfo, <B><FONT COLOR="#BC8F8F">&quot;&lt;--- %s\x0d\x0a&quot;</FONT></B>, data);
+      fflush(ioinfo);
+    }
+  }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  fprintf(dd, <B><FONT COLOR="#BC8F8F">&quot;&lt;--- %s\n&quot;</FONT></B>, data);
+  fflush(dd);
+  printf(<B><FONT COLOR="#BC8F8F">&quot;&lt;--- %s\n&quot;</FONT></B>, data);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (ptrline)
+    snprintf(ptrline, line_size, <B><FONT COLOR="#BC8F8F">&quot;%s&quot;</FONT></B>, data);
+  <B><FONT COLOR="#A020F0">return</FONT></B> (strnotempty(data));
+}
+
+<I><FONT COLOR="#B22222">// sauter NNN
+</FONT></I><B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">linejmp</FONT></B>(<B><FONT COLOR="#228B22">char</FONT></B> *line) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(line) &gt; 4)
+    <B><FONT COLOR="#A020F0">return</FONT></B> line + 4;
+  <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">return</FONT></B> line;
+}
+
+<I><FONT COLOR="#B22222">// test socket:
+</FONT></I><I><FONT COLOR="#B22222">// 0 : no data
+</FONT></I><I><FONT COLOR="#B22222">// 1 : data detected
+</FONT></I><I><FONT COLOR="#B22222">// -1: error
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_socket</FONT></B>(T_SOC soc) {
+  fd_set fds, fds_e;            <I><FONT COLOR="#B22222">// poll structures
+</FONT></I>  <B><FONT COLOR="#228B22">struct</FONT></B> timeval tv;            <I><FONT COLOR="#B22222">// structure for select
+</FONT></I>
+  FD_ZERO(&amp;fds);
+  FD_ZERO(&amp;fds_e);
+  <I><FONT COLOR="#B22222">// socket read 
+</FONT></I>  FD_SET(soc, &amp;fds);
+  <I><FONT COLOR="#B22222">// socket error
+</FONT></I>  FD_SET(soc, &amp;fds_e);
+  tv.tv_sec = 0;
+  tv.tv_usec = 0;
+  <I><FONT COLOR="#B22222">// poll!     
+</FONT></I>  select((<B><FONT COLOR="#228B22">int</FONT></B>) soc + 1, &amp;fds, NULL, &amp;fds_e, &amp;tv);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(soc, &amp;fds_e)) {  <I><FONT COLOR="#B22222">// error detected
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(soc, &amp;fds)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// check if connected
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">check_socket_connect</FONT></B>(T_SOC soc) {
+  fd_set fds, fds_e;            <I><FONT COLOR="#B22222">// poll structures
+</FONT></I>  <B><FONT COLOR="#228B22">struct</FONT></B> timeval tv;            <I><FONT COLOR="#B22222">// structure for select
+</FONT></I>
+  FD_ZERO(&amp;fds);
+  FD_ZERO(&amp;fds_e);
+  <I><FONT COLOR="#B22222">// socket write 
+</FONT></I>  FD_SET(soc, &amp;fds);
+  <I><FONT COLOR="#B22222">// socket error
+</FONT></I>  FD_SET(soc, &amp;fds_e);
+  tv.tv_sec = 0;
+  tv.tv_usec = 0;
+  <I><FONT COLOR="#B22222">// poll!     
+</FONT></I>  select((<B><FONT COLOR="#228B22">int</FONT></B>) soc + 1, NULL, &amp;fds, &amp;fds_e, &amp;tv);
+  <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(soc, &amp;fds_e)) {  <I><FONT COLOR="#B22222">// error detected
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+  } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (FD_ISSET(soc, &amp;fds)) {
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+<I><FONT COLOR="#B22222">// attendre des données
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">wait_socket_receive</FONT></B>(T_SOC soc, <B><FONT COLOR="#228B22">int</FONT></B> timeout) {
+  <I><FONT COLOR="#B22222">// attendre les données
+</FONT></I>  TStamp ltime = time_local();
+  <B><FONT COLOR="#228B22">int</FONT></B> r;
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\x0dWaiting for data &quot;</FONT></B>);
+  fflush(stdout);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">while</FONT></B>((!(r = check_socket(soc)))
+        &amp;&amp; (((<B><FONT COLOR="#228B22">int</FONT></B>) ((TStamp) (time_local() - ltime))) &lt; timeout)) {
+    Sleep(100);
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+    printf(<B><FONT COLOR="#BC8F8F">&quot;.&quot;</FONT></B>);
+    fflush(stdout);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  }
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">FTP_DEBUG</FONT>
+  printf(<B><FONT COLOR="#BC8F8F">&quot;\x0dreturn: %d\x0d&quot;</FONT></B>, r);
+  fflush(stdout);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+  <B><FONT COLOR="#A020F0">return</FONT></B> r;
+}
+
+<I><FONT COLOR="#B22222">// cancel reçu?
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">stop_ftp</FONT></B>(lien_back * back) {
+  <B><FONT COLOR="#A020F0">if</FONT></B> (back-&gt;stop_ftp) {
+    strcpybuff(back-&gt;r.msg, <B><FONT COLOR="#BC8F8F">&quot;Cancelled by User&quot;</FONT></B>);
+    <I><FONT COLOR="#B22222">// back-&gt;status=STATUS_FTP_READY;    // fini
+</FONT></I>    back-&gt;r.statuscode = STATUSCODE_INVALID;
+    <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsftp.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

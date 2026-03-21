@@ -1,0 +1,277 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/ioapi.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/ioapi.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/ioapi.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ioapi.h -- IO base function header for compress/uncompress .zip
+   part of the MiniZip project - ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Copyright (C) 1998-2010 Gilles Vollant (minizip) ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Modifications for Zip64 support
+         Copyright (C) 2009-2010 Mathias Svensson ( http://result42.com )
+
+         For more info read MiniZip_info.txt
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_WIN32</FONT>) &amp;&amp; (!(<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">_CRT_SECURE_NO_WARNINGS</FONT>)))
+        #define _CRT_SECURE_NO_WARNINGS
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__APPLE__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">__ANDROID__</FONT>) || <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">IOAPI_NO_64</FONT>)
+<I><FONT COLOR="#B22222">// In darwin and perhaps other BSD variants off_t is a 64 bit value, hence no need for specific 64 bit functions
+</FONT></I>#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FOPEN_FUNC</FONT></B>(filename, mode) fopen(filename, mode)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FTELLO_FUNC</FONT></B>(stream) ftello(stream)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FSEEKO_FUNC</FONT></B>(stream, offset, origin) fseeko(stream, offset, origin)
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FOPEN_FUNC</FONT></B>(filename, mode) fopen64(filename, mode)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FTELLO_FUNC</FONT></B>(stream) ftello64(stream)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">FSEEKO_FUNC</FONT></B>(stream, offset, origin) fseeko64(stream, offset, origin)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;ioapi.h&quot;</FONT></B>
+
+voidpf <B><FONT COLOR="#0000FF">call_zopen64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>*filename,<B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfilefunc-&gt;zfile_func64.zopen64_file != NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (*(pfilefunc-&gt;zfile_func64.zopen64_file)) (pfilefunc-&gt;zfile_func64.opaque,filename,mode);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    {
+        <B><FONT COLOR="#A020F0">return</FONT></B> (*(pfilefunc-&gt;zopen32_file))(pfilefunc-&gt;zfile_func64.opaque,(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)filename,mode);
+    }
+}
+
+<B><FONT COLOR="#228B22">long</FONT></B> <B><FONT COLOR="#0000FF">call_zseek64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,voidpf filestream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin)
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfilefunc-&gt;zfile_func64.zseek64_file != NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (*(pfilefunc-&gt;zfile_func64.zseek64_file)) (pfilefunc-&gt;zfile_func64.opaque,filestream,offset,origin);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    {
+        uLong offsetTruncated = (uLong)offset;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (offsetTruncated != offset)
+            <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            <B><FONT COLOR="#A020F0">return</FONT></B> (*(pfilefunc-&gt;zseek32_file))(pfilefunc-&gt;zfile_func64.opaque,filestream,offsetTruncated,origin);
+    }
+}
+
+ZPOS64_T <B><FONT COLOR="#0000FF">call_ztell64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pfilefunc,voidpf filestream)
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfilefunc-&gt;zfile_func64.zseek64_file != NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (*(pfilefunc-&gt;zfile_func64.ztell64_file)) (pfilefunc-&gt;zfile_func64.opaque,filestream);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    {
+        uLong tell_uLong = (*(pfilefunc-&gt;ztell32_file))(pfilefunc-&gt;zfile_func64.opaque,filestream);
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((tell_uLong) == MAXU32)
+            <B><FONT COLOR="#A020F0">return</FONT></B> (ZPOS64_T)-1;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            <B><FONT COLOR="#A020F0">return</FONT></B> tell_uLong;
+    }
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_zlib_filefunc64_32_def_from_filefunc32</FONT></B>(zlib_filefunc64_32_def* p_filefunc64_32,<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc_def* p_filefunc32)
+{
+    p_filefunc64_32-&gt;zfile_func64.zopen64_file = NULL;
+    p_filefunc64_32-&gt;zopen32_file = p_filefunc32-&gt;zopen_file;
+    p_filefunc64_32-&gt;zfile_func64.zerror_file = p_filefunc32-&gt;zerror_file;
+    p_filefunc64_32-&gt;zfile_func64.zread_file = p_filefunc32-&gt;zread_file;
+    p_filefunc64_32-&gt;zfile_func64.zwrite_file = p_filefunc32-&gt;zwrite_file;
+    p_filefunc64_32-&gt;zfile_func64.zflush_file = p_filefunc32-&gt;zflush_file;
+    p_filefunc64_32-&gt;zfile_func64.ztell64_file = NULL;
+    p_filefunc64_32-&gt;zfile_func64.zseek64_file = NULL;
+    p_filefunc64_32-&gt;zfile_func64.zclose_file = p_filefunc32-&gt;zclose_file;
+    p_filefunc64_32-&gt;zfile_func64.zerror_file = p_filefunc32-&gt;zerror_file;
+    p_filefunc64_32-&gt;zfile_func64.opaque = p_filefunc32-&gt;opaque;
+    p_filefunc64_32-&gt;zseek32_file = p_filefunc32-&gt;zseek_file;
+    p_filefunc64_32-&gt;ztell32_file = p_filefunc32-&gt;ztell_file;
+}
+
+
+
+<B><FONT COLOR="#228B22">static</FONT></B> voidpf  ZCALLBACK fopen_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode));
+<B><FONT COLOR="#228B22">static</FONT></B> uLong   ZCALLBACK fread_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size));
+<B><FONT COLOR="#228B22">static</FONT></B> uLong   ZCALLBACK fwrite_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* buf,uLong size));
+<B><FONT COLOR="#228B22">static</FONT></B> ZPOS64_T ZCALLBACK ftell64_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B>    ZCALLBACK fseek64_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin));
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>     ZCALLBACK fflush_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>     ZCALLBACK fclose_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B>     ZCALLBACK ferror_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+
+<B><FONT COLOR="#228B22">static</FONT></B> voidpf ZCALLBACK <B><FONT COLOR="#0000FF">fopen_file_func</FONT></B> (voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    FILE* file = NULL;
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((mode &amp; ZLIB_FILEFUNC_MODE_READWRITEFILTER)==ZLIB_FILEFUNC_MODE_READ)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_EXISTING)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;r+b&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_CREATE)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (mode_fopen != NULL))
+        file = fopen(filename, mode_fopen);
+    <B><FONT COLOR="#A020F0">return</FONT></B> file;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> voidpf ZCALLBACK <B><FONT COLOR="#0000FF">fopen64_file_func</FONT></B> (voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    FILE* file = NULL;
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((mode &amp; ZLIB_FILEFUNC_MODE_READWRITEFILTER)==ZLIB_FILEFUNC_MODE_READ)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;rb&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_EXISTING)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;r+b&quot;</FONT></B>;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_CREATE)
+        mode_fopen = <B><FONT COLOR="#BC8F8F">&quot;wb&quot;</FONT></B>;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (mode_fopen != NULL))
+        file = FOPEN_FUNC((<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)filename, mode_fopen);
+    <B><FONT COLOR="#A020F0">return</FONT></B> file;
+}
+
+
+<B><FONT COLOR="#228B22">static</FONT></B> uLong ZCALLBACK <B><FONT COLOR="#0000FF">fread_file_func</FONT></B> (voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size)
+{
+    uLong ret;
+    ret = (uLong)fread(buf, 1, (size_t)size, (FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> uLong ZCALLBACK <B><FONT COLOR="#0000FF">fwrite_file_func</FONT></B> (voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size)
+{
+    uLong ret;
+    ret = (uLong)fwrite(buf, 1, (size_t)size, (FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">ftell_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    <B><FONT COLOR="#228B22">long</FONT></B> ret;
+    ret = ftell((FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+
+<B><FONT COLOR="#228B22">static</FONT></B> ZPOS64_T ZCALLBACK <B><FONT COLOR="#0000FF">ftell64_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    ZPOS64_T ret;
+    ret = FTELLO_FUNC((FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">fseek_file_func</FONT></B> (voidpf  opaque, voidpf stream, uLong offset, <B><FONT COLOR="#228B22">int</FONT></B> origin)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> fseek_origin=0;
+    <B><FONT COLOR="#228B22">long</FONT></B> ret;
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (origin)
+    {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_CUR</FONT></B> :
+        fseek_origin = SEEK_CUR;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_END</FONT></B> :
+        fseek_origin = SEEK_END;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_SET</FONT></B> :
+        fseek_origin = SEEK_SET;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>: <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    ret = 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (fseek((FILE *)stream, offset, fseek_origin) != 0)
+        ret = -1;
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">fseek64_file_func</FONT></B> (voidpf  opaque, voidpf stream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> fseek_origin=0;
+    <B><FONT COLOR="#228B22">long</FONT></B> ret;
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (origin)
+    {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_CUR</FONT></B> :
+        fseek_origin = SEEK_CUR;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_END</FONT></B> :
+        fseek_origin = SEEK_END;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_SET</FONT></B> :
+        fseek_origin = SEEK_SET;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>: <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+    ret = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B>(FSEEKO_FUNC((FILE *)stream, offset, fseek_origin) != 0)
+                        ret = -1;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">fflush_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> ret;
+    ret = fflush((FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">fclose_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> ret;
+    ret = fclose((FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">ferror_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> ret;
+    ret = ferror((FILE *)stream);
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_fopen_filefunc</FONT></B> (zlib_filefunc_def* pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen_file = fopen_file_func;
+    pzlib_filefunc_def-&gt;zread_file = fread_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = fwrite_file_func;
+    pzlib_filefunc_def-&gt;ztell_file = ftell_file_func;
+    pzlib_filefunc_def-&gt;zseek_file = fseek_file_func;
+    pzlib_filefunc_def-&gt;zflush_file = fflush_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = fclose_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = ferror_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_fopen64_filefunc</FONT></B> (zlib_filefunc64_def*  pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen64_file = fopen64_file_func;
+    pzlib_filefunc_def-&gt;zread_file = fread_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = fwrite_file_func;
+    pzlib_filefunc_def-&gt;ztell64_file = ftell64_file_func;
+    pzlib_filefunc_def-&gt;zseek64_file = fseek64_file_func;
+    pzlib_filefunc_def-&gt;zflush_file = fflush_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = fclose_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = ferror_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/ioapi.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

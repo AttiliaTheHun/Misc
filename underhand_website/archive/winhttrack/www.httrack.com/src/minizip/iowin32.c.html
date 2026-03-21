@@ -1,0 +1,481 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/iowin32.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/iowin32.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/iowin32.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* iowin32.c -- IO base function header for compress/uncompress .zip
+     Version 1.1, February 14h, 2010
+     part of the MiniZip project - ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Copyright (C) 1998-2010 Gilles Vollant (minizip) ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Modifications for Zip64 support
+         Copyright (C) 2009-2010 Mathias Svensson ( http://result42.com )
+
+     For more info read MiniZip_info.txt
+
+*/</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;zlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;ioapi.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;iowin32.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">INVALID_HANDLE_VALUE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INVALID_HANDLE_VALUE</FONT> (0xFFFFFFFF)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">INVALID_SET_FILE_POINTER</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">INVALID_SET_FILE_POINTER</FONT> ((DWORD)-1)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">WINAPI_FAMILY_PARTITION</FONT>) &amp;&amp; (!(<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>)))
+#<B><FONT COLOR="#5F9EA0">if</FONT></B> <FONT COLOR="#B8860B">WINAPI_FAMILY_PARTITION</FONT>(<FONT COLOR="#B8860B">WINAPI_PARTITION_APP</FONT>)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+voidpf  ZCALLBACK win32_open_file_func  <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* filename, <B><FONT COLOR="#228B22">int</FONT></B> mode));
+uLong   ZCALLBACK win32_read_file_func  <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size));
+uLong   ZCALLBACK win32_write_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* buf, uLong size));
+ZPOS64_T ZCALLBACK win32_tell64_file_func  <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">long</FONT></B>    ZCALLBACK win32_seek64_file_func  <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream, ZPOS64_T offset, <B><FONT COLOR="#228B22">int</FONT></B> origin));
+<B><FONT COLOR="#228B22">int</FONT></B>     ZCALLBACK win32_close_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+<B><FONT COLOR="#228B22">int</FONT></B>     ZCALLBACK win32_error_file_func <B><FONT COLOR="#0000FF">OF</FONT></B>((voidpf opaque, voidpf stream));
+
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B>
+{
+    HANDLE hf;
+    <B><FONT COLOR="#228B22">int</FONT></B> error;
+} WIN32FILE_IOWIN;
+
+
+<B><FONT COLOR="#228B22">static</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">win32_translate_open_mode</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> mode,
+                                      DWORD* lpdwDesiredAccess,
+                                      DWORD* lpdwCreationDisposition,
+                                      DWORD* lpdwShareMode,
+                                      DWORD* lpdwFlagsAndAttributes)
+{
+    *lpdwDesiredAccess = *lpdwShareMode = *lpdwFlagsAndAttributes = *lpdwCreationDisposition = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((mode &amp; ZLIB_FILEFUNC_MODE_READWRITEFILTER)==ZLIB_FILEFUNC_MODE_READ)
+    {
+        *lpdwDesiredAccess = GENERIC_READ;
+        *lpdwCreationDisposition = OPEN_EXISTING;
+        *lpdwShareMode = FILE_SHARE_READ;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_EXISTING)
+    {
+        *lpdwDesiredAccess = GENERIC_WRITE | GENERIC_READ;
+        *lpdwCreationDisposition = OPEN_EXISTING;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (mode &amp; ZLIB_FILEFUNC_MODE_CREATE)
+    {
+        *lpdwDesiredAccess = GENERIC_WRITE | GENERIC_READ;
+        *lpdwCreationDisposition = CREATE_ALWAYS;
+    }
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> voidpf <B><FONT COLOR="#0000FF">win32_build_iowin</FONT></B>(HANDLE hFile)
+{
+    voidpf ret=NULL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((hFile != NULL) &amp;&amp; (hFile != INVALID_HANDLE_VALUE))
+    {
+        WIN32FILE_IOWIN w32fiow;
+        w32fiow.hf = hFile;
+        w32fiow.error = 0;
+        ret = malloc(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(WIN32FILE_IOWIN));
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ret==NULL)
+            CloseHandle(hFile);
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            *((WIN32FILE_IOWIN*)ret) = w32fiow;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+voidpf ZCALLBACK <B><FONT COLOR="#0000FF">win32_open64_file_func</FONT></B> (voidpf opaque,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* filename,<B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    DWORD dwDesiredAccess,dwCreationDisposition,dwShareMode,dwFlagsAndAttributes ;
+    HANDLE hFile = NULL;
+
+    win32_translate_open_mode(mode,&amp;dwDesiredAccess,&amp;dwCreationDisposition,&amp;dwShareMode,&amp;dwFlagsAndAttributes);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">UNICODE</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFile2((LPCTSTR)filename, dwDesiredAccess, dwShareMode, dwCreationDisposition, NULL);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+    {
+        WCHAR filenameW[FILENAME_MAX + 0x200 + 1];
+        MultiByteToWideChar(CP_ACP,0,(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)filename,-1,filenameW,FILENAME_MAX + 0x200);
+        hFile = CreateFile2(filenameW, dwDesiredAccess, dwShareMode, dwCreationDisposition, NULL);
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFile((LPCTSTR)filename, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> win32_build_iowin(hFile);
+}
+
+
+voidpf ZCALLBACK <B><FONT COLOR="#0000FF">win32_open64_file_funcA</FONT></B> (voidpf opaque,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* filename,<B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    DWORD dwDesiredAccess,dwCreationDisposition,dwShareMode,dwFlagsAndAttributes ;
+    HANDLE hFile = NULL;
+
+    win32_translate_open_mode(mode,&amp;dwDesiredAccess,&amp;dwCreationDisposition,&amp;dwShareMode,&amp;dwFlagsAndAttributes);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+    {
+        WCHAR filenameW[FILENAME_MAX + 0x200 + 1];
+        MultiByteToWideChar(CP_ACP,0,(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)filename,-1,filenameW,FILENAME_MAX + 0x200);
+        hFile = CreateFile2(filenameW, dwDesiredAccess, dwShareMode, dwCreationDisposition, NULL);
+    }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFileA((LPCSTR)filename, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> win32_build_iowin(hFile);
+}
+
+
+voidpf ZCALLBACK <B><FONT COLOR="#0000FF">win32_open64_file_funcW</FONT></B> (voidpf opaque,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* filename,<B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    DWORD dwDesiredAccess,dwCreationDisposition,dwShareMode,dwFlagsAndAttributes ;
+    HANDLE hFile = NULL;
+
+    win32_translate_open_mode(mode,&amp;dwDesiredAccess,&amp;dwCreationDisposition,&amp;dwShareMode,&amp;dwFlagsAndAttributes);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFile2((LPCWSTR)filename, dwDesiredAccess, dwShareMode, dwCreationDisposition,NULL);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFileW((LPCWSTR)filename, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> win32_build_iowin(hFile);
+}
+
+
+voidpf ZCALLBACK <B><FONT COLOR="#0000FF">win32_open_file_func</FONT></B> (voidpf opaque,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* filename,<B><FONT COLOR="#228B22">int</FONT></B> mode)
+{
+    <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* mode_fopen = NULL;
+    DWORD dwDesiredAccess,dwCreationDisposition,dwShareMode,dwFlagsAndAttributes ;
+    HANDLE hFile = NULL;
+
+    win32_translate_open_mode(mode,&amp;dwDesiredAccess,&amp;dwCreationDisposition,&amp;dwShareMode,&amp;dwFlagsAndAttributes);
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">UNICODE</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFile2((LPCTSTR)filename, dwDesiredAccess, dwShareMode, dwCreationDisposition, NULL);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+    {
+        WCHAR filenameW[FILENAME_MAX + 0x200 + 1];
+        MultiByteToWideChar(CP_ACP,0,(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)filename,-1,filenameW,FILENAME_MAX + 0x200);
+        hFile = CreateFile2(filenameW, dwDesiredAccess, dwShareMode, dwCreationDisposition, NULL);
+    }
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((filename!=NULL) &amp;&amp; (dwDesiredAccess != 0))
+        hFile = CreateFile((LPCTSTR)filename, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, dwFlagsAndAttributes, NULL);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> win32_build_iowin(hFile);
+}
+
+
+uLong ZCALLBACK <B><FONT COLOR="#0000FF">win32_read_file_func</FONT></B> (voidpf opaque, voidpf stream, <B><FONT COLOR="#228B22">void</FONT></B>* buf,uLong size)
+{
+    uLong ret=0;
+    HANDLE hFile = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream) -&gt; hf;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile != NULL)
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!ReadFile(hFile, buf, size, &amp;ret, NULL))
+        {
+            DWORD dwErr = GetLastError();
+            <B><FONT COLOR="#A020F0">if</FONT></B> (dwErr == ERROR_HANDLE_EOF)
+                dwErr = 0;
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+        }
+    }
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+
+uLong ZCALLBACK <B><FONT COLOR="#0000FF">win32_write_file_func</FONT></B> (voidpf opaque,voidpf stream,<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B>* buf,uLong size)
+{
+    uLong ret=0;
+    HANDLE hFile = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream) -&gt; hf;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile != NULL)
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!WriteFile(hFile, buf, size, &amp;ret, NULL))
+        {
+            DWORD dwErr = GetLastError();
+            <B><FONT COLOR="#A020F0">if</FONT></B> (dwErr == ERROR_HANDLE_EOF)
+                dwErr = 0;
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+        }
+    }
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">static</FONT></B> BOOL <B><FONT COLOR="#0000FF">MySetFilePointerEx</FONT></B>(HANDLE hFile, LARGE_INTEGER pos, LARGE_INTEGER *newPos,  DWORD dwMoveMethod)
+{
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">IOWIN32_USING_WINRT_API</FONT>
+    <B><FONT COLOR="#A020F0">return</FONT></B> SetFilePointerEx(hFile, pos, newPos, dwMoveMethod);
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+    LONG lHigh = pos.HighPart;
+    DWORD dwNewPos = SetFilePointer(hFile, pos.LowPart, &amp;lHigh, FILE_CURRENT);
+    BOOL fOk = TRUE;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (dwNewPos == 0xFFFFFFFF)
+        <B><FONT COLOR="#A020F0">if</FONT></B> (GetLastError() != NO_ERROR)
+            fOk = FALSE;
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((newPos != NULL) &amp;&amp; (fOk))
+    {
+        newPos-&gt;LowPart = dwNewPos;
+        newPos-&gt;HighPart = lHigh;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> fOk;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+}
+
+<B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">win32_tell_file_func</FONT></B> (voidpf opaque,voidpf stream)
+{
+    <B><FONT COLOR="#228B22">long</FONT></B> ret=-1;
+    HANDLE hFile = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream) -&gt; hf;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile != NULL)
+    {
+        LARGE_INTEGER pos;
+        pos.QuadPart = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!MySetFilePointerEx(hFile, pos, &amp;pos, FILE_CURRENT))
+        {
+            DWORD dwErr = GetLastError();
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+            ret = -1;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            ret=(<B><FONT COLOR="#228B22">long</FONT></B>)pos.LowPart;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+ZPOS64_T ZCALLBACK <B><FONT COLOR="#0000FF">win32_tell64_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    ZPOS64_T ret= (ZPOS64_T)-1;
+    HANDLE hFile = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream)-&gt;hf;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile)
+    {
+        LARGE_INTEGER pos;
+        pos.QuadPart = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!MySetFilePointerEx(hFile, pos, &amp;pos, FILE_CURRENT))
+        {
+            DWORD dwErr = GetLastError();
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+            ret = (ZPOS64_T)-1;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            ret=pos.QuadPart;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+
+<B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">win32_seek_file_func</FONT></B> (voidpf opaque,voidpf stream,uLong offset,<B><FONT COLOR="#228B22">int</FONT></B> origin)
+{
+    DWORD dwMoveMethod=0xFFFFFFFF;
+    HANDLE hFile = NULL;
+
+    <B><FONT COLOR="#228B22">long</FONT></B> ret=-1;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream) -&gt; hf;
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (origin)
+    {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_CUR</FONT></B> :
+        dwMoveMethod = FILE_CURRENT;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_END</FONT></B> :
+        dwMoveMethod = FILE_END;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_SET</FONT></B> :
+        dwMoveMethod = FILE_BEGIN;
+        <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#5F9EA0">default</FONT></B>: <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile != NULL)
+    {
+        LARGE_INTEGER pos;
+        pos.QuadPart = offset;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!MySetFilePointerEx(hFile, pos, NULL, dwMoveMethod))
+        {
+            DWORD dwErr = GetLastError();
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+            ret = -1;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            ret=0;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">long</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">win32_seek64_file_func</FONT></B> (voidpf opaque, voidpf stream,ZPOS64_T offset,<B><FONT COLOR="#228B22">int</FONT></B> origin)
+{
+    DWORD dwMoveMethod=0xFFFFFFFF;
+    HANDLE hFile = NULL;
+    <B><FONT COLOR="#228B22">long</FONT></B> ret=-1;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+        hFile = ((WIN32FILE_IOWIN*)stream)-&gt;hf;
+
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (origin)
+    {
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_CUR</FONT></B> :
+            dwMoveMethod = FILE_CURRENT;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_END</FONT></B> :
+            dwMoveMethod = FILE_END;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">ZLIB_FILEFUNC_SEEK_SET</FONT></B> :
+            dwMoveMethod = FILE_BEGIN;
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+        <B><FONT COLOR="#5F9EA0">default</FONT></B>: <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (hFile)
+    {
+        LARGE_INTEGER pos;
+        pos.QuadPart = offset;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (!MySetFilePointerEx(hFile, pos, NULL, FILE_CURRENT))
+        {
+            DWORD dwErr = GetLastError();
+            ((WIN32FILE_IOWIN*)stream) -&gt; error=(<B><FONT COLOR="#228B22">int</FONT></B>)dwErr;
+            ret = -1;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            ret=0;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">win32_close_file_func</FONT></B> (voidpf opaque, voidpf stream)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> ret=-1;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+    {
+        HANDLE hFile;
+        hFile = ((WIN32FILE_IOWIN*)stream) -&gt; hf;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (hFile != NULL)
+        {
+            CloseHandle(hFile);
+            ret=0;
+        }
+        free(stream);
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">int</FONT></B> ZCALLBACK <B><FONT COLOR="#0000FF">win32_error_file_func</FONT></B> (voidpf opaque,voidpf stream)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> ret=-1;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (stream!=NULL)
+    {
+        ret = ((WIN32FILE_IOWIN*)stream) -&gt; error;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> ret;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_win32_filefunc</FONT></B> (zlib_filefunc_def* pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen_file = win32_open_file_func;
+    pzlib_filefunc_def-&gt;zread_file = win32_read_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = win32_write_file_func;
+    pzlib_filefunc_def-&gt;ztell_file = win32_tell_file_func;
+    pzlib_filefunc_def-&gt;zseek_file = win32_seek_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = win32_close_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = win32_error_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_win32_filefunc64</FONT></B>(zlib_filefunc64_def* pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen64_file = win32_open64_file_func;
+    pzlib_filefunc_def-&gt;zread_file = win32_read_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = win32_write_file_func;
+    pzlib_filefunc_def-&gt;ztell64_file = win32_tell64_file_func;
+    pzlib_filefunc_def-&gt;zseek64_file = win32_seek64_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = win32_close_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = win32_error_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_win32_filefunc64A</FONT></B>(zlib_filefunc64_def* pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen64_file = win32_open64_file_funcA;
+    pzlib_filefunc_def-&gt;zread_file = win32_read_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = win32_write_file_func;
+    pzlib_filefunc_def-&gt;ztell64_file = win32_tell64_file_func;
+    pzlib_filefunc_def-&gt;zseek64_file = win32_seek64_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = win32_close_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = win32_error_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+
+
+<B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">fill_win32_filefunc64W</FONT></B>(zlib_filefunc64_def* pzlib_filefunc_def)
+{
+    pzlib_filefunc_def-&gt;zopen64_file = win32_open64_file_funcW;
+    pzlib_filefunc_def-&gt;zread_file = win32_read_file_func;
+    pzlib_filefunc_def-&gt;zwrite_file = win32_write_file_func;
+    pzlib_filefunc_def-&gt;ztell64_file = win32_tell64_file_func;
+    pzlib_filefunc_def-&gt;zseek64_file = win32_seek64_file_func;
+    pzlib_filefunc_def-&gt;zclose_file = win32_close_file_func;
+    pzlib_filefunc_def-&gt;zerror_file = win32_error_file_func;
+    pzlib_filefunc_def-&gt;opaque = NULL;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/iowin32.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>

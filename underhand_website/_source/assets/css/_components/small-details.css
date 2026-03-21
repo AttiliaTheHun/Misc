@@ -1,0 +1,28 @@
+small-details {
+	display: contents;
+
+	@media (--sm) {
+		& summary {
+			padding-block: var(--space-sm);
+			border-block-end: var(--border-width-sm) solid var(--color-border);
+		}
+	}
+
+	@media (--md) {
+		& details:focus {
+			outline: none;
+		}
+
+		& summary {
+			pointer-events: none;
+
+			&::before {
+				content: none;
+			}
+
+			&:focus {
+				outline: none;
+			}
+		}
+	}
+}

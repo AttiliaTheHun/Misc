@@ -1,0 +1,368 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/htsfilters.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+<HEAD>
+<TITLE>./htsfilters.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./htsfilters.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/*
+HTTrack Website Copier, Offline Browser for Windows and Unix
+Copyright (C) 1998-2015 Xavier Roche and other contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see &lt;http://www.gnu.org/licenses/&gt;.
+
+Important notes:
+
+- We hereby ask people using this source NOT to use it in purpose of grabbing
+emails addresses, or collecting any other private information on persons.
+This would disgrace our work, and spoil the many hours we spent on it.
+
+Please visit our Website: http://www.httrack.com
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+<I><FONT COLOR="#B22222">/* File: httrack.c subroutines:                                 */</FONT></I>
+<I><FONT COLOR="#B22222">/*       filters (&quot;regexp&quot;)                                     */</FONT></I>
+<I><FONT COLOR="#B22222">/* Author: Xavier Roche                                         */</FONT></I>
+<I><FONT COLOR="#B22222">/* ------------------------------------------------------------ */</FONT></I>
+
+<I><FONT COLOR="#B22222">/* Internal engine bytecode */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">HTS_INTERNAL_BYTECODE</FONT>
+
+<I><FONT COLOR="#B22222">// *.gif                  match all gif files 
+</FONT></I><I><FONT COLOR="#B22222">// *[file]/*[file].exe    match all exe files with one folder structure
+</FONT></I><I><FONT COLOR="#B22222">// *[A-Z,a-z,0-9,/,?]     match letters, nums, / and ?
+</FONT></I><I><FONT COLOR="#B22222">// *[A-Z,a-z,0-9,/,?]
+</FONT></I>
+<I><FONT COLOR="#B22222">// *[&gt;10,&lt;100].gif        match all gif files larger than 10KB and smaller than 100KB
+</FONT></I><I><FONT COLOR="#B22222">// *[file,&gt;10,&lt;100].gif   FORBIDDEN: you must not mix size test and pattern test
+</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsfilters.h&quot;</FONT></B>
+
+<I><FONT COLOR="#B22222">/* specific definitions */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htsbase.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;htslib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;ctype.h&gt;</FONT></B>
+<I><FONT COLOR="#B22222">/* END specific definitions */</FONT></I>
+
+<I><FONT COLOR="#B22222">// à partir d'un tableau de {&quot;+*.toto&quot;,&quot;-*.zip&quot;,&quot;+*.tata&quot;} définit si nom est autorisé
+</FONT></I><I><FONT COLOR="#B22222">// optionnel: taille à contrôller (ou numéro, etc) en pointeur
+</FONT></I><I><FONT COLOR="#B22222">//            (en de détection de *size, la taille limite est écrite par dessus *size)
+</FONT></I><I><FONT COLOR="#B22222">// exemple: +-*.gif*[&lt;5] == supprimer GIF si &lt;5KB
+</FONT></I><B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">fa_strjoker</FONT></B>(<B><FONT COLOR="#228B22">int</FONT></B> type, <B><FONT COLOR="#228B22">char</FONT></B> **filters, <B><FONT COLOR="#228B22">int</FONT></B> nfil, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *nom, LLint * size,
+                <B><FONT COLOR="#228B22">int</FONT></B> *size_flag, <B><FONT COLOR="#228B22">int</FONT></B> *depth) {
+  <B><FONT COLOR="#228B22">int</FONT></B> verdict = 0;              <I><FONT COLOR="#B22222">// on sait pas
+</FONT></I>  <B><FONT COLOR="#228B22">int</FONT></B> i;
+  LLint sizelimit = 0;
+
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size)
+    sizelimit = *size;
+  <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; nfil; i++) {
+    LLint sz;
+    <B><FONT COLOR="#228B22">int</FONT></B> filteroffs = 1;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strncmp(filters[i] + filteroffs, <B><FONT COLOR="#BC8F8F">&quot;mime:&quot;</FONT></B>, 5) == 0) {
+      <B><FONT COLOR="#A020F0">if</FONT></B> (type == 0)            <I><FONT COLOR="#B22222">// regular filters
+</FONT></I>        <B><FONT COLOR="#A020F0">continue</FONT></B>;
+      filteroffs += 5;          <I><FONT COLOR="#B22222">// +mime:text/html
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> {                    <I><FONT COLOR="#B22222">// mime filters
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (type != 0)
+        <B><FONT COLOR="#A020F0">continue</FONT></B>;
+    }
+    <B><FONT COLOR="#A020F0">if</FONT></B> (size)
+      sz = *size;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strjoker(nom, filters[i] + filteroffs, &amp;sz, size_flag)) {       <I><FONT COLOR="#B22222">// reconnu
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (size)
+        <B><FONT COLOR="#A020F0">if</FONT></B> (sz != *size)
+          sizelimit = sz;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (filters[i][0] == <B><FONT COLOR="#BC8F8F">'+'</FONT></B>)
+        verdict = 1;            <I><FONT COLOR="#B22222">// autorisé
+</FONT></I>      <B><FONT COLOR="#A020F0">else</FONT></B>
+        verdict = -1;           <I><FONT COLOR="#B22222">// interdit
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (depth)
+        *depth = i;
+    }
+  }
+  <B><FONT COLOR="#A020F0">if</FONT></B> (size)
+    *size = sizelimit;
+  <B><FONT COLOR="#A020F0">return</FONT></B> verdict;
+}
+
+<I><FONT COLOR="#B22222">// supercomparateur joker (tm)
+</FONT></I><I><FONT COLOR="#B22222">// compare a et b (b=avec joker dedans), case insensitive [voir CI]
+</FONT></I><I><FONT COLOR="#B22222">// renvoi l'adresse de la première lettre de la chaine
+</FONT></I><I><FONT COLOR="#B22222">// (càd *[..]toto.. renvoi adresse de toto dans la chaine)
+</FONT></I><I><FONT COLOR="#B22222">// accepte les délires du genre www.*.*/ * / * truc*.*
+</FONT></I><I><FONT COLOR="#B22222">// cet algo est 'un peu' récursif mais ne consomme pas trop de tm
+</FONT></I><I><FONT COLOR="#B22222">// * = toute lettre
+</FONT></I><I><FONT COLOR="#B22222">// --?-- : spécifique à HTTrack et aux ?
+</FONT></I>HTS_INLINE <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strjoker</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *chaine, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *joker, LLint * size,
+                          <B><FONT COLOR="#228B22">int</FONT></B> *size_flag) {
+  <I><FONT COLOR="#B22222">//int err=0;
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(joker) == 0) {        <I><FONT COLOR="#B22222">// fin de chaine joker
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(chaine) == 0)       <I><FONT COLOR="#B22222">// fin aussi pour la chaine: ok
+</FONT></I>      <B><FONT COLOR="#A020F0">return</FONT></B> chaine;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (chaine[0] == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>)
+      <B><FONT COLOR="#A020F0">return</FONT></B> chaine;            <I><FONT COLOR="#B22222">// --?-- pour les index.html?Choix=2
+</FONT></I>    <B><FONT COLOR="#A020F0">else</FONT></B>
+      <B><FONT COLOR="#A020F0">return</FONT></B> NULL;              <I><FONT COLOR="#B22222">// non trouvé
+</FONT></I>  }
+  <I><FONT COLOR="#B22222">// on va progresser en suivant les 'mots' contenus dans le joker
+</FONT></I>  <I><FONT COLOR="#B22222">// un mot peut être un * ou bien toute autre séquence de lettres
+</FONT></I>
+  <B><FONT COLOR="#A020F0">if</FONT></B> (strcmp(joker, <B><FONT COLOR="#BC8F8F">&quot;*&quot;</FONT></B>) == 0) {        <I><FONT COLOR="#B22222">// ok, rien après
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B> chaine;
+  }
+  <I><FONT COLOR="#B22222">// 1er cas: jokers * ou jokers multiples *[..]
+</FONT></I>  <B><FONT COLOR="#A020F0">if</FONT></B> (joker[0] == <B><FONT COLOR="#BC8F8F">'*'</FONT></B>) {        <I><FONT COLOR="#B22222">// comparer joker+reste (*toto/..)
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> jmp;                    <I><FONT COLOR="#B22222">// nombre de caractères pour le prochain mot dans joker
+</FONT></I>    <B><FONT COLOR="#228B22">int</FONT></B> cut = 0;                <I><FONT COLOR="#B22222">// interdire tout caractère superflu
+</FONT></I>    <B><FONT COLOR="#228B22">char</FONT></B> pass[256];
+    <B><FONT COLOR="#228B22">char</FONT></B> LEFT = <B><FONT COLOR="#BC8F8F">'['</FONT></B>, RIGHT = <B><FONT COLOR="#BC8F8F">']'</FONT></B>;
+    <B><FONT COLOR="#228B22">int</FONT></B> unique = 0;
+
+    <B><FONT COLOR="#A020F0">switch</FONT></B> (joker[1]) {
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'['</FONT></B>:
+      LEFT = <B><FONT COLOR="#BC8F8F">'['</FONT></B>;
+      RIGHT = <B><FONT COLOR="#BC8F8F">']'</FONT></B>;
+      unique = 0;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#BC8F8F">'('</FONT></B>:
+      LEFT = <B><FONT COLOR="#BC8F8F">'('</FONT></B>;
+      RIGHT = <B><FONT COLOR="#BC8F8F">')'</FONT></B>;
+      unique = 1;
+      <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((joker[1] == LEFT) &amp;&amp; (joker[2] != LEFT)) {     <I><FONT COLOR="#B22222">// multijoker (tm)
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 256; i++)
+        pass[i] = 0;
+
+      <I><FONT COLOR="#B22222">// noms réservés
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> ((strfield(joker + 2, <B><FONT COLOR="#BC8F8F">&quot;file&quot;</FONT></B>)) || (strfield(joker + 2, <B><FONT COLOR="#BC8F8F">&quot;name&quot;</FONT></B>))) {
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 256; i++)
+          pass[i] = 1;
+        pass[(<B><FONT COLOR="#228B22">int</FONT></B>) <B><FONT COLOR="#BC8F8F">'?'</FONT></B>] = 0;
+        <I><FONT COLOR="#B22222">//pass[(int) ';'] = 0;
+</FONT></I>        pass[(<B><FONT COLOR="#228B22">int</FONT></B>) <B><FONT COLOR="#BC8F8F">'/'</FONT></B>] = 0;
+        i = 2;
+        {
+          <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(joker);
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((joker[i] != RIGHT) &amp;&amp; (joker[i]) &amp;&amp; (i &lt; len))
+            i++;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(joker + 2, <B><FONT COLOR="#BC8F8F">&quot;path&quot;</FONT></B>)) {
+        <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 256; i++)
+          pass[i] = 1;
+        pass[(<B><FONT COLOR="#228B22">int</FONT></B>) <B><FONT COLOR="#BC8F8F">'?'</FONT></B>] = 0;
+        <I><FONT COLOR="#B22222">//pass[(int) ';'] = 0;
+</FONT></I>        i = 2;
+        {
+          <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(joker);
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((joker[i] != RIGHT) &amp;&amp; (joker[i]) &amp;&amp; (i &lt; len))
+            i++;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (strfield(joker + 2, <B><FONT COLOR="#BC8F8F">&quot;param&quot;</FONT></B>)) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (chaine[0] == <B><FONT COLOR="#BC8F8F">'?'</FONT></B>) { <I><FONT COLOR="#B22222">// il y a un paramètre juste là
+</FONT></I>          <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 256; i++)
+            pass[i] = 1;
+        }                       <I><FONT COLOR="#B22222">// sinon synonyme de 'rien'
+</FONT></I>        i = 2;
+        {
+          <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(joker);
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((joker[i] != RIGHT) &amp;&amp; (joker[i]) &amp;&amp; (i &lt; len))
+            i++;
+        }
+      } <B><FONT COLOR="#A020F0">else</FONT></B> {
+        <I><FONT COLOR="#B22222">// décode les directives comme *[A-Z,âêîôû,0-9]
+</FONT></I>        i = 2;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (joker[i] == RIGHT) {        <I><FONT COLOR="#B22222">// *[] signifie &quot;plus rien après&quot;
+</FONT></I>          cut = 1;              <I><FONT COLOR="#B22222">// caractère supplémentaire interdit
+</FONT></I>        } <B><FONT COLOR="#A020F0">else</FONT></B> {
+          <B><FONT COLOR="#228B22">int</FONT></B> len = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(joker);
+
+          <B><FONT COLOR="#A020F0">while</FONT></B>((joker[i] != RIGHT) &amp;&amp; (joker[i]) &amp;&amp; (i &lt; len)) {
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((joker[i] == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>) || (joker[i] == <B><FONT COLOR="#BC8F8F">'&gt;'</FONT></B>)) {       <I><FONT COLOR="#B22222">// *[&lt;10]
+</FONT></I>              <B><FONT COLOR="#228B22">int</FONT></B> lsize = 0;
+              <B><FONT COLOR="#228B22">int</FONT></B> lverdict;
+
+              i++;
+              <B><FONT COLOR="#A020F0">if</FONT></B> (sscanf(joker + i, <B><FONT COLOR="#BC8F8F">&quot;%d&quot;</FONT></B>, &amp;lsize) == 1) {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (size) {
+                  <B><FONT COLOR="#A020F0">if</FONT></B> (*size &gt;= 0) {
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (size_flag)
+                      *size_flag = 1;   <I><FONT COLOR="#B22222">/* a joué */</FONT></I>
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (joker[i - 1] == <B><FONT COLOR="#BC8F8F">'&lt;'</FONT></B>)
+                      lverdict = (*size &lt; lsize);
+                    <B><FONT COLOR="#A020F0">else</FONT></B>
+                      lverdict = (*size &gt; lsize);
+                    <B><FONT COLOR="#A020F0">if</FONT></B> (!lverdict) {
+                      <B><FONT COLOR="#A020F0">return</FONT></B> NULL;      <I><FONT COLOR="#B22222">// ne correspond pas
+</FONT></I>                    } <B><FONT COLOR="#A020F0">else</FONT></B> {
+                      *size = lsize;
+                      <B><FONT COLOR="#A020F0">return</FONT></B> chaine;    <I><FONT COLOR="#B22222">// ok
+</FONT></I>                    }
+                  } <B><FONT COLOR="#A020F0">else</FONT></B>
+                    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;        <I><FONT COLOR="#B22222">// ne correspond pas
+</FONT></I>                } <B><FONT COLOR="#A020F0">else</FONT></B>
+                  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;  <I><FONT COLOR="#B22222">// ne correspond pas (test impossible)
+</FONT></I>                <I><FONT COLOR="#B22222">// jump
+</FONT></I>                <B><FONT COLOR="#A020F0">while</FONT></B>(isdigit((<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i]))
+                  i++;
+              }
+            } <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (joker[i + 1] == <B><FONT COLOR="#BC8F8F">'-'</FONT></B>) {   <I><FONT COLOR="#B22222">// 2 car, ex: *[A-Z]
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> ((<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i + 2] &gt;
+                  (<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i]) {
+                <B><FONT COLOR="#228B22">int</FONT></B> j;
+
+                <B><FONT COLOR="#A020F0">for</FONT></B>(j = (<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i];
+                    j &lt;= (<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i + 2]; j++)
+                  pass[j] = 1;
+
+              }
+              <I><FONT COLOR="#B22222">// else err=1;
+</FONT></I>              i += 3;
+            } <B><FONT COLOR="#A020F0">else</FONT></B> {            <I><FONT COLOR="#B22222">// 1 car, ex: *[ ]
+</FONT></I>              <B><FONT COLOR="#A020F0">if</FONT></B> (joker[i + 2] == <B><FONT COLOR="#BC8F8F">'\\'</FONT></B> &amp;&amp; joker[i + 3] != 0) {  <I><FONT COLOR="#B22222">// escaped char, such as *[\[] or *[\]]
+</FONT></I>                i++;
+              }
+              pass[(<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) joker[i]] = 1;
+              i++;
+            }
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((joker[i] == <B><FONT COLOR="#BC8F8F">','</FONT></B>) || (joker[i] == <B><FONT COLOR="#BC8F8F">';'</FONT></B>))
+              i++;
+          }
+        }
+      }
+      <I><FONT COLOR="#B22222">// à sauter dans joker
+</FONT></I>      jmp = i;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (joker[i])
+        jmp++;
+
+      <I><FONT COLOR="#B22222">//
+</FONT></I>    } <B><FONT COLOR="#A020F0">else</FONT></B> {                    <I><FONT COLOR="#B22222">// tout autoriser
+</FONT></I>      <I><FONT COLOR="#B22222">//
+</FONT></I>      <B><FONT COLOR="#228B22">int</FONT></B> i;
+
+      <B><FONT COLOR="#A020F0">for</FONT></B>(i = 0; i &lt; 256; i++)
+        pass[i] = 1;            <I><FONT COLOR="#B22222">// tout autoriser
+</FONT></I>      jmp = 1;
+      <I><FONT COLOR="#B22222">////if (joker[2]==LEFT) jmp=3;        // permet de recher *&lt;crochet ouvrant&gt;
+</FONT></I>    }
+
+    {
+      <B><FONT COLOR="#228B22">int</FONT></B> i, max;
+      <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr;
+
+      <I><FONT COLOR="#B22222">// la chaine doit se terminer exactement
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (cut) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(chaine))
+          <B><FONT COLOR="#A020F0">return</FONT></B> NULL;          <I><FONT COLOR="#B22222">// perdu
+</FONT></I>        <B><FONT COLOR="#A020F0">else</FONT></B>
+          <B><FONT COLOR="#A020F0">return</FONT></B> chaine;        <I><FONT COLOR="#B22222">// ok
+</FONT></I>      }
+      <I><FONT COLOR="#B22222">// comparaison en boucle, c'est ca qui consomme huhu..
+</FONT></I>      <I><FONT COLOR="#B22222">// le tableau pass[256] indique les caractères ASCII autorisés
+</FONT></I>
+      <I><FONT COLOR="#B22222">// tester sans le joker (pas ()+ mais ()*)
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (!unique) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((adr = strjoker(chaine, joker + jmp, size, size_flag))) {
+          <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+        }
+      }
+      <I><FONT COLOR="#B22222">// tester
+</FONT></I>      i = 0;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (!unique)
+        max = (<B><FONT COLOR="#228B22">int</FONT></B>) strlen(chaine);
+      <B><FONT COLOR="#A020F0">else</FONT></B>                      <I><FONT COLOR="#B22222">/* *(a) only match a (not aaaaa) */</FONT></I>
+        max = 1;
+      <B><FONT COLOR="#A020F0">while</FONT></B>(i &lt; (<B><FONT COLOR="#228B22">int</FONT></B>) max) {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (pass[(<B><FONT COLOR="#228B22">int</FONT></B>) (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>) chaine[i]]) {    <I><FONT COLOR="#B22222">// caractère autorisé
+</FONT></I>          <B><FONT COLOR="#A020F0">if</FONT></B> ((adr = strjoker(chaine + i + 1, joker + jmp, size, size_flag))) {
+            <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+          }
+          i++;
+        } <B><FONT COLOR="#A020F0">else</FONT></B>
+          i = max + 2;          <I><FONT COLOR="#B22222">// sortir
+</FONT></I>      }
+
+      <I><FONT COLOR="#B22222">// tester chaîne vide
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (i != max + 2)         <I><FONT COLOR="#B22222">// avant c'est ok
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> ((adr = strjoker(chaine + max, joker + jmp, size, size_flag)))
+          <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+
+      <B><FONT COLOR="#A020F0">return</FONT></B> NULL;              <I><FONT COLOR="#B22222">// perdu
+</FONT></I>    }
+
+  } <B><FONT COLOR="#A020F0">else</FONT></B> {                      <I><FONT COLOR="#B22222">// comparer mot+reste (toto*..)
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (strnotempty(chaine)) {
+      <B><FONT COLOR="#228B22">int</FONT></B> jmp = 0, ok = 1;
+
+      <I><FONT COLOR="#B22222">// comparer début de joker et début de chaine
+</FONT></I>      <B><FONT COLOR="#A020F0">while</FONT></B>((joker[jmp] != <B><FONT COLOR="#BC8F8F">'*'</FONT></B>) &amp;&amp; (joker[jmp]) &amp;&amp; (ok)) {
+        <I><FONT COLOR="#B22222">// CI : remplacer streql par une comparaison !=
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (!streql(chaine[jmp], joker[jmp])) {
+          ok = 0;               <I><FONT COLOR="#B22222">// quitter
+</FONT></I>        }
+        jmp++;
+      }
+
+      <I><FONT COLOR="#B22222">// comparaison ok?
+</FONT></I>      <B><FONT COLOR="#A020F0">if</FONT></B> (ok) {
+        <I><FONT COLOR="#B22222">// continuer la comparaison.
+</FONT></I>        <B><FONT COLOR="#A020F0">if</FONT></B> (strjoker(chaine + jmp, joker + jmp, size, size_flag))
+          <B><FONT COLOR="#A020F0">return</FONT></B> chaine;        <I><FONT COLOR="#B22222">// retourner 1e lettre
+</FONT></I>      }
+
+    }                           <I><FONT COLOR="#B22222">// strlen(a)
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+  }                             <I><FONT COLOR="#B22222">// * ou mot
+</FONT></I>
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+
+<I><FONT COLOR="#B22222">// recherche multiple
+</FONT></I><I><FONT COLOR="#B22222">// exemple: find dans un texte de strcpybuff(*[A-Z,a-z],&quot;*[0-9]&quot;); va rechercher la première occurence
+</FONT></I><I><FONT COLOR="#B22222">// d'un strcpy sur une variable ayant un nom en lettres et copiant une chaine de chiffres
+</FONT></I><I><FONT COLOR="#B22222">// ATTENTION!! Eviter les jokers en début, où gare au temps machine!
+</FONT></I><B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *<B><FONT COLOR="#0000FF">strjokerfind</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *chaine, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *joker) {
+  <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *adr;
+
+  <B><FONT COLOR="#A020F0">while</FONT></B>(*chaine) {
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((adr = strjoker(chaine, joker, NULL, NULL))) {  <I><FONT COLOR="#B22222">// ok trouvé
+</FONT></I>      <B><FONT COLOR="#A020F0">return</FONT></B> adr;
+    }
+    chaine++;
+  }
+  <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/htsfilters.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:16 GMT -->
+</HTML>

@@ -1,0 +1,2145 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<HTML>
+
+<!-- Mirrored from www.httrack.com/src/minizip/unzip.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+<HEAD>
+<TITLE>./minizip/unzip.c - HTTrack Website Copier</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<A NAME="top">
+<A NAME="file1">
+<H1>./minizip/unzip.c</H1>
+
+<PRE>
+<I><FONT COLOR="#B22222">/* unzip.c -- IO for uncompress .zip files using zlib
+   Version 1.1, February 14h, 2010
+   part of the MiniZip project - ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Copyright (C) 1998-2010 Gilles Vollant (minizip) ( http://www.winimage.com/zLibDll/minizip.html )
+
+         Modifications of Unzip for Zip64
+         Copyright (C) 2007-2008 Even Rouault
+
+         Modifications for Zip64 support on both zip and unzip
+         Copyright (C) 2009-2010 Mathias Svensson ( http://result42.com )
+
+         For more info read MiniZip_info.txt
+
+
+  ------------------------------------------------------------------------------------
+  Decryption code comes from crypt.c by Info-ZIP but has been greatly reduced in terms of
+  compatibility with older software. The following is from the original crypt.c.
+  Code woven in by Terry Thorsen 1/2003.
+
+  Copyright (c) 1990-2000 Info-ZIP.  All rights reserved.
+
+  See the accompanying file LICENSE, version 2000-Apr-09 or later
+  (the contents of which are also included in zip.h) for terms of use.
+  If, for some reason, all these files are missing, the Info-ZIP license
+  also may be found at:  ftp://ftp.info-zip.org/pub/infozip/license.html
+
+        crypt.c (full version) by Info-ZIP.      Last revised:  [see crypt.h]
+
+  The encryption/decryption parts of this source code (as opposed to the
+  non-echoing password parts) were originally written in Europe.  The
+  whole source package can be freely distributed, including from the USA.
+  (Prior to January 2000, re-export from the US was a violation of US law.)
+
+        This encryption code is a direct transcription of the algorithm from
+  Roger Schlafly, described by Phil Katz in the file appnote.txt.  This
+  file (appnote.txt) is distributed with the PKZIP program (even in the
+  version without encryption capabilities).
+
+        ------------------------------------------------------------------------------------
+
+        Changes in unzip.c
+
+        2007-2008 - Even Rouault - Addition of cpl_unzGetCurrentFileZStreamPos
+  2007-2008 - Even Rouault - Decoration of symbol names unz* -&gt; cpl_unz*
+  2007-2008 - Even Rouault - Remove old C style function prototypes
+  2007-2008 - Even Rouault - Add unzip support for ZIP64
+
+        Copyright (C) 2007-2008 Even Rouault
+
+
+        Oct-2009 - Mathias Svensson - Removed cpl_* from symbol names (Even Rouault added them but since this is now moved to a new project (minizip64) I renamed them again).
+  Oct-2009 - Mathias Svensson - Fixed problem if uncompressed size was &gt; 4G and compressed size was &lt;4G
+                                should only read the compressed/uncompressed size from the Zip64 format if
+                                the size from normal header was 0xFFFFFFFF
+  Oct-2009 - Mathias Svensson - Applied some bug fixes from paches recived from Gilles Vollant
+        Oct-2009 - Mathias Svensson - Applied support to unzip files with compression mathod BZIP2 (bzip2 lib is required)
+                                Patch created by Daniel Borca
+
+  Jan-2010 - back to unzip and minizip 1.0 name scheme, with compatibility layer
+
+  Copyright (C) 1998 - 2010 Gilles Vollant, Even Rouault, Mathias Svensson
+
+*/</FONT></I>
+
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdio.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+        #define NOUNCRYPT
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;zlib.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;unzip.h&quot;</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">STDC</FONT>
+#  <B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stddef.h&gt;</FONT></B>
+#  <B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;string.h&gt;</FONT></B>
+#  <B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;stdlib.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">NO_ERRNO_H</FONT>
+    <B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> errno;
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#   <B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&lt;errno.h&gt;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">local</FONT>
+#  <B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">local</FONT> static
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+<I><FONT COLOR="#B22222">/* compile with -Dlocal if your debugger can't find static symbols */</FONT></I>
+
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">CASESENSITIVITYDEFAULT_NO</FONT>
+#  <B><FONT COLOR="#5F9EA0">if</FONT></B> !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">unix</FONT>) &amp;&amp; !<B><FONT COLOR="#5F9EA0">defined</FONT></B>(<FONT COLOR="#B8860B">CASESENSITIVITYDEFAULT_YES</FONT>)
+#    <B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CASESENSITIVITYDEFAULT_NO</FONT>
+#  <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">UNZ_BUFSIZE</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_BUFSIZE</FONT> (16384)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">UNZ_MAXFILENAMEINZIP</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">UNZ_MAXFILENAMEINZIP</FONT> (256)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">ALLOC</FONT>
+# <B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">ALLOC</FONT></B>(size) (malloc(size))
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">TRYFREE</FONT>
+# <B><FONT COLOR="#5F9EA0">define</FONT></B> <B><FONT COLOR="#0000FF">TRYFREE</FONT></B>(p) {if (p) free(p);}
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">SIZECENTRALDIRITEM</FONT> (0x2e)
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">SIZEZIPLOCALHEADER</FONT> (0x1e)
+
+
+<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> unz_copyright[] =
+   <B><FONT COLOR="#BC8F8F">&quot; unzip 1.01 Copyright 1998-2004 Gilles Vollant - http://www.winimage.com/zLibDll&quot;</FONT></B>;
+
+<I><FONT COLOR="#B22222">/* unz_file_info_interntal contain internal info about a file in zipfile*/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B> unz_file_info64_internal_s
+{
+    ZPOS64_T offset_curfile;<I><FONT COLOR="#B22222">/* relative offset of local header 8 bytes */</FONT></I>
+} unz_file_info64_internal;
+
+
+<I><FONT COLOR="#B22222">/* file_in_zip_read_info_s contain internal information about a file in zipfile,
+    when reading and decompress it */</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B>
+{
+    <B><FONT COLOR="#228B22">char</FONT></B>  *read_buffer;         <I><FONT COLOR="#B22222">/* internal buffer for compressed data */</FONT></I>
+    z_stream stream;            <I><FONT COLOR="#B22222">/* zLib stream structure for inflate */</FONT></I>
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_BZIP2</FONT>
+    bz_stream bstream;          <I><FONT COLOR="#B22222">/* bzLib stream structure for bziped */</FONT></I>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    ZPOS64_T pos_in_zipfile;       <I><FONT COLOR="#B22222">/* position in byte on the zipfile, for fseek*/</FONT></I>
+    uLong stream_initialised;   <I><FONT COLOR="#B22222">/* flag set if stream structure is initialised*/</FONT></I>
+
+    ZPOS64_T offset_local_extrafield;<I><FONT COLOR="#B22222">/* offset of the local extra field */</FONT></I>
+    uInt  size_local_extrafield;<I><FONT COLOR="#B22222">/* size of the local extra field */</FONT></I>
+    ZPOS64_T pos_local_extrafield;   <I><FONT COLOR="#B22222">/* position in the local extra field in read*/</FONT></I>
+    ZPOS64_T total_out_64;
+
+    uLong crc32;                <I><FONT COLOR="#B22222">/* crc32 of all data uncompressed */</FONT></I>
+    uLong crc32_wait;           <I><FONT COLOR="#B22222">/* crc32 we must obtain after decompress all */</FONT></I>
+    ZPOS64_T rest_read_compressed; <I><FONT COLOR="#B22222">/* number of byte to be decompressed */</FONT></I>
+    ZPOS64_T rest_read_uncompressed;<I><FONT COLOR="#B22222">/*number of byte to be obtained after decomp*/</FONT></I>
+    zlib_filefunc64_32_def z_filefunc;
+    voidpf filestream;        <I><FONT COLOR="#B22222">/* io structore of the zipfile */</FONT></I>
+    uLong compression_method;   <I><FONT COLOR="#B22222">/* compression method (0==store) */</FONT></I>
+    ZPOS64_T byte_before_the_zipfile;<I><FONT COLOR="#B22222">/* byte before the zipfile, (&gt;0 for sfx)*/</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B>   raw;
+} file_in_zip64_read_info_s;
+
+
+<I><FONT COLOR="#B22222">/* unz64_s contain internal information about the zipfile
+*/</FONT></I>
+<B><FONT COLOR="#228B22">typedef</FONT></B> <B><FONT COLOR="#228B22">struct</FONT></B>
+{
+    zlib_filefunc64_32_def z_filefunc;
+    <B><FONT COLOR="#228B22">int</FONT></B> is64bitOpenFunction;
+    voidpf filestream;        <I><FONT COLOR="#B22222">/* io structore of the zipfile */</FONT></I>
+    unz_global_info64 gi;       <I><FONT COLOR="#B22222">/* public global information */</FONT></I>
+    ZPOS64_T byte_before_the_zipfile;<I><FONT COLOR="#B22222">/* byte before the zipfile, (&gt;0 for sfx)*/</FONT></I>
+    ZPOS64_T num_file;             <I><FONT COLOR="#B22222">/* number of the current file in the zipfile*/</FONT></I>
+    ZPOS64_T pos_in_central_dir;   <I><FONT COLOR="#B22222">/* pos of the current file in the central dir*/</FONT></I>
+    ZPOS64_T current_file_ok;      <I><FONT COLOR="#B22222">/* flag about the usability of the current file*/</FONT></I>
+    ZPOS64_T central_pos;          <I><FONT COLOR="#B22222">/* position of the beginning of the central dir*/</FONT></I>
+
+    ZPOS64_T size_central_dir;     <I><FONT COLOR="#B22222">/* size of the central directory  */</FONT></I>
+    ZPOS64_T offset_central_dir;   <I><FONT COLOR="#B22222">/* offset of start of central directory with
+                                   respect to the starting disk number */</FONT></I>
+
+    unz_file_info64 cur_file_info; <I><FONT COLOR="#B22222">/* public info about the current file in zip*/</FONT></I>
+    unz_file_info64_internal cur_file_info_internal; <I><FONT COLOR="#B22222">/* private info about it*/</FONT></I>
+    file_in_zip64_read_info_s* pfile_in_zip_read; <I><FONT COLOR="#B22222">/* structure about the current
+                                        file if we are decompressing it */</FONT></I>
+    <B><FONT COLOR="#228B22">int</FONT></B> encrypted;
+
+    <B><FONT COLOR="#228B22">int</FONT></B> isZip64;
+
+#    <B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">long</FONT></B> keys[3];     <I><FONT COLOR="#B22222">/* keys defining the pseudo-random sequence */</FONT></I>
+    <B><FONT COLOR="#228B22">const</FONT></B> z_crc_t* pcrc_32_tab;
+#    <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+} unz64_s;
+
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+#<B><FONT COLOR="#5F9EA0">include</FONT></B> <B><FONT COLOR="#BC8F8F">&quot;crypt.h&quot;</FONT></B>
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/* ===========================================================================
+     Read a byte from a gz_stream; update next_in and avail_in. Return EOF
+   for end of file.
+   IN assertion: the stream s has been sucessfully opened for reading.
+*/</FONT></I>
+
+
+local <B><FONT COLOR="#228B22">int</FONT></B> unz64local_getByte <B><FONT COLOR="#0000FF">OF</FONT></B>((
+    <B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+    voidpf filestream,
+    <B><FONT COLOR="#228B22">int</FONT></B> *pi));
+
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_getByte</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def, voidpf filestream, <B><FONT COLOR="#228B22">int</FONT></B> *pi)
+{
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> c;
+    <B><FONT COLOR="#228B22">int</FONT></B> err = (<B><FONT COLOR="#228B22">int</FONT></B>)ZREAD64(*pzlib_filefunc_def,filestream,&amp;c,1);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==1)
+    {
+        *pi = (<B><FONT COLOR="#228B22">int</FONT></B>)c;
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZERROR64(*pzlib_filefunc_def,filestream))
+            <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_EOF;
+    }
+}
+
+
+<I><FONT COLOR="#B22222">/* ===========================================================================
+   Reads a long in LSB order from the given gz_stream. Sets
+*/</FONT></I>
+local <B><FONT COLOR="#228B22">int</FONT></B> unz64local_getShort <B><FONT COLOR="#0000FF">OF</FONT></B>((
+    <B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+    voidpf filestream,
+    uLong *pX));
+
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_getShort</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+                             voidpf filestream,
+                             uLong *pX)
+{
+    uLong x ;
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x = (uLong)i;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((uLong)i)&lt;&lt;8;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        *pX = x;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        *pX = 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+local <B><FONT COLOR="#228B22">int</FONT></B> unz64local_getLong <B><FONT COLOR="#0000FF">OF</FONT></B>((
+    <B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+    voidpf filestream,
+    uLong *pX));
+
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_getLong</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+                            voidpf filestream,
+                            uLong *pX)
+{
+    uLong x ;
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x = (uLong)i;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((uLong)i)&lt;&lt;8;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((uLong)i)&lt;&lt;16;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x += ((uLong)i)&lt;&lt;24;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        *pX = x;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        *pX = 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+local <B><FONT COLOR="#228B22">int</FONT></B> unz64local_getLong64 <B><FONT COLOR="#0000FF">OF</FONT></B>((
+    <B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+    voidpf filestream,
+    ZPOS64_T *pX));
+
+
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_getLong64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+                            voidpf filestream,
+                            ZPOS64_T *pX)
+{
+    ZPOS64_T x ;
+    <B><FONT COLOR="#228B22">int</FONT></B> i = 0;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x = (ZPOS64_T)i;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;8;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;16;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;24;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;32;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;40;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;48;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        err = unz64local_getByte(pzlib_filefunc_def,filestream,&amp;i);
+    x |= ((ZPOS64_T)i)&lt;&lt;56;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+        *pX = x;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        *pX = 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<I><FONT COLOR="#B22222">/* My own strcmpi / strcasecmp */</FONT></I>
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">strcmpcasenosensitive_internal</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileName1, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* fileName2)
+{
+    <B><FONT COLOR="#A020F0">for</FONT></B> (;;)
+    {
+        <B><FONT COLOR="#228B22">char</FONT></B> c1=*(fileName1++);
+        <B><FONT COLOR="#228B22">char</FONT></B> c2=*(fileName2++);
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((c1&gt;=<B><FONT COLOR="#BC8F8F">'a'</FONT></B>) &amp;&amp; (c1&lt;=<B><FONT COLOR="#BC8F8F">'z'</FONT></B>))
+            c1 -= 0x20;
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((c2&gt;=<B><FONT COLOR="#BC8F8F">'a'</FONT></B>) &amp;&amp; (c2&lt;=<B><FONT COLOR="#BC8F8F">'z'</FONT></B>))
+            c2 -= 0x20;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (c1==<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>)
+            <B><FONT COLOR="#A020F0">return</FONT></B> ((c2==<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>) ? 0 : -1);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (c2==<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>)
+            <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (c1&lt;c2)
+            <B><FONT COLOR="#A020F0">return</FONT></B> -1;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (c1&gt;c2)
+            <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    }
+}
+
+
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B>  <FONT COLOR="#B8860B">CASESENSITIVITYDEFAULT_NO</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CASESENSITIVITYDEFAULTVALUE</FONT> 2
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">CASESENSITIVITYDEFAULTVALUE</FONT> 1
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">STRCMPCASENOSENTIVEFUNCTION</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">STRCMPCASENOSENTIVEFUNCTION</FONT> strcmpcasenosensitive_internal
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/*
+   Compare two filename (fileName1,fileName2).
+   If iCaseSenisivity = 1, comparision is case sensitivity (like strcmp)
+   If iCaseSenisivity = 2, comparision is not case sensitivity (like strcmpi
+                                                                or strcasecmp)
+   If iCaseSenisivity = 0, case sensitivity is defaut of your operating system
+        (like 1 on Unix, 2 on Windows)
+
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzStringFileNameCompare</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*  fileName1,
+                                                 <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*  fileName2,
+                                                 <B><FONT COLOR="#228B22">int</FONT></B> iCaseSensitivity)
+
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (iCaseSensitivity==0)
+        iCaseSensitivity=CASESENSITIVITYDEFAULTVALUE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (iCaseSensitivity==1)
+        <B><FONT COLOR="#A020F0">return</FONT></B> strcmp(fileName1,fileName2);
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> STRCMPCASENOSENTIVEFUNCTION(fileName1,fileName2);
+}
+
+#<B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">BUFREADCOMMENT</FONT>
+#<B><FONT COLOR="#5F9EA0">define</FONT></B> <FONT COLOR="#B8860B">BUFREADCOMMENT</FONT> (0x400)
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+<I><FONT COLOR="#B22222">/*
+  Locate the Central directory of a zipfile (at the end, just before
+    the global comment)
+*/</FONT></I>
+local ZPOS64_T unz64local_SearchCentralDir <B><FONT COLOR="#0000FF">OF</FONT></B>((<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def, voidpf filestream));
+local ZPOS64_T <B><FONT COLOR="#0000FF">unz64local_SearchCentralDir</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def, voidpf filestream)
+{
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* buf;
+    ZPOS64_T uSizeFile;
+    ZPOS64_T uBackRead;
+    ZPOS64_T uMaxBack=0xffff; <I><FONT COLOR="#B22222">/* maximum size of global comment */</FONT></I>
+    ZPOS64_T uPosFound=0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream,0,ZLIB_FILEFUNC_SEEK_END) != 0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+
+    uSizeFile = ZTELL64(*pzlib_filefunc_def,filestream);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uMaxBack&gt;uSizeFile)
+        uMaxBack = uSizeFile;
+
+    buf = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)ALLOC(BUFREADCOMMENT+4);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buf==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    uBackRead = 4;
+    <B><FONT COLOR="#A020F0">while</FONT></B> (uBackRead&lt;uMaxBack)
+    {
+        uLong uReadSize;
+        ZPOS64_T uReadPos ;
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uBackRead+BUFREADCOMMENT&gt;uMaxBack)
+            uBackRead = uMaxBack;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            uBackRead+=BUFREADCOMMENT;
+        uReadPos = uSizeFile-uBackRead ;
+
+        uReadSize = ((BUFREADCOMMENT+4) &lt; (uSizeFile-uReadPos)) ?
+                     (BUFREADCOMMENT+4) : (uLong)(uSizeFile-uReadPos);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream,uReadPos,ZLIB_FILEFUNC_SEEK_SET)!=0)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(*pzlib_filefunc_def,filestream,buf,uReadSize)!=uReadSize)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B> (i=(<B><FONT COLOR="#228B22">int</FONT></B>)uReadSize-3; (i--)&gt;0;)
+            <B><FONT COLOR="#A020F0">if</FONT></B> (((*(buf+i))==0x50) &amp;&amp; ((*(buf+i+1))==0x4b) &amp;&amp;
+                ((*(buf+i+2))==0x05) &amp;&amp; ((*(buf+i+3))==0x06))
+            {
+                uPosFound = uReadPos+i;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uPosFound!=0)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+    TRYFREE(buf);
+    <B><FONT COLOR="#A020F0">return</FONT></B> uPosFound;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  Locate the Central directory 64 of a zipfile (at the end, just before
+    the global comment)
+*/</FONT></I>
+local ZPOS64_T unz64local_SearchCentralDir64 <B><FONT COLOR="#0000FF">OF</FONT></B>((
+    <B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+    voidpf filestream));
+
+local ZPOS64_T <B><FONT COLOR="#0000FF">unz64local_SearchCentralDir64</FONT></B>(<B><FONT COLOR="#228B22">const</FONT></B> zlib_filefunc64_32_def* pzlib_filefunc_def,
+                                      voidpf filestream)
+{
+    <B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* buf;
+    ZPOS64_T uSizeFile;
+    ZPOS64_T uBackRead;
+    ZPOS64_T uMaxBack=0xffff; <I><FONT COLOR="#B22222">/* maximum size of global comment */</FONT></I>
+    ZPOS64_T uPosFound=0;
+    uLong uL;
+                ZPOS64_T relativeOffset;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream,0,ZLIB_FILEFUNC_SEEK_END) != 0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+
+    uSizeFile = ZTELL64(*pzlib_filefunc_def,filestream);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uMaxBack&gt;uSizeFile)
+        uMaxBack = uSizeFile;
+
+    buf = (<B><FONT COLOR="#228B22">unsigned</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*)ALLOC(BUFREADCOMMENT+4);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buf==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    uBackRead = 4;
+    <B><FONT COLOR="#A020F0">while</FONT></B> (uBackRead&lt;uMaxBack)
+    {
+        uLong uReadSize;
+        ZPOS64_T uReadPos;
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uBackRead+BUFREADCOMMENT&gt;uMaxBack)
+            uBackRead = uMaxBack;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            uBackRead+=BUFREADCOMMENT;
+        uReadPos = uSizeFile-uBackRead ;
+
+        uReadSize = ((BUFREADCOMMENT+4) &lt; (uSizeFile-uReadPos)) ?
+                     (BUFREADCOMMENT+4) : (uLong)(uSizeFile-uReadPos);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream,uReadPos,ZLIB_FILEFUNC_SEEK_SET)!=0)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(*pzlib_filefunc_def,filestream,buf,uReadSize)!=uReadSize)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B> (i=(<B><FONT COLOR="#228B22">int</FONT></B>)uReadSize-3; (i--)&gt;0;)
+            <B><FONT COLOR="#A020F0">if</FONT></B> (((*(buf+i))==0x50) &amp;&amp; ((*(buf+i+1))==0x4b) &amp;&amp;
+                ((*(buf+i+2))==0x06) &amp;&amp; ((*(buf+i+3))==0x07))
+            {
+                uPosFound = uReadPos+i;
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+            }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (uPosFound!=0)
+            <B><FONT COLOR="#A020F0">break</FONT></B>;
+    }
+    TRYFREE(buf);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uPosFound == 0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* Zip64 end of central directory locator */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream, uPosFound,ZLIB_FILEFUNC_SEEK_SET)!=0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* the signature, already checked */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(pzlib_filefunc_def,filestream,&amp;uL)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* number of the disk with the start of the zip64 end of  central directory */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(pzlib_filefunc_def,filestream,&amp;uL)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uL != 0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* relative offset of the zip64 end of central directory record */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(pzlib_filefunc_def,filestream,&amp;relativeOffset)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* total number of disks */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(pzlib_filefunc_def,filestream,&amp;uL)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uL != 1)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <I><FONT COLOR="#B22222">/* Goto end of central directory record */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(*pzlib_filefunc_def,filestream, relativeOffset,ZLIB_FILEFUNC_SEEK_SET)!=0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+     <I><FONT COLOR="#B22222">/* the signature */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(pzlib_filefunc_def,filestream,&amp;uL)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uL != 0x06064b50)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> relativeOffset;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Open a Zip file. path contain the full pathname (by example,
+     on a Windows NT computer &quot;c:\\test\\zlib114.zip&quot; or on an Unix computer
+     &quot;zlib/zlib114.zip&quot;.
+     If the zipfile cannot be opened (file doesn't exist or in not valid), the
+       return value is NULL.
+     Else, the return value is a unzFile Handle, usable with other function
+       of this unzip package.
+*/</FONT></I>
+local unzFile <B><FONT COLOR="#0000FF">unzOpenInternal</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *path,
+                               zlib_filefunc64_32_def* pzlib_filefunc64_32_def,
+                               <B><FONT COLOR="#228B22">int</FONT></B> is64bitOpenFunction)
+{
+    unz64_s us;
+    unz64_s *s;
+    ZPOS64_T central_pos;
+    uLong   uL;
+
+    uLong number_disk;          <I><FONT COLOR="#B22222">/* number of the current dist, used for
+                                   spaning ZIP, unsupported, always 0*/</FONT></I>
+    uLong number_disk_with_CD;  <I><FONT COLOR="#B22222">/* number the the disk with central dir, used
+                                   for spaning ZIP, unsupported, always 0*/</FONT></I>
+    ZPOS64_T number_entry_CD;      <I><FONT COLOR="#B22222">/* total number of entries in
+                                   the central dir
+                                   (same than number_entry on nospan) */</FONT></I>
+
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz_copyright[0]!=<B><FONT COLOR="#BC8F8F">' '</FONT></B>)
+        <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+
+    us.z_filefunc.zseek32_file = NULL;
+    us.z_filefunc.ztell32_file = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pzlib_filefunc64_32_def==NULL)
+        fill_fopen64_filefunc(&amp;us.z_filefunc.zfile_func64);
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        us.z_filefunc = *pzlib_filefunc64_32_def;
+    us.is64bitOpenFunction = is64bitOpenFunction;
+
+
+
+    us.filestream = ZOPEN64(us.z_filefunc,
+                                                 path,
+                                                 ZLIB_FILEFUNC_MODE_READ |
+                                                 ZLIB_FILEFUNC_MODE_EXISTING);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (us.filestream==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+
+    central_pos = unz64local_SearchCentralDir64(&amp;us.z_filefunc,us.filestream);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (central_pos)
+    {
+        uLong uS;
+        ZPOS64_T uL64;
+
+        us.isZip64 = 1;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(us.z_filefunc, us.filestream,
+                                      central_pos,ZLIB_FILEFUNC_SEEK_SET)!=0)
+        err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* the signature, already checked */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* size of zip64 end of central directory record */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;us.z_filefunc, us.filestream,&amp;uL64)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* version made by */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;uS)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* version needed to extract */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;uS)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* number of this disk */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;number_disk)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* number of the disk with the start of the central directory */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;number_disk_with_CD)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* total number of entries in the central directory on this disk */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;us.z_filefunc, us.filestream,&amp;us.gi.number_entry)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* total number of entries in the central directory */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;us.z_filefunc, us.filestream,&amp;number_entry_CD)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((number_entry_CD!=us.gi.number_entry) ||
+            (number_disk_with_CD!=0) ||
+            (number_disk!=0))
+            err=UNZ_BADZIPFILE;
+
+        <I><FONT COLOR="#B22222">/* size of the central directory */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;us.z_filefunc, us.filestream,&amp;us.size_central_dir)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* offset of start of central directory with respect to the
+          starting disk number */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;us.z_filefunc, us.filestream,&amp;us.offset_central_dir)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        us.gi.size_comment = 0;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+    {
+        central_pos = unz64local_SearchCentralDir(&amp;us.z_filefunc,us.filestream);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (central_pos==0)
+            err=UNZ_ERRNO;
+
+        us.isZip64 = 0;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(us.z_filefunc, us.filestream,
+                                        central_pos,ZLIB_FILEFUNC_SEEK_SET)!=0)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* the signature, already checked */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* number of this disk */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;number_disk)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* number of the disk with the start of the central directory */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;number_disk_with_CD)!=UNZ_OK)
+            err=UNZ_ERRNO;
+
+        <I><FONT COLOR="#B22222">/* total number of entries in the central dir on this disk */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+        us.gi.number_entry = uL;
+
+        <I><FONT COLOR="#B22222">/* total number of entries in the central dir */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+        number_entry_CD = uL;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((number_entry_CD!=us.gi.number_entry) ||
+            (number_disk_with_CD!=0) ||
+            (number_disk!=0))
+            err=UNZ_BADZIPFILE;
+
+        <I><FONT COLOR="#B22222">/* size of the central directory */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+        us.size_central_dir = uL;
+
+        <I><FONT COLOR="#B22222">/* offset of start of central directory with respect to the
+            starting disk number */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;us.z_filefunc, us.filestream,&amp;uL)!=UNZ_OK)
+            err=UNZ_ERRNO;
+        us.offset_central_dir = uL;
+
+        <I><FONT COLOR="#B22222">/* zipfile comment length */</FONT></I>
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;us.z_filefunc, us.filestream,&amp;us.gi.size_comment)!=UNZ_OK)
+            err=UNZ_ERRNO;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((central_pos&lt;us.offset_central_dir+us.size_central_dir) &amp;&amp;
+        (err==UNZ_OK))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err!=UNZ_OK)
+    {
+        ZCLOSE64(us.z_filefunc, us.filestream);
+        <B><FONT COLOR="#A020F0">return</FONT></B> NULL;
+    }
+
+    us.byte_before_the_zipfile = central_pos -
+                            (us.offset_central_dir+us.size_central_dir);
+    us.central_pos = central_pos;
+    us.pfile_in_zip_read = NULL;
+    us.encrypted = 0;
+
+
+    s=(unz64_s*)ALLOC(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(unz64_s));
+    <B><FONT COLOR="#A020F0">if</FONT></B>( s != NULL)
+    {
+        *s=us;
+        unzGoToFirstFile((unzFile)s);
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> (unzFile)s;
+}
+
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT <B><FONT COLOR="#0000FF">unzOpen2</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path,
+                                        zlib_filefunc_def* pzlib_filefunc32_def)
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pzlib_filefunc32_def != NULL)
+    {
+        zlib_filefunc64_32_def zlib_filefunc64_32_def_fill;
+        fill_zlib_filefunc64_32_def_from_filefunc32(&amp;zlib_filefunc64_32_def_fill,pzlib_filefunc32_def);
+        <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, &amp;zlib_filefunc64_32_def_fill, 0);
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, NULL, 0);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT <B><FONT COLOR="#0000FF">unzOpen2_64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *path,
+                                     zlib_filefunc64_def* pzlib_filefunc_def)
+{
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pzlib_filefunc_def != NULL)
+    {
+        zlib_filefunc64_32_def zlib_filefunc64_32_def_fill;
+        zlib_filefunc64_32_def_fill.zfile_func64 = *pzlib_filefunc_def;
+        zlib_filefunc64_32_def_fill.ztell32_file = NULL;
+        zlib_filefunc64_32_def_fill.zseek32_file = NULL;
+        <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, &amp;zlib_filefunc64_32_def_fill, 1);
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, NULL, 1);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT <B><FONT COLOR="#0000FF">unzOpen</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *path)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, NULL, 0);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> unzFile ZEXPORT <B><FONT COLOR="#0000FF">unzOpen64</FONT></B> (<B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">void</FONT></B> *path)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenInternal(path, NULL, 1);
+}
+
+<I><FONT COLOR="#B22222">/*
+  Close a ZipFile opened with unzOpen.
+  If there is files inside the .Zip opened with unzOpenCurrentFile (see later),
+    these files MUST be closed with unzCloseCurrentFile before call unzClose.
+  return UNZ_OK if there is no problem. */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzClose</FONT></B> (unzFile file)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;pfile_in_zip_read!=NULL)
+        unzCloseCurrentFile(file);
+
+    ZCLOSE64(s-&gt;z_filefunc, s-&gt;filestream);
+    TRYFREE(s);
+    <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  Write info about the ZipFile in the *pglobal_info structure.
+  No preparation of the structure is needed
+  return UNZ_OK if there is no problem. */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetGlobalInfo64</FONT></B> (unzFile file, unz_global_info64* pglobal_info)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    *pglobal_info=s-&gt;gi;
+    <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetGlobalInfo</FONT></B> (unzFile file, unz_global_info* pglobal_info32)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    <I><FONT COLOR="#B22222">/* to do : check if number_entry is not truncated */</FONT></I>
+    pglobal_info32-&gt;number_entry = (uLong)s-&gt;gi.number_entry;
+    pglobal_info32-&gt;size_comment = s-&gt;gi.size_comment;
+    <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+}
+<I><FONT COLOR="#B22222">/*
+   Translate date/time from Dos format to tm_unz (readable more easilty)
+*/</FONT></I>
+local <B><FONT COLOR="#228B22">void</FONT></B> <B><FONT COLOR="#0000FF">unz64local_DosDateToTmuDate</FONT></B> (ZPOS64_T ulDosDate, tm_unz* ptm)
+{
+    ZPOS64_T uDate;
+    uDate = (ZPOS64_T)(ulDosDate&gt;&gt;16);
+    ptm-&gt;tm_mday = (uInt)(uDate&amp;0x1f) ;
+    ptm-&gt;tm_mon =  (uInt)((((uDate)&amp;0x1E0)/0x20)-1) ;
+    ptm-&gt;tm_year = (uInt)(((uDate&amp;0x0FE00)/0x0200)+1980) ;
+
+    ptm-&gt;tm_hour = (uInt) ((ulDosDate &amp;0xF800)/0x800);
+    ptm-&gt;tm_min =  (uInt) ((ulDosDate&amp;0x7E0)/0x20) ;
+    ptm-&gt;tm_sec =  (uInt) (2*(ulDosDate&amp;0x1f)) ;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Get Info about the current file in the zipfile, with internal only info
+*/</FONT></I>
+local <B><FONT COLOR="#228B22">int</FONT></B> unz64local_GetCurrentFileInfoInternal <B><FONT COLOR="#0000FF">OF</FONT></B>((unzFile file,
+                                                  unz_file_info64 *pfile_info,
+                                                  unz_file_info64_internal
+                                                  *pfile_info_internal,
+                                                  <B><FONT COLOR="#228B22">char</FONT></B> *szFileName,
+                                                  uLong fileNameBufferSize,
+                                                  <B><FONT COLOR="#228B22">void</FONT></B> *extraField,
+                                                  uLong extraFieldBufferSize,
+                                                  <B><FONT COLOR="#228B22">char</FONT></B> *szComment,
+                                                  uLong commentBufferSize));
+
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_GetCurrentFileInfoInternal</FONT></B> (unzFile file,
+                                                  unz_file_info64 *pfile_info,
+                                                  unz_file_info64_internal
+                                                  *pfile_info_internal,
+                                                  <B><FONT COLOR="#228B22">char</FONT></B> *szFileName,
+                                                  uLong fileNameBufferSize,
+                                                  <B><FONT COLOR="#228B22">void</FONT></B> *extraField,
+                                                  uLong extraFieldBufferSize,
+                                                  <B><FONT COLOR="#228B22">char</FONT></B> *szComment,
+                                                  uLong commentBufferSize)
+{
+    unz64_s* s;
+    unz_file_info64 file_info;
+    unz_file_info64_internal file_info_internal;
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+    uLong uMagic;
+    <B><FONT COLOR="#228B22">long</FONT></B> lSeek=0;
+    uLong uL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,
+              s-&gt;pos_in_central_dir+s-&gt;byte_before_the_zipfile,
+              ZLIB_FILEFUNC_SEEK_SET)!=0)
+        err=UNZ_ERRNO;
+
+
+    <I><FONT COLOR="#B22222">/* we check the magic */</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uMagic) != UNZ_OK)
+            err=UNZ_ERRNO;
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uMagic!=0x02014b50)
+            err=UNZ_BADZIPFILE;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.version) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.version_needed) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.flag) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.compression_method) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.dosDate) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    unz64local_DosDateToTmuDate(file_info.dosDate,&amp;file_info.tmu_date);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.crc) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uL) != UNZ_OK)
+        err=UNZ_ERRNO;
+    file_info.compressed_size = uL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uL) != UNZ_OK)
+        err=UNZ_ERRNO;
+    file_info.uncompressed_size = uL;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.size_filename) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.size_file_extra) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.size_file_comment) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.disk_num_start) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.internal_fa) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.external_fa) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+                <I><FONT COLOR="#B22222">// relative offset of local header
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uL) != UNZ_OK)
+        err=UNZ_ERRNO;
+    file_info_internal.offset_curfile = uL;
+
+    lSeek+=file_info.size_filename;
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (szFileName!=NULL))
+    {
+        uLong uSizeRead ;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (file_info.size_filename&lt;fileNameBufferSize)
+        {
+            *(szFileName+file_info.size_filename)=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            uSizeRead = file_info.size_filename;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            uSizeRead = fileNameBufferSize;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((file_info.size_filename&gt;0) &amp;&amp; (fileNameBufferSize&gt;0))
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(s-&gt;z_filefunc, s-&gt;filestream,szFileName,uSizeRead)!=uSizeRead)
+                err=UNZ_ERRNO;
+        lSeek -= uSizeRead;
+    }
+
+    <I><FONT COLOR="#B22222">// Read extrafield
+</FONT></I>    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (extraField!=NULL))
+    {
+        ZPOS64_T uSizeRead ;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (file_info.size_file_extra&lt;extraFieldBufferSize)
+            uSizeRead = file_info.size_file_extra;
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            uSizeRead = extraFieldBufferSize;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lSeek!=0)
+        {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,lSeek,ZLIB_FILEFUNC_SEEK_CUR)==0)
+                lSeek=0;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+                err=UNZ_ERRNO;
+        }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((file_info.size_file_extra&gt;0) &amp;&amp; (extraFieldBufferSize&gt;0))
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(s-&gt;z_filefunc, s-&gt;filestream,extraField,(uLong)uSizeRead)!=uSizeRead)
+                err=UNZ_ERRNO;
+
+        lSeek += file_info.size_file_extra - (uLong)uSizeRead;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        lSeek += file_info.size_file_extra;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (file_info.size_file_extra != 0))
+    {
+                                uLong acc = 0;
+
+        <I><FONT COLOR="#B22222">// since lSeek now points to after the extra field we need to move back
+</FONT></I>        lSeek -= file_info.size_file_extra;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lSeek!=0)
+        {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,lSeek,ZLIB_FILEFUNC_SEEK_CUR)==0)
+                lSeek=0;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+                err=UNZ_ERRNO;
+        }
+
+        <B><FONT COLOR="#A020F0">while</FONT></B>(acc &lt; file_info.size_file_extra)
+        {
+            uLong headerId;
+                                                uLong dataSize;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;headerId) != UNZ_OK)
+                err=UNZ_ERRNO;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;dataSize) != UNZ_OK)
+                err=UNZ_ERRNO;
+
+            <I><FONT COLOR="#B22222">/* ZIP64 extra fields */</FONT></I>
+            <B><FONT COLOR="#A020F0">if</FONT></B> (headerId == 0x0001)
+            {
+                                                        uLong uL;
+
+                                                                <B><FONT COLOR="#A020F0">if</FONT></B>(file_info.uncompressed_size == MAXU32)
+                                                                {
+                                                                        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.uncompressed_size) != UNZ_OK)
+                                                                                        err=UNZ_ERRNO;
+                                                                }
+
+                                                                <B><FONT COLOR="#A020F0">if</FONT></B>(file_info.compressed_size == MAXU32)
+                                                                {
+                                                                        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info.compressed_size) != UNZ_OK)
+                                                                                  err=UNZ_ERRNO;
+                                                                }
+
+                                                                <B><FONT COLOR="#A020F0">if</FONT></B>(file_info_internal.offset_curfile == MAXU32)
+                                                                {
+                                                                        <I><FONT COLOR="#B22222">/* Relative Header offset */</FONT></I>
+                                                                        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong64(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;file_info_internal.offset_curfile) != UNZ_OK)
+                                                                                err=UNZ_ERRNO;
+                                                                }
+
+                                                                <B><FONT COLOR="#A020F0">if</FONT></B>(file_info.disk_num_start == MAXU32)
+                                                                {
+                                                                        <I><FONT COLOR="#B22222">/* Disk Start Number */</FONT></I>
+                                                                        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uL) != UNZ_OK)
+                                                                                err=UNZ_ERRNO;
+                                                                }
+
+            }
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+            {
+                <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,dataSize,ZLIB_FILEFUNC_SEEK_CUR)!=0)
+                    err=UNZ_ERRNO;
+            }
+
+            acc += 2 + 2 + dataSize;
+        }
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (szComment!=NULL))
+    {
+        uLong uSizeRead ;
+        <B><FONT COLOR="#A020F0">if</FONT></B> (file_info.size_file_comment&lt;commentBufferSize)
+        {
+            *(szComment+file_info.size_file_comment)=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+            uSizeRead = file_info.size_file_comment;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B>
+            uSizeRead = commentBufferSize;
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> (lSeek!=0)
+        {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,lSeek,ZLIB_FILEFUNC_SEEK_CUR)==0)
+                lSeek=0;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+                err=UNZ_ERRNO;
+        }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((file_info.size_file_comment&gt;0) &amp;&amp; (commentBufferSize&gt;0))
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(s-&gt;z_filefunc, s-&gt;filestream,szComment,uSizeRead)!=uSizeRead)
+                err=UNZ_ERRNO;
+        lSeek+=file_info.size_file_comment - uSizeRead;
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        lSeek+=file_info.size_file_comment;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (pfile_info!=NULL))
+        *pfile_info=file_info;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (pfile_info_internal!=NULL))
+        *pfile_info_internal=file_info_internal;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+
+
+<I><FONT COLOR="#B22222">/*
+  Write info about the ZipFile in the *pglobal_info structure.
+  No preparation of the structure is needed
+  return UNZ_OK if there is no problem.
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetCurrentFileInfo64</FONT></B> (unzFile file,
+                                          unz_file_info64 * pfile_info,
+                                          <B><FONT COLOR="#228B22">char</FONT></B> * szFileName, uLong fileNameBufferSize,
+                                          <B><FONT COLOR="#228B22">void</FONT></B> *extraField, uLong extraFieldBufferSize,
+                                          <B><FONT COLOR="#228B22">char</FONT></B>* szComment,  uLong commentBufferSize)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unz64local_GetCurrentFileInfoInternal(file,pfile_info,NULL,
+                                                szFileName,fileNameBufferSize,
+                                                extraField,extraFieldBufferSize,
+                                                szComment,commentBufferSize);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetCurrentFileInfo</FONT></B> (unzFile file,
+                                          unz_file_info * pfile_info,
+                                          <B><FONT COLOR="#228B22">char</FONT></B> * szFileName, uLong fileNameBufferSize,
+                                          <B><FONT COLOR="#228B22">void</FONT></B> *extraField, uLong extraFieldBufferSize,
+                                          <B><FONT COLOR="#228B22">char</FONT></B>* szComment,  uLong commentBufferSize)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+    unz_file_info64 file_info64;
+    err = unz64local_GetCurrentFileInfoInternal(file,&amp;file_info64,NULL,
+                                                szFileName,fileNameBufferSize,
+                                                extraField,extraFieldBufferSize,
+                                                szComment,commentBufferSize);
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (pfile_info != NULL))
+    {
+        pfile_info-&gt;version = file_info64.version;
+        pfile_info-&gt;version_needed = file_info64.version_needed;
+        pfile_info-&gt;flag = file_info64.flag;
+        pfile_info-&gt;compression_method = file_info64.compression_method;
+        pfile_info-&gt;dosDate = file_info64.dosDate;
+        pfile_info-&gt;crc = file_info64.crc;
+
+        pfile_info-&gt;size_filename = file_info64.size_filename;
+        pfile_info-&gt;size_file_extra = file_info64.size_file_extra;
+        pfile_info-&gt;size_file_comment = file_info64.size_file_comment;
+
+        pfile_info-&gt;disk_num_start = file_info64.disk_num_start;
+        pfile_info-&gt;internal_fa = file_info64.internal_fa;
+        pfile_info-&gt;external_fa = file_info64.external_fa;
+
+        pfile_info-&gt;tmu_date = file_info64.tmu_date,
+
+
+        pfile_info-&gt;compressed_size = (uLong)file_info64.compressed_size;
+        pfile_info-&gt;uncompressed_size = (uLong)file_info64.uncompressed_size;
+
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+<I><FONT COLOR="#B22222">/*
+  Set the current file of the zipfile to the first file.
+  return UNZ_OK if there is no problem
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToFirstFile</FONT></B> (unzFile file)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+    unz64_s* s;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    s-&gt;pos_in_central_dir=s-&gt;offset_central_dir;
+    s-&gt;num_file=0;
+    err=unz64local_GetCurrentFileInfoInternal(file,&amp;s-&gt;cur_file_info,
+                                             &amp;s-&gt;cur_file_info_internal,
+                                             NULL,0,NULL,0,NULL,0);
+    s-&gt;current_file_ok = (err == UNZ_OK);
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Set the current file of the zipfile to the next file.
+  return UNZ_OK if there is no problem
+  return UNZ_END_OF_LIST_OF_FILE if the actual file was the latest.
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToNextFile</FONT></B> (unzFile  file)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!s-&gt;current_file_ok)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_END_OF_LIST_OF_FILE;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;gi.number_entry != 0xffff)    <I><FONT COLOR="#B22222">/* 2^16 files overflow hack */</FONT></I>
+      <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;num_file+1==s-&gt;gi.number_entry)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_END_OF_LIST_OF_FILE;
+
+    s-&gt;pos_in_central_dir += SIZECENTRALDIRITEM + s-&gt;cur_file_info.size_filename +
+            s-&gt;cur_file_info.size_file_extra + s-&gt;cur_file_info.size_file_comment ;
+    s-&gt;num_file++;
+    err = unz64local_GetCurrentFileInfoInternal(file,&amp;s-&gt;cur_file_info,
+                                               &amp;s-&gt;cur_file_info_internal,
+                                               NULL,0,NULL,0,NULL,0);
+    s-&gt;current_file_ok = (err == UNZ_OK);
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  Try locate the file szFileName in the zipfile.
+  For the iCaseSensitivity signification, see unzStringFileNameCompare
+
+  return value :
+  UNZ_OK if the file is found. It becomes the current file.
+  UNZ_END_OF_LIST_OF_FILE if the file is not found
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzLocateFile</FONT></B> (unzFile file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B> *szFileName, <B><FONT COLOR="#228B22">int</FONT></B> iCaseSensitivity)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    <I><FONT COLOR="#B22222">/* We remember the 'current' position in the file so that we can jump
+     * back there if we fail.
+     */</FONT></I>
+    unz_file_info64 cur_file_infoSaved;
+    unz_file_info64_internal cur_file_info_internalSaved;
+    ZPOS64_T num_fileSaved;
+    ZPOS64_T pos_in_central_dirSaved;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (strlen(szFileName)&gt;=UNZ_MAXFILENAMEINZIP)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!s-&gt;current_file_ok)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_END_OF_LIST_OF_FILE;
+
+    <I><FONT COLOR="#B22222">/* Save the current state */</FONT></I>
+    num_fileSaved = s-&gt;num_file;
+    pos_in_central_dirSaved = s-&gt;pos_in_central_dir;
+    cur_file_infoSaved = s-&gt;cur_file_info;
+    cur_file_info_internalSaved = s-&gt;cur_file_info_internal;
+
+    err = unzGoToFirstFile(file);
+
+    <B><FONT COLOR="#A020F0">while</FONT></B> (err == UNZ_OK)
+    {
+        <B><FONT COLOR="#228B22">char</FONT></B> szCurrentFileName[UNZ_MAXFILENAMEINZIP+1];
+        err = unzGetCurrentFileInfo64(file,NULL,
+                                    szCurrentFileName,<B><FONT COLOR="#A020F0">sizeof</FONT></B>(szCurrentFileName)-1,
+                                    NULL,0,NULL,0);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (err == UNZ_OK)
+        {
+            <B><FONT COLOR="#A020F0">if</FONT></B> (unzStringFileNameCompare(szCurrentFileName,
+                                            szFileName,iCaseSensitivity)==0)
+                <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+            err = unzGoToNextFile(file);
+        }
+    }
+
+    <I><FONT COLOR="#B22222">/* We failed, so restore the state of the 'current file' to where we
+     * were.
+     */</FONT></I>
+    s-&gt;num_file = num_fileSaved ;
+    s-&gt;pos_in_central_dir = pos_in_central_dirSaved ;
+    s-&gt;cur_file_info = cur_file_infoSaved;
+    s-&gt;cur_file_info_internal = cur_file_info_internalSaved;
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+///////////////////////////////////////////
+// Contributed by Ryan Haksi (mailto://cryogen@infoserve.net)
+// I need random access
+//
+// Further optimization could be realized by adding an ability
+// to cache the directory in memory. The goal being a single
+// comprehensive file read to put the file I need in a memory.
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+typedef struct unz_file_pos_s
+{
+    ZPOS64_T pos_in_zip_directory;   // offset in file
+    ZPOS64_T num_of_file;            // # of file
+} unz_file_pos;
+*/</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetFilePos64</FONT></B>(unzFile file, unz64_file_pos*  file_pos)
+{
+    unz64_s* s;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL || file_pos==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!s-&gt;current_file_ok)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_END_OF_LIST_OF_FILE;
+
+    file_pos-&gt;pos_in_zip_directory  = s-&gt;pos_in_central_dir;
+    file_pos-&gt;num_of_file           = s-&gt;num_file;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetFilePos</FONT></B>(
+    unzFile file,
+    unz_file_pos* file_pos)
+{
+    unz64_file_pos file_pos64;
+    <B><FONT COLOR="#228B22">int</FONT></B> err = unzGetFilePos64(file,&amp;file_pos64);
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+    {
+        file_pos-&gt;pos_in_zip_directory = (uLong)file_pos64.pos_in_zip_directory;
+        file_pos-&gt;num_of_file = (uLong)file_pos64.num_of_file;
+    }
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToFilePos64</FONT></B>(unzFile file, <B><FONT COLOR="#228B22">const</FONT></B> unz64_file_pos* file_pos)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL || file_pos==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+
+    <I><FONT COLOR="#B22222">/* jump to the right spot */</FONT></I>
+    s-&gt;pos_in_central_dir = file_pos-&gt;pos_in_zip_directory;
+    s-&gt;num_file           = file_pos-&gt;num_of_file;
+
+    <I><FONT COLOR="#B22222">/* set the current file */</FONT></I>
+    err = unz64local_GetCurrentFileInfoInternal(file,&amp;s-&gt;cur_file_info,
+                                               &amp;s-&gt;cur_file_info_internal,
+                                               NULL,0,NULL,0,NULL,0);
+    <I><FONT COLOR="#B22222">/* return results */</FONT></I>
+    s-&gt;current_file_ok = (err == UNZ_OK);
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGoToFilePos</FONT></B>(
+    unzFile file,
+    unz_file_pos* file_pos)
+{
+    unz64_file_pos file_pos64;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file_pos == NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    file_pos64.pos_in_zip_directory = file_pos-&gt;pos_in_zip_directory;
+    file_pos64.num_of_file = file_pos-&gt;num_of_file;
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzGoToFilePos64(file,&amp;file_pos64);
+}
+
+<I><FONT COLOR="#B22222">/*
+// Unzip Helper Functions - should be here?
+///////////////////////////////////////////
+*/</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+  Read the local header of the current zipfile
+  Check the coherency of the local header and info in the end of central
+        directory about this file
+  store in *piSizeVar the size of extra info in local header
+        (filename and size of extra field data)
+*/</FONT></I>
+local <B><FONT COLOR="#228B22">int</FONT></B> <B><FONT COLOR="#0000FF">unz64local_CheckCurrentFileCoherencyHeader</FONT></B> (unz64_s* s, uInt* piSizeVar,
+                                                    ZPOS64_T * poffset_local_extrafield,
+                                                    uInt  * psize_local_extrafield)
+{
+    uLong uMagic,uData,uFlags;
+    uLong size_filename;
+    uLong size_extra_field;
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+
+    *piSizeVar = 0;
+    *poffset_local_extrafield = 0;
+    *psize_local_extrafield = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,s-&gt;cur_file_info_internal.offset_curfile +
+                                s-&gt;byte_before_the_zipfile,ZLIB_FILEFUNC_SEEK_SET)!=0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==UNZ_OK)
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uMagic) != UNZ_OK)
+            err=UNZ_ERRNO;
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uMagic!=0x04034b50)
+            err=UNZ_BADZIPFILE;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK)
+        err=UNZ_ERRNO;
+<I><FONT COLOR="#B22222">/*
+    else if ((err==UNZ_OK) &amp;&amp; (uData!=s-&gt;cur_file_info.wVersion))
+        err=UNZ_BADZIPFILE;
+*/</FONT></I>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uFlags) != UNZ_OK)
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK)
+        err=UNZ_ERRNO;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (uData!=s-&gt;cur_file_info.compression_method))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (s-&gt;cur_file_info.compression_method!=0) &amp;&amp;
+<I><FONT COLOR="#B22222">/* #ifdef HAVE_BZIP2 */</FONT></I>
+                         (s-&gt;cur_file_info.compression_method!=Z_BZIP2ED) &amp;&amp;
+<I><FONT COLOR="#B22222">/* #endif */</FONT></I>
+                         (s-&gt;cur_file_info.compression_method!=Z_DEFLATED))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK) <I><FONT COLOR="#B22222">/* date/time */</FONT></I>
+        err=UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK) <I><FONT COLOR="#B22222">/* crc */</FONT></I>
+        err=UNZ_ERRNO;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (uData!=s-&gt;cur_file_info.crc) &amp;&amp; ((uFlags &amp; 8)==0))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK) <I><FONT COLOR="#B22222">/* size compr */</FONT></I>
+        err=UNZ_ERRNO;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uData != 0xFFFFFFFF &amp;&amp; (err==UNZ_OK) &amp;&amp; (uData!=s-&gt;cur_file_info.compressed_size) &amp;&amp; ((uFlags &amp; 8)==0))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getLong(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;uData) != UNZ_OK) <I><FONT COLOR="#B22222">/* size uncompr */</FONT></I>
+        err=UNZ_ERRNO;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (uData != 0xFFFFFFFF &amp;&amp; (err==UNZ_OK) &amp;&amp; (uData!=s-&gt;cur_file_info.uncompressed_size) &amp;&amp; ((uFlags &amp; 8)==0))
+        err=UNZ_BADZIPFILE;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;size_filename) != UNZ_OK)
+        err=UNZ_ERRNO;
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((err==UNZ_OK) &amp;&amp; (size_filename!=s-&gt;cur_file_info.size_filename))
+        err=UNZ_BADZIPFILE;
+
+    *piSizeVar += (uInt)size_filename;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_getShort(&amp;s-&gt;z_filefunc, s-&gt;filestream,&amp;size_extra_field) != UNZ_OK)
+        err=UNZ_ERRNO;
+    *poffset_local_extrafield= s-&gt;cur_file_info_internal.offset_curfile +
+                                    SIZEZIPLOCALHEADER + size_filename;
+    *psize_local_extrafield = (uInt)size_extra_field;
+
+    *piSizeVar += (uInt)size_extra_field;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Open for reading data the current file in the zipfile.
+  If there is no error and the file is opened, the return value is UNZ_OK.
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzOpenCurrentFile3</FONT></B> (unzFile file, <B><FONT COLOR="#228B22">int</FONT></B>* method,
+                                            <B><FONT COLOR="#228B22">int</FONT></B>* level, <B><FONT COLOR="#228B22">int</FONT></B> raw, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>* password)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+    uInt iSizeVar;
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    ZPOS64_T offset_local_extrafield;  <I><FONT COLOR="#B22222">/* offset of the local extra field */</FONT></I>
+    uInt  size_local_extrafield;    <I><FONT COLOR="#B22222">/* size of the local extra field */</FONT></I>
+#    <B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+    <B><FONT COLOR="#228B22">char</FONT></B> source[12];
+#    <B><FONT COLOR="#5F9EA0">else</FONT></B>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (password != NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+#    <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!s-&gt;current_file_ok)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;pfile_in_zip_read != NULL)
+        unzCloseCurrentFile(file);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (unz64local_CheckCurrentFileCoherencyHeader(s,&amp;iSizeVar, &amp;offset_local_extrafield,&amp;size_local_extrafield)!=UNZ_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_BADZIPFILE;
+
+    pfile_in_zip_read_info = (file_in_zip64_read_info_s*)ALLOC(<B><FONT COLOR="#A020F0">sizeof</FONT></B>(file_in_zip64_read_info_s));
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_INTERNALERROR;
+
+    pfile_in_zip_read_info-&gt;read_buffer=(<B><FONT COLOR="#228B22">char</FONT></B>*)ALLOC(UNZ_BUFSIZE);
+    pfile_in_zip_read_info-&gt;offset_local_extrafield = offset_local_extrafield;
+    pfile_in_zip_read_info-&gt;size_local_extrafield = size_local_extrafield;
+    pfile_in_zip_read_info-&gt;pos_local_extrafield=0;
+    pfile_in_zip_read_info-&gt;raw=raw;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;read_buffer==NULL)
+    {
+        TRYFREE(pfile_in_zip_read_info);
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_INTERNALERROR;
+    }
+
+    pfile_in_zip_read_info-&gt;stream_initialised=0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (method!=NULL)
+        *method = (<B><FONT COLOR="#228B22">int</FONT></B>)s-&gt;cur_file_info.compression_method;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (level!=NULL)
+    {
+        *level = 6;
+        <B><FONT COLOR="#A020F0">switch</FONT></B> (s-&gt;cur_file_info.flag &amp; 0x06)
+        {
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">6</FONT></B> : *level = 1; <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">4</FONT></B> : *level = 2; <B><FONT COLOR="#A020F0">break</FONT></B>;
+          <B><FONT COLOR="#A020F0">case</FONT></B> <B><FONT COLOR="#5F9EA0">2</FONT></B> : *level = 9; <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((s-&gt;cur_file_info.compression_method!=0) &amp;&amp;
+<I><FONT COLOR="#B22222">/* #ifdef HAVE_BZIP2 */</FONT></I>
+        (s-&gt;cur_file_info.compression_method!=Z_BZIP2ED) &amp;&amp;
+<I><FONT COLOR="#B22222">/* #endif */</FONT></I>
+        (s-&gt;cur_file_info.compression_method!=Z_DEFLATED))
+
+        err=UNZ_BADZIPFILE;
+
+    pfile_in_zip_read_info-&gt;crc32_wait=s-&gt;cur_file_info.crc;
+    pfile_in_zip_read_info-&gt;crc32=0;
+    pfile_in_zip_read_info-&gt;total_out_64=0;
+    pfile_in_zip_read_info-&gt;compression_method = s-&gt;cur_file_info.compression_method;
+    pfile_in_zip_read_info-&gt;filestream=s-&gt;filestream;
+    pfile_in_zip_read_info-&gt;z_filefunc=s-&gt;z_filefunc;
+    pfile_in_zip_read_info-&gt;byte_before_the_zipfile=s-&gt;byte_before_the_zipfile;
+
+    pfile_in_zip_read_info-&gt;stream.total_out = 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((s-&gt;cur_file_info.compression_method==Z_BZIP2ED) &amp;&amp; (!raw))
+    {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_BZIP2</FONT>
+      pfile_in_zip_read_info-&gt;bstream.bzalloc = (<B><FONT COLOR="#228B22">void</FONT></B> *(*) (<B><FONT COLOR="#228B22">void</FONT></B> *, <B><FONT COLOR="#228B22">int</FONT></B>, <B><FONT COLOR="#228B22">int</FONT></B>))0;
+      pfile_in_zip_read_info-&gt;bstream.bzfree = (free_func)0;
+      pfile_in_zip_read_info-&gt;bstream.opaque = (voidpf)0;
+      pfile_in_zip_read_info-&gt;bstream.state = (voidpf)0;
+
+      pfile_in_zip_read_info-&gt;stream.zalloc = (alloc_func)0;
+      pfile_in_zip_read_info-&gt;stream.zfree = (free_func)0;
+      pfile_in_zip_read_info-&gt;stream.opaque = (voidpf)0;
+      pfile_in_zip_read_info-&gt;stream.next_in = (voidpf)0;
+      pfile_in_zip_read_info-&gt;stream.avail_in = 0;
+
+      err=BZ2_bzDecompressInit(&amp;pfile_in_zip_read_info-&gt;bstream, 0, 0);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (err == Z_OK)
+        pfile_in_zip_read_info-&gt;stream_initialised=Z_BZIP2ED;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+      {
+        TRYFREE(pfile_in_zip_read_info);
+        <B><FONT COLOR="#A020F0">return</FONT></B> err;
+      }
+#<B><FONT COLOR="#5F9EA0">else</FONT></B>
+      pfile_in_zip_read_info-&gt;raw=1;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+    }
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> ((s-&gt;cur_file_info.compression_method==Z_DEFLATED) &amp;&amp; (!raw))
+    {
+      pfile_in_zip_read_info-&gt;stream.zalloc = (alloc_func)0;
+      pfile_in_zip_read_info-&gt;stream.zfree = (free_func)0;
+      pfile_in_zip_read_info-&gt;stream.opaque = (voidpf)0;
+      pfile_in_zip_read_info-&gt;stream.next_in = 0;
+      pfile_in_zip_read_info-&gt;stream.avail_in = 0;
+
+      err=inflateInit2(&amp;pfile_in_zip_read_info-&gt;stream, -MAX_WBITS);
+      <B><FONT COLOR="#A020F0">if</FONT></B> (err == Z_OK)
+        pfile_in_zip_read_info-&gt;stream_initialised=Z_DEFLATED;
+      <B><FONT COLOR="#A020F0">else</FONT></B>
+      {
+        TRYFREE(pfile_in_zip_read_info);
+        <B><FONT COLOR="#A020F0">return</FONT></B> err;
+      }
+        <I><FONT COLOR="#B22222">/* windowBits is passed &lt; 0 to tell that there is no zlib header.
+         * Note that in this case inflate *requires* an extra &quot;dummy&quot; byte
+         * after the compressed stream in order to complete decompression and
+         * return Z_STREAM_END.
+         * In unzip, i don't wait absolutely Z_STREAM_END because I known the
+         * size of both compressed and uncompressed data
+         */</FONT></I>
+    }
+    pfile_in_zip_read_info-&gt;rest_read_compressed =
+            s-&gt;cur_file_info.compressed_size ;
+    pfile_in_zip_read_info-&gt;rest_read_uncompressed =
+            s-&gt;cur_file_info.uncompressed_size ;
+
+
+    pfile_in_zip_read_info-&gt;pos_in_zipfile =
+            s-&gt;cur_file_info_internal.offset_curfile + SIZEZIPLOCALHEADER +
+              iSizeVar;
+
+    pfile_in_zip_read_info-&gt;stream.avail_in = (uInt)0;
+
+    s-&gt;pfile_in_zip_read = pfile_in_zip_read_info;
+                s-&gt;encrypted = 0;
+
+#    <B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+    <B><FONT COLOR="#A020F0">if</FONT></B> (password != NULL)
+    {
+        <B><FONT COLOR="#228B22">int</FONT></B> i;
+        s-&gt;pcrc_32_tab = get_crc_table();
+        init_keys(password,s-&gt;keys,s-&gt;pcrc_32_tab);
+        <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc, s-&gt;filestream,
+                  s-&gt;pfile_in_zip_read-&gt;pos_in_zipfile +
+                     s-&gt;pfile_in_zip_read-&gt;byte_before_the_zipfile,
+                  SEEK_SET)!=0)
+            <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_INTERNALERROR;
+        <B><FONT COLOR="#A020F0">if</FONT></B>(ZREAD64(s-&gt;z_filefunc, s-&gt;filestream,source, 12)&lt;12)
+            <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_INTERNALERROR;
+
+        <B><FONT COLOR="#A020F0">for</FONT></B> (i = 0; i&lt;12; i++)
+            zdecode(s-&gt;keys,s-&gt;pcrc_32_tab,source[i]);
+
+        s-&gt;pfile_in_zip_read-&gt;pos_in_zipfile+=12;
+        s-&gt;encrypted=1;
+    }
+#    <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_OK;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzOpenCurrentFile</FONT></B> (unzFile file)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenCurrentFile3(file, NULL, NULL, 0, NULL);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzOpenCurrentFilePassword</FONT></B> (unzFile file, <B><FONT COLOR="#228B22">const</FONT></B> <B><FONT COLOR="#228B22">char</FONT></B>*  password)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenCurrentFile3(file, NULL, NULL, 0, password);
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzOpenCurrentFile2</FONT></B> (unzFile file, <B><FONT COLOR="#228B22">int</FONT></B>* method, <B><FONT COLOR="#228B22">int</FONT></B>* level, <B><FONT COLOR="#228B22">int</FONT></B> raw)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzOpenCurrentFile3(file, method, level, raw, NULL);
+}
+
+<I><FONT COLOR="#B22222">/** Addition for GDAL : START */</FONT></I>
+
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT <B><FONT COLOR="#0000FF">unzGetCurrentFileZStreamPos64</FONT></B>( unzFile file)
+{
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0; <I><FONT COLOR="#B22222">//UNZ_PARAMERROR;
+</FONT></I>    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0; <I><FONT COLOR="#B22222">//UNZ_PARAMERROR;
+</FONT></I>    <B><FONT COLOR="#A020F0">return</FONT></B> pfile_in_zip_read_info-&gt;pos_in_zipfile +
+                         pfile_in_zip_read_info-&gt;byte_before_the_zipfile;
+}
+
+<I><FONT COLOR="#B22222">/** Addition for GDAL : END */</FONT></I>
+
+<I><FONT COLOR="#B22222">/*
+  Read bytes from the current file.
+  buf contain buffer where data must be copied
+  len the size of buf.
+
+  return the number of byte copied if somes bytes are copied
+  return 0 if the end of file was reached
+  return &lt;0 with error code if there is an error
+    (UNZ_ERRNO for IO error, or zLib error for uncompress error)
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzReadCurrentFile</FONT></B>  (unzFile file, voidp buf, <B><FONT COLOR="#228B22">unsigned</FONT></B> len)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+    uInt iRead = 0;
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;read_buffer == NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_END_OF_LIST_OF_FILE;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (len==0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    pfile_in_zip_read_info-&gt;stream.next_out = (Bytef*)buf;
+
+    pfile_in_zip_read_info-&gt;stream.avail_out = (uInt)len;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((len&gt;pfile_in_zip_read_info-&gt;rest_read_uncompressed) &amp;&amp;
+        (!(pfile_in_zip_read_info-&gt;raw)))
+        pfile_in_zip_read_info-&gt;stream.avail_out =
+            (uInt)pfile_in_zip_read_info-&gt;rest_read_uncompressed;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((len&gt;pfile_in_zip_read_info-&gt;rest_read_compressed+
+           pfile_in_zip_read_info-&gt;stream.avail_in) &amp;&amp;
+         (pfile_in_zip_read_info-&gt;raw))
+        pfile_in_zip_read_info-&gt;stream.avail_out =
+            (uInt)pfile_in_zip_read_info-&gt;rest_read_compressed+
+            pfile_in_zip_read_info-&gt;stream.avail_in;
+
+    <B><FONT COLOR="#A020F0">while</FONT></B> (pfile_in_zip_read_info-&gt;stream.avail_out&gt;0)
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((pfile_in_zip_read_info-&gt;stream.avail_in==0) &amp;&amp;
+            (pfile_in_zip_read_info-&gt;rest_read_compressed&gt;0))
+        {
+            uInt uReadThis = UNZ_BUFSIZE;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;rest_read_compressed&lt;uReadThis)
+                uReadThis = (uInt)pfile_in_zip_read_info-&gt;rest_read_compressed;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (uReadThis == 0)
+                <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_EOF;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(pfile_in_zip_read_info-&gt;z_filefunc,
+                      pfile_in_zip_read_info-&gt;filestream,
+                      pfile_in_zip_read_info-&gt;pos_in_zipfile +
+                         pfile_in_zip_read_info-&gt;byte_before_the_zipfile,
+                         ZLIB_FILEFUNC_SEEK_SET)!=0)
+                <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(pfile_in_zip_read_info-&gt;z_filefunc,
+                      pfile_in_zip_read_info-&gt;filestream,
+                      pfile_in_zip_read_info-&gt;read_buffer,
+                      uReadThis)!=uReadThis)
+                <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+
+
+#            <B><FONT COLOR="#5F9EA0">ifndef</FONT></B> <FONT COLOR="#B8860B">NOUNCRYPT</FONT>
+            <B><FONT COLOR="#A020F0">if</FONT></B>(s-&gt;encrypted)
+            {
+                uInt i;
+                <B><FONT COLOR="#A020F0">for</FONT></B>(i=0;i&lt;uReadThis;i++)
+                  pfile_in_zip_read_info-&gt;read_buffer[i] =
+                      zdecode(s-&gt;keys,s-&gt;pcrc_32_tab,
+                              pfile_in_zip_read_info-&gt;read_buffer[i]);
+            }
+#            <B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+            pfile_in_zip_read_info-&gt;pos_in_zipfile += uReadThis;
+
+            pfile_in_zip_read_info-&gt;rest_read_compressed-=uReadThis;
+
+            pfile_in_zip_read_info-&gt;stream.next_in =
+                (Bytef*)pfile_in_zip_read_info-&gt;read_buffer;
+            pfile_in_zip_read_info-&gt;stream.avail_in = (uInt)uReadThis;
+        }
+
+        <B><FONT COLOR="#A020F0">if</FONT></B> ((pfile_in_zip_read_info-&gt;compression_method==0) || (pfile_in_zip_read_info-&gt;raw))
+        {
+            uInt uDoCopy,i ;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((pfile_in_zip_read_info-&gt;stream.avail_in == 0) &amp;&amp;
+                (pfile_in_zip_read_info-&gt;rest_read_compressed == 0))
+                <B><FONT COLOR="#A020F0">return</FONT></B> (iRead==0) ? UNZ_EOF : iRead;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;stream.avail_out &lt;
+                            pfile_in_zip_read_info-&gt;stream.avail_in)
+                uDoCopy = pfile_in_zip_read_info-&gt;stream.avail_out ;
+            <B><FONT COLOR="#A020F0">else</FONT></B>
+                uDoCopy = pfile_in_zip_read_info-&gt;stream.avail_in ;
+
+            <B><FONT COLOR="#A020F0">for</FONT></B> (i=0;i&lt;uDoCopy;i++)
+                *(pfile_in_zip_read_info-&gt;stream.next_out+i) =
+                        *(pfile_in_zip_read_info-&gt;stream.next_in+i);
+
+            pfile_in_zip_read_info-&gt;total_out_64 = pfile_in_zip_read_info-&gt;total_out_64 + uDoCopy;
+
+            pfile_in_zip_read_info-&gt;crc32 = crc32(pfile_in_zip_read_info-&gt;crc32,
+                                pfile_in_zip_read_info-&gt;stream.next_out,
+                                uDoCopy);
+            pfile_in_zip_read_info-&gt;rest_read_uncompressed-=uDoCopy;
+            pfile_in_zip_read_info-&gt;stream.avail_in -= uDoCopy;
+            pfile_in_zip_read_info-&gt;stream.avail_out -= uDoCopy;
+            pfile_in_zip_read_info-&gt;stream.next_out += uDoCopy;
+            pfile_in_zip_read_info-&gt;stream.next_in += uDoCopy;
+            pfile_in_zip_read_info-&gt;stream.total_out += uDoCopy;
+            iRead += uDoCopy;
+        }
+        <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;compression_method==Z_BZIP2ED)
+        {
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_BZIP2</FONT>
+            uLong uTotalOutBefore,uTotalOutAfter;
+            <B><FONT COLOR="#228B22">const</FONT></B> Bytef *bufBefore;
+            uLong uOutThis;
+
+            pfile_in_zip_read_info-&gt;bstream.next_in        = (<B><FONT COLOR="#228B22">char</FONT></B>*)pfile_in_zip_read_info-&gt;stream.next_in;
+            pfile_in_zip_read_info-&gt;bstream.avail_in       = pfile_in_zip_read_info-&gt;stream.avail_in;
+            pfile_in_zip_read_info-&gt;bstream.total_in_lo32  = pfile_in_zip_read_info-&gt;stream.total_in;
+            pfile_in_zip_read_info-&gt;bstream.total_in_hi32  = 0;
+            pfile_in_zip_read_info-&gt;bstream.next_out       = (<B><FONT COLOR="#228B22">char</FONT></B>*)pfile_in_zip_read_info-&gt;stream.next_out;
+            pfile_in_zip_read_info-&gt;bstream.avail_out      = pfile_in_zip_read_info-&gt;stream.avail_out;
+            pfile_in_zip_read_info-&gt;bstream.total_out_lo32 = pfile_in_zip_read_info-&gt;stream.total_out;
+            pfile_in_zip_read_info-&gt;bstream.total_out_hi32 = 0;
+
+            uTotalOutBefore = pfile_in_zip_read_info-&gt;bstream.total_out_lo32;
+            bufBefore = (<B><FONT COLOR="#228B22">const</FONT></B> Bytef *)pfile_in_zip_read_info-&gt;bstream.next_out;
+
+            err=BZ2_bzDecompress(&amp;pfile_in_zip_read_info-&gt;bstream);
+
+            uTotalOutAfter = pfile_in_zip_read_info-&gt;bstream.total_out_lo32;
+            uOutThis = uTotalOutAfter-uTotalOutBefore;
+
+            pfile_in_zip_read_info-&gt;total_out_64 = pfile_in_zip_read_info-&gt;total_out_64 + uOutThis;
+
+            pfile_in_zip_read_info-&gt;crc32 = crc32(pfile_in_zip_read_info-&gt;crc32,bufBefore, (uInt)(uOutThis));
+            pfile_in_zip_read_info-&gt;rest_read_uncompressed -= uOutThis;
+            iRead += (uInt)(uTotalOutAfter - uTotalOutBefore);
+
+            pfile_in_zip_read_info-&gt;stream.next_in   = (Bytef*)pfile_in_zip_read_info-&gt;bstream.next_in;
+            pfile_in_zip_read_info-&gt;stream.avail_in  = pfile_in_zip_read_info-&gt;bstream.avail_in;
+            pfile_in_zip_read_info-&gt;stream.total_in  = pfile_in_zip_read_info-&gt;bstream.total_in_lo32;
+            pfile_in_zip_read_info-&gt;stream.next_out  = (Bytef*)pfile_in_zip_read_info-&gt;bstream.next_out;
+            pfile_in_zip_read_info-&gt;stream.avail_out = pfile_in_zip_read_info-&gt;bstream.avail_out;
+            pfile_in_zip_read_info-&gt;stream.total_out = pfile_in_zip_read_info-&gt;bstream.total_out_lo32;
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (err==BZ_STREAM_END)
+              <B><FONT COLOR="#A020F0">return</FONT></B> (iRead==0) ? UNZ_EOF : iRead;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (err!=BZ_OK)
+              <B><FONT COLOR="#A020F0">break</FONT></B>;
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+        } <I><FONT COLOR="#B22222">// end Z_BZIP2ED
+</FONT></I>        <B><FONT COLOR="#A020F0">else</FONT></B>
+        {
+            ZPOS64_T uTotalOutBefore,uTotalOutAfter;
+            <B><FONT COLOR="#228B22">const</FONT></B> Bytef *bufBefore;
+            ZPOS64_T uOutThis;
+            <B><FONT COLOR="#228B22">int</FONT></B> flush=Z_SYNC_FLUSH;
+
+            uTotalOutBefore = pfile_in_zip_read_info-&gt;stream.total_out;
+            bufBefore = pfile_in_zip_read_info-&gt;stream.next_out;
+
+            <I><FONT COLOR="#B22222">/*
+            if ((pfile_in_zip_read_info-&gt;rest_read_uncompressed ==
+                     pfile_in_zip_read_info-&gt;stream.avail_out) &amp;&amp;
+                (pfile_in_zip_read_info-&gt;rest_read_compressed == 0))
+                flush = Z_FINISH;
+            */</FONT></I>
+            err=inflate(&amp;pfile_in_zip_read_info-&gt;stream,flush);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> ((err&gt;=0) &amp;&amp; (pfile_in_zip_read_info-&gt;stream.msg!=NULL))
+              err = Z_DATA_ERROR;
+
+            uTotalOutAfter = pfile_in_zip_read_info-&gt;stream.total_out;
+            uOutThis = uTotalOutAfter-uTotalOutBefore;
+
+            pfile_in_zip_read_info-&gt;total_out_64 = pfile_in_zip_read_info-&gt;total_out_64 + uOutThis;
+
+            pfile_in_zip_read_info-&gt;crc32 =
+                crc32(pfile_in_zip_read_info-&gt;crc32,bufBefore,
+                        (uInt)(uOutThis));
+
+            pfile_in_zip_read_info-&gt;rest_read_uncompressed -=
+                uOutThis;
+
+            iRead += (uInt)(uTotalOutAfter - uTotalOutBefore);
+
+            <B><FONT COLOR="#A020F0">if</FONT></B> (err==Z_STREAM_END)
+                <B><FONT COLOR="#A020F0">return</FONT></B> (iRead==0) ? UNZ_EOF : iRead;
+            <B><FONT COLOR="#A020F0">if</FONT></B> (err!=Z_OK)
+                <B><FONT COLOR="#A020F0">break</FONT></B>;
+        }
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (err==Z_OK)
+        <B><FONT COLOR="#A020F0">return</FONT></B> iRead;
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  Give the current position in uncompressed data
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> z_off_t ZEXPORT <B><FONT COLOR="#0000FF">unztell</FONT></B> (unzFile file)
+{
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> (z_off_t)pfile_in_zip_read_info-&gt;stream.total_out;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT <B><FONT COLOR="#0000FF">unztell64</FONT></B> (unzFile file)
+{
+
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (ZPOS64_T)-1;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (ZPOS64_T)-1;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> pfile_in_zip_read_info-&gt;total_out_64;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  return 1 if the end of file was reached, 0 elsewhere
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzeof</FONT></B> (unzFile file)
+{
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;rest_read_uncompressed == 0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 1;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+}
+
+
+
+<I><FONT COLOR="#B22222">/*
+Read extra field from the current file (opened by unzOpenCurrentFile)
+This is the local-header version of the extra field (sometimes, there is
+more info in the local-header version than in the central-header)
+
+  if buf==NULL, it return the size of the local extra field that can be read
+
+  if buf!=NULL, len is the size of the buffer, the extra header is copied in
+    buf.
+  the return value is the number of bytes copied in buf, or (if &lt;0)
+    the error code
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetLocalExtrafield</FONT></B> (unzFile file, voidp buf, <B><FONT COLOR="#228B22">unsigned</FONT></B> len)
+{
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    uInt read_now;
+    ZPOS64_T size_to_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+    size_to_read = (pfile_in_zip_read_info-&gt;size_local_extrafield -
+                pfile_in_zip_read_info-&gt;pos_local_extrafield);
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (buf==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>)size_to_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (len&gt;size_to_read)
+        read_now = (uInt)size_to_read;
+    <B><FONT COLOR="#A020F0">else</FONT></B>
+        read_now = (uInt)len ;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (read_now==0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(pfile_in_zip_read_info-&gt;z_filefunc,
+              pfile_in_zip_read_info-&gt;filestream,
+              pfile_in_zip_read_info-&gt;offset_local_extrafield +
+              pfile_in_zip_read_info-&gt;pos_local_extrafield,
+              ZLIB_FILEFUNC_SEEK_SET)!=0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(pfile_in_zip_read_info-&gt;z_filefunc,
+              pfile_in_zip_read_info-&gt;filestream,
+              buf,read_now)!=read_now)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>)read_now;
+}
+
+<I><FONT COLOR="#B22222">/*
+  Close the file in zip opened with unzOpenCurrentFile
+  Return UNZ_CRCERROR if all the file was read but the CRC is not good
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzCloseCurrentFile</FONT></B> (unzFile file)
+{
+    <B><FONT COLOR="#228B22">int</FONT></B> err=UNZ_OK;
+
+    unz64_s* s;
+    file_in_zip64_read_info_s* pfile_in_zip_read_info;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+    pfile_in_zip_read_info=s-&gt;pfile_in_zip_read;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((pfile_in_zip_read_info-&gt;rest_read_uncompressed == 0) &amp;&amp;
+        (!pfile_in_zip_read_info-&gt;raw))
+    {
+        <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;crc32 != pfile_in_zip_read_info-&gt;crc32_wait)
+            err=UNZ_CRCERROR;
+    }
+
+
+    TRYFREE(pfile_in_zip_read_info-&gt;read_buffer);
+    pfile_in_zip_read_info-&gt;read_buffer = NULL;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;stream_initialised == Z_DEFLATED)
+        inflateEnd(&amp;pfile_in_zip_read_info-&gt;stream);
+#<B><FONT COLOR="#5F9EA0">ifdef</FONT></B> <FONT COLOR="#B8860B">HAVE_BZIP2</FONT>
+    <B><FONT COLOR="#A020F0">else</FONT></B> <B><FONT COLOR="#A020F0">if</FONT></B> (pfile_in_zip_read_info-&gt;stream_initialised == Z_BZIP2ED)
+        BZ2_bzDecompressEnd(&amp;pfile_in_zip_read_info-&gt;bstream);
+#<B><FONT COLOR="#5F9EA0">endif</FONT></B>
+
+
+    pfile_in_zip_read_info-&gt;stream_initialised = 0;
+    TRYFREE(pfile_in_zip_read_info);
+
+    s-&gt;pfile_in_zip_read=NULL;
+
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+
+<I><FONT COLOR="#B22222">/*
+  Get the global comment string of the ZipFile, in the szComment buffer.
+  uSizeBuf is the size of the szComment buffer.
+  return the number of byte copied or an error code &lt;0
+*/</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzGetGlobalComment</FONT></B> (unzFile file, <B><FONT COLOR="#228B22">char</FONT></B> * szComment, uLong uSizeBuf)
+{
+    unz64_s* s;
+    uLong uReadThis ;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>)UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+
+    uReadThis = uSizeBuf;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uReadThis&gt;s-&gt;gi.size_comment)
+        uReadThis = s-&gt;gi.size_comment;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (ZSEEK64(s-&gt;z_filefunc,s-&gt;filestream,s-&gt;central_pos+22,ZLIB_FILEFUNC_SEEK_SET)!=0)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (uReadThis&gt;0)
+    {
+      *szComment=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+      <B><FONT COLOR="#A020F0">if</FONT></B> (ZREAD64(s-&gt;z_filefunc,s-&gt;filestream,szComment,uReadThis)!=uReadThis)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_ERRNO;
+    }
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> ((szComment != NULL) &amp;&amp; (uSizeBuf &gt; s-&gt;gi.size_comment))
+        *(szComment+s-&gt;gi.size_comment)=<B><FONT COLOR="#BC8F8F">'\0'</FONT></B>;
+    <B><FONT COLOR="#A020F0">return</FONT></B> (<B><FONT COLOR="#228B22">int</FONT></B>)uReadThis;
+}
+
+<I><FONT COLOR="#B22222">/* Additions by RX '2004 */</FONT></I>
+<B><FONT COLOR="#228B22">extern</FONT></B> ZPOS64_T ZEXPORT <B><FONT COLOR="#0000FF">unzGetOffset64</FONT></B>(unzFile file)
+{
+    unz64_s* s;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+          <B><FONT COLOR="#A020F0">return</FONT></B> 0; <I><FONT COLOR="#B22222">//UNZ_PARAMERROR;
+</FONT></I>    s=(unz64_s*)file;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (!s-&gt;current_file_ok)
+      <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;gi.number_entry != 0 &amp;&amp; s-&gt;gi.number_entry != 0xffff)
+      <B><FONT COLOR="#A020F0">if</FONT></B> (s-&gt;num_file==s-&gt;gi.number_entry)
+         <B><FONT COLOR="#A020F0">return</FONT></B> 0;
+    <B><FONT COLOR="#A020F0">return</FONT></B> s-&gt;pos_in_central_dir;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> uLong ZEXPORT <B><FONT COLOR="#0000FF">unzGetOffset</FONT></B> (unzFile file)
+{
+    ZPOS64_T offset64;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+          <B><FONT COLOR="#A020F0">return</FONT></B> 0; <I><FONT COLOR="#B22222">//UNZ_PARAMERROR;
+</FONT></I>    offset64 = unzGetOffset64(file);
+    <B><FONT COLOR="#A020F0">return</FONT></B> (uLong)offset64;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzSetOffset64</FONT></B>(unzFile file, ZPOS64_T pos)
+{
+    unz64_s* s;
+    <B><FONT COLOR="#228B22">int</FONT></B> err;
+
+    <B><FONT COLOR="#A020F0">if</FONT></B> (file==NULL)
+        <B><FONT COLOR="#A020F0">return</FONT></B> UNZ_PARAMERROR;
+    s=(unz64_s*)file;
+
+    s-&gt;pos_in_central_dir = pos;
+    s-&gt;num_file = s-&gt;gi.number_entry;      <I><FONT COLOR="#B22222">/* hack */</FONT></I>
+    err = unz64local_GetCurrentFileInfoInternal(file,&amp;s-&gt;cur_file_info,
+                                              &amp;s-&gt;cur_file_info_internal,
+                                              NULL,0,NULL,0,NULL,0);
+    s-&gt;current_file_ok = (err == UNZ_OK);
+    <B><FONT COLOR="#A020F0">return</FONT></B> err;
+}
+
+<B><FONT COLOR="#228B22">extern</FONT></B> <B><FONT COLOR="#228B22">int</FONT></B> ZEXPORT <B><FONT COLOR="#0000FF">unzSetOffset</FONT></B> (unzFile file, uLong pos)
+{
+    <B><FONT COLOR="#A020F0">return</FONT></B> unzSetOffset64(file,pos);
+}
+</PRE>
+<HR>
+<ADDRESS>Generated by <A HREF="http://www.iki.fi/~mtr/genscript/">GNU Enscript 1.6.5.90</A>.</ADDRESS>
+</BODY>
+
+<!-- Mirrored from www.httrack.com/src/minizip/unzip.c.html by HTTrack Website Copier/3.x [XR&CO'2014], Mon, 12 Oct 2020 06:51:43 GMT -->
+</HTML>
