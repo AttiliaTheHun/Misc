@@ -6,18 +6,18 @@
 	font-display: swap;
 }
 
-
 @font-face {
 	font-family: Alteran;
 	src: url("/assets/fonts/Alteran.ttf") format("truetype");
-	font-weight: 200 800;
+	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
 }
+
 @font-face {
 	font-family: Anquietas;
 	src: url("/assets/fonts/Anquietas.ttf") format("truetype");
-	font-weight: 200 800;
+	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
 }

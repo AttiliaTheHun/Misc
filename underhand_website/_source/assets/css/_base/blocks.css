@@ -52,6 +52,8 @@ body {
 	font-family: var(--font-family-main);
 	font-size: var(--font-size-base);
 	line-height: var(--line-height-fluid);
+	height: 100%;
+	position: relative;
 }
 
 :where(animate-on-scroll, details-menu) {

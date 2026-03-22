@@ -72,8 +72,8 @@
 			position: absolute;
 			inset-block-start: 0;
 			inset-inline-start: 0;
-			inline-size: 300rem;
-			block-size: 300rem;
+			inline-size: var(--effect-width);
+			block-size: var(--effect-size);
 			border-width: 0;
 			border-block-start-width: 10rem;
 			border-style: solid;
