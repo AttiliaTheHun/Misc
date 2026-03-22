@@ -39,7 +39,7 @@ export default async function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy('_source/assets/images');
   eleventyConfig.addPassthroughCopy('_source/files');
   eleventyConfig.addPassthroughCopy('archive');
-  eleventyConfig.addPassthroughCopy("_source/assets/js/index.js");
+  eleventyConfig.addPassthroughCopy("assets/js/index.js");
 
   return {
     dir: {
