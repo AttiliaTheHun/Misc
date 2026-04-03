@@ -1,0 +1,41 @@
+# By default, the wifi in the trains of Ceske Drahy asks you to authenticate, which reditects you to http://cdwifi.cz/captive where you are shown a 30 second
+# long ad video and then you agree to the terms of service to be admitted to use internet connection. As a linux user, I find the waiting and the advertisement unacceptable, so
+# I looked a little closer as how the portal knows you have watched the ad and I am still not sure. This script is a base that I intented to improve upon once I get more understanding of
+# the requests sent and state kept, but as it appears to be working like this, I have no motivation to work on this further. Enjoy I guess.
+
+from http.client import HTTPConnection
+from http import HTTPStatus
+import json
+
+host = "cdwifi.cz"
+port = 80
+conn = HTTPConnection(host, port)
+method = "GET"
+path = "/portal/api/vehicle/gateway/user/authenticate?category=internet&url=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Fsuccess&onerror=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Ferror"
+
+def send_request():
+    body = ""
+    headers = {
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+        'Referer': 'http://cdwifi.cz/captive',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cookie': '_ga=GA1.1.266849468.1774202642; _ga_EQ3JY0LPG6=GS2.1.s1774545056$o2$g1$t1774545107$j9$l0$h0',
+        'Connection': 'keep-alive'
+    }
+    conn.request(method, path, body, headers)
+
+    response = conn.getresponse()
+    if response.status == HTTPStatus.TEMPORARY_REDIRECT:
+        print("success")
+        return
+    content_length = int(response.getheader('Content-Length'))
+    print(f"{response.status} failed:\n" + response.read(content_length))
+
+
+if __name__ == "__main__":
+    send_request()
+
+
+
