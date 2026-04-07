@@ -70,6 +70,7 @@ Services
 *   [Tineye](https://tineye.com/) – Reverse image search.
 *   [FOFA](https://en.fofa.info/) – Cyberspace-mapping search engine.
 *   [Shodan](https://www.shodan.io/) – Search engine for the internet of everything.
+*   [StartPage](https://www.startpage.com/) – Google search results without Google search ads and tracking.
 
 Collections
 -----------
@@ -87,6 +88,8 @@ Communication platforms
 
 *   [KeyBase](https://keybase.io/) – Encrypted communication platform.
 *   [Signal](https://signal.org/) – Actually secure messenger.
+*   [Element](https://element.io/en) – Social networking that's not for sale.
+*   [Mastodon](https://joinmastodon.org/) – Sovereign, interoperable and secure communications, built on the Matrix open standard. 
 
 Android Application Markets
 ---------------------------
@@ -113,7 +116,7 @@ Miscellaneous
 *   [HaveIBeenPwned](https://haveibeenpwned.com/) – Check whether your login details are present in public database dumps.
 *   [The OSINT Framework](https://osintframework.com/) – OSINT roadmap.
 *   [GPSJam](https://gpsjam.org/) – GPS interference world map.
-*   [Fireship](https://www.youtube.com/c/Fireship) – IT focused high-intensity videos. It is pretty much hilarious and informative at the same time.
+*   ~~[Fireship](https://www.youtube.com/c/Fireship) – IT focused high-intensity videos. It is pretty much hilarious and informative at the same time.~~
 *   [80000 hours](https://80000hours.org/) – How to make a difference with your career.
 *   [opensubtitles.org](https://opensubtitles.org) – Free subtitles for movies and series.
 
@@ -136,6 +139,7 @@ Books Real Good
 *   [Ready Player One](https://isbndb.com/book/9780099560432) – Dystopic sci-fi about virtual reality for all nerds alike.
 *   [Blackout](https://isbndb.com/book/9781784161897) – Curious how fun it will be when the power goes out for good?
 *   [Remembrance of Earth’s Past](https://en.wikipedia.org/wiki/Remembrance_of_Earth%27s_Past) – Some good sci-fi (Three-body problem).
+*   [Stardust](https://www.goodreads.com/book/show/16793.Stardust) – Fun fantasy fairy-tale novel.
 
 Meaningful projects (for donation)
 ----------------------------------
@@ -145,6 +149,8 @@ Meaningful projects (for donation)
 *   [Tails](https://tails.net/)
 *   [Qubes OS](https://www.qubes-os.org/)
 *   [Innocent Lives Foundation](https://www.innocentlivesfoundation.org/)
+*   [Electronic Frontier Foundation](https://www.eff.org/)
+*   [Let's Encrypt](https://letsencrypt.org/)
 
 Podcasts
 --------

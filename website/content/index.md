@@ -5,4 +5,4 @@ const eleventyNavigation = {
 };
 ---
 <br>
-<p>Nothing here. You either need to learn how to Google or learn how to Google</p>
+<p>Nothing here. You either need to learn how to Google or learn how to Google.</p>

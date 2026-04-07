@@ -10,8 +10,8 @@ Czech streaming websites
 *   [bombuj.si](https://www.bombuj.si/)
 *   [svetserialu.io](https://svetserialu.io/)
 *   [filmyzadara.cz](http://filmyzadara.cz/) ([mirror domain](https://serialyzadara.cz))
-*   [kukaj.to](https://vvv.kukaj.tw/) ([mirror domain](https://kukaj.io))
-*   [filmplanet.to](https://www2.filmplanet.to/)
+*   [kukaj.to](https://ww1.lat/kukajto/) ([mirror domain](https://kukajto.top/)) ([mirror domain](https://kukajto.rest/)) ([mirror domain](https://kukajto.ltd/)) ([mirror domain](https://kukajto.lat/)) ([mirror domain](https://kukajto.info/)) ([mirror domain](https://kukajto.ink/))
+*   [sosac.tv](https://tv.sosac.tv/cs/)
 
 International streaming websites
 --------------------------------
