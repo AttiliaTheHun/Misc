@@ -7,7 +7,7 @@ from http.client import HTTPConnection
 from http import HTTPStatus
 import json
 
-host = "cdwifi.cz"
+host = "172.16.2.2" # the host is cdwifi.cz but is only accessible if we use the router DNS. I want to avoid switching DNS
 port = 80
 conn = HTTPConnection(host, port)
 method = "GET"
@@ -16,6 +16,7 @@ path = "/portal/api/vehicle/gateway/user/authenticate?category=internet&url=http
 def send_request():
     body = ""
     headers = {
+ 		'Host': 'cdwifi.cz',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
