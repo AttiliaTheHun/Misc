@@ -207,7 +207,7 @@ footer {
     display: flex;
     justify-content: center;
     position: relative;
-    color: #ffffff;
+    color: gray;
 }
 
 .underline {

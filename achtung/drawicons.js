@@ -50,8 +50,8 @@ const drawPowerupIcons = (icon) => {
     let pathSides11 = new Path2D("M810.4,397.7h33.2c0,52,0,75.3,0,94.9h-33.2V397.7z")
     let pathSides12 = new Path2D("M810.4,587.4h33.2c-0.1,36.2-0.1,67.8,0,94.9h-33.2V587.4z")
     let pathSlow1 = new Path2D(
-        "M595.2,758.5l6.2,72l-286.7,24.8l-5.3-61.5l158.2-250.4L289,558.8l-6.2-72c112-9.7,232.6-20.1,281.8-24.3 l5.3,61.5L413.5,774.2L595.2,758.5z"
-    )
+            "M595.2,758.5l6.2,72l-286.7,24.8l-5.3-61.5l158.2-250.4L289,558.8l-6.2-72c112-9.7,232.6-20.1,281.8-24.3 l5.3,61.5L413.5,774.2L595.2,758.5z"
+        )
     let pathSlow2 = new Path2D("M625.4,366.1v31.1c-35.4,0.1-77.4,0-123.6,0v-26.5l77-101.3h-77v-31.1h121.5v26.5l-76.2,101.3H625.4z")
     let pathSlow3 = new Path2D(
         "M786,294.9l-6.2,19.1l-76.2-24.6l5.3-16.4l67.6-47.2L729,210.6l6.2-19.1l74.9,24.2l-5.3,16.4l-67.1,47.3 C753.1,284,769.5,289.4,786,294.9z"
@@ -84,7 +84,7 @@ const drawPowerupIcons = (icon) => {
         ],
         slow: [pathSlow1, pathSlow2, pathSlow3],
         thick: [pathThick],
-        thin: [pathThin],
+        thin: [pathThin]
     }
 
     let scaleFac = 1080 / iconSize

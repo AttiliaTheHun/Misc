@@ -32,7 +32,7 @@ let achtung = {
         "b_clear",
         "b_more",
         "b_sides",
-        "o_random",
+        "o_random"
     ],
     powerupsOnScreen: [], // what powerups are on screen now
 }
@@ -46,9 +46,9 @@ let canvasID,
     powerupHitboxCanvas = document.querySelector("#powerup_hitbox_canvas"), // canvas for powerup hitboxes
     ctxUI = UIcanvas.getContext("2d"),
     ctxDO = dotsCanvas.getContext("2d"),
-    ctxTH = trailsHitboxCanvas.getContext("2d"),
+    ctxTH = trailsHitboxCanvas.getContext("2d", { willReadFrequently: true }),
     ctxPV = powerupVisualCanvas.getContext("2d"),
-    ctxPH = powerupHitboxCanvas.getContext("2d"),
+    ctxPH = powerupHitboxCanvas.getContext("2d", { willReadFrequently: true }),
     yellow = getComputedStyle(document.documentElement).getPropertyValue(`--yellow`), // colors
     green = getComputedStyle(document.documentElement).getPropertyValue(`--greenlee`),
     greent = getComputedStyle(document.documentElement).getPropertyValue(`--greenlee-t`),
@@ -68,6 +68,7 @@ let canvasID,
     moveSpeed,
     playerSize,
     hitboxSize,
+    robotHitboxSize,
     borderWidth,
     iconSize // to be set in newSize()
 
@@ -94,6 +95,7 @@ function newSize() {
     moveSpeed = w100th * 0.18 // in pixels per frame
     playerSize = w100th * 0.7 // in pixels
     hitboxSize = playerSize / 1.8 // in pixels
+    robotHitboxSize = playerSize // in pixels
     borderWidth = w100th / 2 // in pixels
     iconSize = w100th * 2 // in pixels
 
@@ -125,6 +127,7 @@ function init() {
         players[player].powerup = {} // contains powerup values
         players[player].powerup.size = 1
         players[player].powerup.robot = 0
+        players[player].powerup.robotTransitionPeriod = 0
         players[player].powerup.reverse = 0
         players[player].powerup.speed = 1
         players[player].powerup.invisible = 0
@@ -426,7 +429,7 @@ function draw() {
             ctxTH.lineWidth = playerSize * players[player].powerup.size
             ctxTH.beginPath()
             if (players[player].powerup.robot != 0) {
-                ctxTH.lineCap = "round"
+                ctxTH.lineCap = "square"
                 ctxTH.moveTo(prevPosX, prevPosY)
             } else {
                 ctxTH.lineCap = "butt"
@@ -437,14 +440,20 @@ function draw() {
         }
 
         // check collision
-        const pxFront = Math.round(players[player].x + mathCos(players[player].dir) * hitboxSize * players[player].powerup.size)
-        const pyFront = Math.round(players[player].y + mathSin(players[player].dir) * hitboxSize * players[player].powerup.size)
+        let hboxSize = hitboxSize
+        if (players[player].powerup.robot != 0) {
+            // if the hitbox is bigger than playerSize in robot, it causes the robot to randomly crash on himself
+            hboxSize = robotHitboxSize
+        }
+
+        const pxFront = Math.round(players[player].x + mathCos(players[player].dir) * hboxSize * players[player].powerup.size)
+        const pyFront = Math.round(players[player].y + mathSin(players[player].dir) * hboxSize * players[player].powerup.size)
         const pxFront2 = Math.round(players[player].x + mathCos(players[player].dir))
         const pyFront2 = Math.round(players[player].y + mathSin(players[player].dir))
-        const pxLeft = Math.round(players[player].x + mathCos(players[player].dir - r2d(55)) * hitboxSize * players[player].powerup.size)
-        const pyLeft = Math.round(players[player].y + mathSin(players[player].dir - r2d(55)) * hitboxSize * players[player].powerup.size)
-        const pxRight = Math.round(players[player].x + mathCos(players[player].dir + r2d(55)) * hitboxSize * players[player].powerup.size)
-        const pyRight = Math.round(players[player].y + mathSin(players[player].dir + r2d(55)) * hitboxSize * players[player].powerup.size)
+        const pxLeft = Math.round(players[player].x + mathCos(players[player].dir - r2d(55)) * hboxSize * players[player].powerup.size)
+        const pyLeft = Math.round(players[player].y + mathSin(players[player].dir - r2d(55)) * hboxSize * players[player].powerup.size)
+        const pxRight = Math.round(players[player].x + mathCos(players[player].dir + r2d(55)) * hboxSize * players[player].powerup.size)
+        const pyRight = Math.round(players[player].y + mathSin(players[player].dir + r2d(55)) * hboxSize * players[player].powerup.size)
 
         const imgDataFrontTH = ctxTH.getImageData(pxFront, pyFront, 1, 1).data
         const imgDataFrontPH = ctxPH.getImageData(pxFront, pyFront, 1, 1).data
@@ -456,11 +465,13 @@ function draw() {
         const imgDataRightPH = ctxPH.getImageData(pxRight, pyRight, 1, 1).data
 
         // uncomment to visualize hitbox
-         ctxDO.fillStyle = "#ffffff"
-         ctxDO.fillRect(pxFront, pyFront, 1, 1)
-         ctxDO.fillRect(pxFront2, pyFront2, 1, 1)
-         ctxDO.fillRect(pxLeft, pyLeft, 1, 1)
-         ctxDO.fillRect(pxRight, pyRight, 1, 1)
+        // ctxDO.fillStyle = "#ffffff"
+        // ctxDO.fillRect(pxFront, pyFront, 1, 1)
+        // ctxDO.fillRect(pxFront2, pyFront2, 1, 1)
+        // ctxDO.fillRect(pxLeft, pyLeft, 1, 1)
+        // ctxDO.fillRect(pxRight, pyRight, 1, 1)
+        // ctxTH.save();
+
 
         // check collision for every powerup on screen
         for (let i = 0; i < achtung.powerupsOnScreen.length; i++) {
@@ -487,7 +498,7 @@ function draw() {
             // don't check collision if making bridge
             if (players[player].powerup.invisible == 0) {
                 // don't check if invisible
-                if (players[player].powerup.robot == 0) {
+                if (players[player].powerup.robot == 0 && players[player].powerup.robotTransitionPeriod == 0) {
                     // check alpha value of pixels front, front2, left, right
                     if (imgDataFrontTH[3] == 255 || imgDataFront2TH[3] == 255 || imgDataLeftTH[3] == 255 || imgDataRightTH[3] == 255) {
                         givePoints(players[player])
@@ -501,6 +512,10 @@ function draw() {
                     }
                 }
             }
+        }
+
+        if (players[player].powerup.robotTransitionPeriod > 0) {
+            players[player].powerup.robotTransitionPeriod--
         }
     }
 
@@ -626,6 +641,7 @@ const drawGameUI = () => {
 function doPowerups(puPlayer, index) {
     let gTimeout = 8000
     let rTimeout = 5000
+    let robotTransitionPeriod = 2
     let powName = players[puPlayer].powerup.powerupArray[index]
 
     // powerup starts
@@ -646,7 +662,10 @@ function doPowerups(puPlayer, index) {
     }
     if (powName == "g_robot") {
         players[puPlayer].powerup.robot++
-        players[puPlayer].powerup.toClear[index] = setTimeout(() => players[puPlayer].powerup.robot--, gTimeout)
+        players[puPlayer].powerup.toClear[index] = setTimeout(() => { 
+            players[puPlayer].powerup.robot--
+            players[puPlayer].powerup.robotTransitionPeriod = robotTransitionPeriod
+        }, gTimeout)
     }
     if (powName == "g_side") {
         players[puPlayer].powerup.side++
@@ -684,7 +703,10 @@ function doPowerups(puPlayer, index) {
         for (const otherPlayers in players) {
             if (otherPlayers != puPlayer) {
                 players[otherPlayers].powerup.robot++
-                players[otherPlayers].powerup.toClear[index] = setTimeout(() => players[otherPlayers].powerup.robot--, rTimeout)
+                players[otherPlayers].powerup.toClear[index] = setTimeout(() => { 
+                    players[otherPlayers].powerup.robot--
+                    players[otherPlayers].powerup.robotTransitionPeriod = robotTransitionPeriod
+                }, rTimeout)
             }
         }
     }
