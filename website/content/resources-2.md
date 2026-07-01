@@ -22,6 +22,7 @@ International streaming websites
 *   [gledajhd.com](https://www.gledajhd.com)
 *   [m4uhd.cc](https://ww2.m4uhd.cc/)
 *   [sflix.to](https://sflix.to/)
+*   [streamex.net](https://streamex.net) ([mirror domain](https://streamex.sh))
 
 French streaming websites
 -------------------------
