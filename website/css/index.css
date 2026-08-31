@@ -339,3 +339,7 @@ footer {
 	margin-right: 1em;
 }
 
+blockquote {
+	border-left: 1px solid --color-gray-50;
+}
+
