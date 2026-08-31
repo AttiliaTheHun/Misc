@@ -71,6 +71,7 @@ Services
 *   [FOFA](https://en.fofa.info/) – Cyberspace-mapping search engine.
 *   [Shodan](https://www.shodan.io/) – Search engine for the internet of everything.
 *   [StartPage](https://www.startpage.com/) – Google search results without Google search ads and tracking.
+*   [Wayback Machine](https://web.archive.org/) – Explore more than 1 trillion web pages save over time.
 
 Collections
 -----------
@@ -89,7 +90,7 @@ Communication platforms
 *   [KeyBase](https://keybase.io/) – Encrypted communication platform.
 *   [Signal](https://signal.org/) – Actually secure messenger.
 *   [Element](https://element.io/en) – Social networking that's not for sale.
-*   [Mastodon](https://joinmastodon.org/) – Sovereign, interoperable and secure communications, built on the Matrix open standard. 
+*   [Mastodon](https://joinmastodon.org/) – Sovereign, interoperable and secure communications, built on the Matrix open standard.
 
 Android Application Markets
 ---------------------------
@@ -150,6 +151,8 @@ Meaningful projects (for donation)
 *   [Qubes OS](https://www.qubes-os.org/)
 *   [Innocent Lives Foundation](https://www.innocentlivesfoundation.org/)
 *   [Electronic Frontier Foundation](https://www.eff.org/)
+*   [Internet Archive](https://archive.org)
+*   [Wikipedia](https://wikipedia.org)
 *   [Let's Encrypt](https://letsencrypt.org/)
 
 Podcasts
