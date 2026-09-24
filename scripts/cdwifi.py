@@ -2,78 +2,81 @@
 # long ad video and then you agree to the terms of service to be admitted to use internet connection. As a linux user, I find the waiting and the advertisement unacceptable, so
 # I looked a little closer as how the portal knows you have watched the ad and I am still not sure. This script is a base that I intented to improve upon once I get more understanding of
 # the requests sent and state kept, but as it appears to be working like this, I have no motivation to work on this further. Enjoy I guess.
-
+# New version rehauled by DeepSeek
+import socket
 from http.client import HTTPConnection
-from http import HTTPStatus
-import json
-import sys
 
-def send_request_urban():
-    """
-    This function handles the connection for urban trains within the Prague city. They do not usually show ads but still require you to check a box and click a button
-    to gain internet access. A simple POST request can save you the trouble, not to mention lets you keep your current DNS settings.
-    """
-    host = "10.200.0.11" # the host is virtual-gw.cdwifi.cz but is only accessible if we use the router DNS. I want to avoid switching DNS
-    port = 80
-    conn = HTTPConnection(host, port)
-    method = "POST"
-    path = "/accept"
+FLAVORS = [
+    {   # regional CD trains
+        "name": "regional",
+        "hosts": ["172.16.2.2", "10.200.0.60", "10.200.0.12"],
+        "port": 80,
+        "method": "GET",
+        "path": ("/portal/api/vehicle/gateway/user/authenticate"
+                 "?category=internet"
+                 "&url=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Fsuccess"
+                 "&onerror=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Ferror"),
+        "body": "",
+        "host_header": "cdwifi.cz",
+        "referer": "http://cdwifi.cz/captive",
+        "success_statuses": {307},
+    },
+    {   # urban Prague trains
+        "name": "urban",
+        "hosts": ["10.200.0.11", "10.200.0.60"],
+        "port": 80,
+        "method": "POST",
+        "path": "/accept",
+        "body": "secret=69ef940c4a370&eula=on",
+        "host_header": "virtual-gw.cdwifi.cz",
+        "origin": "http://virtual-gw.cdwifi.cz",
+        "referer": "http://virtual-gw.cdwifi.cz/",
+        "success_statuses": {302},
+    },
+]
 
-    body = "secret=69ef940c4a370&eula=on"
-    headers = {
- 		'Host': 'virtual-gw.cdwifi.cz',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'application/json',
-        'Origin': "http://virtual-gw.cdwifi.cz",
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-        'Referer': 'http://virtual-gw.cdwifi.cz/',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cookie': '_ga=GA1.1.266849468.1774202642; _ga_EQ3JY0LPG6=GS2.1.s1774545056$o2$g1$t1774545107$j9$l0$h0',
-        'Connection': 'keep-alive'
+
+def base_headers(flavor):
+    h = {
+        "Host": flavor["host_header"],
+        "Accept": "application/json",
+        "Referer": flavor["referer"],
+        "Connection": "close",   # simpler than keep-alive for one-shot
     }
-    conn.request(method, path, body, headers)
+    if "origin" in flavor:
+        h["Origin"] = flavor["origin"]
+    return h
 
-    response = conn.getresponse()
-    if response.status == HTTPStatus.FOUND:
-        print("success")
-        return
-    content_length = int(response.getheader('Content-Length'))
-    print(f"{response.status} failed:\n" + response.read(content_length))
 
-def send_request_regional():   
-    """
-    This function handles the standard Ceske Drahy trains that travel between cities. It lets you skip the advertisment along with accepting the ToS while preserving your DNS settings.
-    """ 
-    host = "172.16.2.2" # the host is cdwifi.cz but is only accessible if we use the router DNS. I want to avoid switching DNS
-    port = 80
-    conn = HTTPConnection(host, port)
-    method = "GET"
-    path = "/portal/api/vehicle/gateway/user/authenticate?category=internet&url=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Fsuccess&onerror=http%3A%2F%2Fcdwifi.cz%2Fportal%2Fapi%2Fvehicle%2Fgateway%2Fuser%2Ferror"
+def try_flavor(flavor, host, timeout=3):
+    try:
+        conn = HTTPConnection(host, flavor["port"], timeout=timeout)
+        conn.request(flavor["method"], flavor["path"],
+                     flavor["body"], base_headers(flavor))
+        resp = conn.getresponse()
+        ok = resp.status in flavor["success_statuses"]
+        if not ok:
+            snippet = resp.read(512).decode("utf-8", "replace")
+           # print(f"  {host}: {resp.status} {resp.reason} — {snippet!r}")
+        conn.close()
+        return ok
+    except (socket.timeout) as e:
+        return False
+    except (OSError) as e:
+        print(f"  {host}: {type(e).__name__}: {e}")
+    return False
 
-    body = ""
-    headers = {
- 		'Host': 'cdwifi.cz',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-        'Referer': 'http://cdwifi.cz/captive',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cookie': '_ga=GA1.1.266849468.1774202642; _ga_EQ3JY0LPG6=GS2.1.s1774545056$o2$g1$t1774545107$j9$l0$h0',
-        'Connection': 'keep-alive'
-    }
-    conn.request(method, path, body, headers)
 
-    response = conn.getresponse()
-    if response.status == HTTPStatus.TEMPORARY_REDIRECT:
-        print("success")
-        return
-    content_length = int(response.getheader('Content-Length'))
-    print(f"{response.status} failed:\n" + response.read(content_length))
+def main():
+    for flavor in FLAVORS:
+        # print(f"Trying {flavor['name']}…")
+        for host in flavor["hosts"]:
+            if try_flavor(flavor, host):
+                print(f"success") 
+                return 0
+    print("captive portal not found")
+    return 1
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        send_request_urban()
-    else:
-        send_request_regional()
-    
+    raise SystemExit(main())
