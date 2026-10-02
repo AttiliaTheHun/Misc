@@ -1,0 +1,387 @@
+/* ---- reset & base ---- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #f3f7fb;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ---- layout: timetable + drawer ---- */
+.app {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ============================================================
+    TIMETABLE
+    Days = columns (vertical), Time = rows (horizontal)
+    ============================================================ */
+.timetable-container {
+    flex: 1;
+    overflow: auto;
+    background: #ffffff;
+    border-right: 1px solid #cfdee9;
+    position: relative;
+}
+
+.timetable {
+    display: flex;
+    flex-direction: column;
+    min-width: 700px;
+    width: 100%;
+}
+
+/* ----- header row: day names (fixed) ----- */
+.tt-header {
+    display: flex;
+    border-bottom: 2px solid #bacddb;
+    background: #f0f6fc;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+/* top-left corner: empty / label */
+.tt-corner {
+    width: 70px;
+    min-width: 70px;
+    flex-shrink: 0;
+    border-right: 1px solid #c9d9e8;
+    background: #e8f0f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1d4b6e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* day header cells */
+.tt-day-header {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.7rem 0.25rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #103a57;
+    border-right: 1px solid #cddeec;
+    background: #f0f6fc;
+}
+
+.tt-day-header:last-child {
+    border-right: none;
+}
+
+/* ----- body: time rows ----- */
+.tt-body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* each row = one time slot */
+.tt-row {
+    display: flex;
+    border-bottom: 1px solid #d6e2ed;
+    position: relative;
+}
+
+.tt-row:last-child {
+    border-bottom: none;
+}
+
+/* time label (left column) */
+.tt-time {
+    width: 70px;
+    min-width: 70px;
+    flex-shrink: 0;
+    border-right: 1px solid #c9d9e8;
+    background: #f6faff;
+    padding: 0.15rem 0.3rem 0 0.3rem;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #2c577a;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    text-align: right;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+}
+
+/* day column cells — each contains the class blocks that start in that slot */
+.tt-day-cell {
+    flex: 1;
+    min-width: 120px;
+    border-right: 1px solid #e2edf6;
+    background: #ffffff;
+    position: relative;
+    padding: 0;
+    /* height is set via row heights */
+}
+
+.tt-day-cell:last-child {
+    border-right: none;
+}
+
+/* ============================================================
+    CLASS BLOCKS — absolutely positioned so they can span
+    multiple time slots vertically
+    ============================================================ */
+.class-block {
+    position: absolute;
+    left: 0.2rem;
+    right: 0.2rem;
+    background: #eef6fe;
+    border-left: 4px solid #3c7ca3;
+    border-radius: 5px;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.7rem;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background 0.1s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.class-block:hover {
+    background: #d9eaf9;
+    border-left-color: #1f5a7a;
+    z-index: 2;
+}
+
+/* lectures darker */
+.class-block.lecture {
+    background: #5196d2;
+    border-left-color: #1a4b6e;
+    font-weight: 500;
+}
+
+.class-block.practical {
+    background: #f0f7ff;
+    border-left-color: #7fa9c7;
+}
+
+.class-block .cb-title {
+    font-weight: 600;
+    font-size: 0.72rem;
+    color: #0b2e47;
+    margin-bottom: 0.1rem;
+    word-break: break-word;
+}
+
+.class-block .cb-meta {
+    font-size: 0.6rem;
+    color: #2f5b7a;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.class-block .cb-meta span {
+    background: rgba(255,255,255,0.7);
+    padding: 0 0.2rem;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* when two blocks overlap in the same day+slot, they get side-by-side */
+.class-block.overlap-left {
+    left: 0.2rem;
+    right: 52%;
+}
+.class-block.overlap-right {
+    left: 50%;
+    right: 0.2rem;
+}
+
+/* ============================================================
+    SIDE DRAWER (links)
+    ============================================================ */
+.drawer {
+    width: 280px;
+    flex-shrink: 0;
+    background: #f9fcff;
+    border-left: 1px solid #cbdae8;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 1.25rem 1rem;
+}
+
+#drawerNote {
+    font-size: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.drawer-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #5f7d95;
+    text-align: center;
+    font-size: 0.85rem;
+    gap: 0.75rem;
+}
+
+.drawer-placeholder .big-icon {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+.drawer-header {
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid #d2e0ec;
+    padding-bottom: 0.75rem;
+}
+
+.drawer-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #09314d;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.drawer-header .drawer-sub {
+    font-size: 0.7rem;
+    color: #3b6382;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.drawer-header .drawer-sub span {
+    background: #e3eef8;
+    padding: 0.15rem 0.4rem;
+    border-radius: 12px;
+}
+
+.drawer-header .drawer-sub .tag-priority {
+    background: #c55b3b;
+}
+
+.drawer-header .drawer-sub .tag-optional {
+    background: #2fd3b2;
+}
+
+.link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.link-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.8rem;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #d3e3f0;
+    text-decoration: none;
+    color: #124263;
+    font-weight: 500;
+    font-size: 0.8rem;
+    transition: 0.1s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.link-item:hover {
+    background: #e2effb;
+    border-color: #9bbfd9;
+    transform: translateX(3px);
+    color: #0b2e47;
+}
+
+.link-item .link-icon {
+    font-size: 1rem;
+    width: 1.4rem;
+    text-align: center;
+    color: #2d6992;
+}
+
+.link-item .link-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.no-links {
+    color: #7596b0;
+    font-size: 0.8rem;
+    font-style: italic;
+    padding: 0.8rem;
+    text-align: center;
+    background: #e9f2fa;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+/* scrollbars */
+.timetable-container::-webkit-scrollbar,
+.drawer::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.timetable-container::-webkit-scrollbar-track,
+.drawer::-webkit-scrollbar-track {
+    background: #eef4fa;
+}
+
+.timetable-container::-webkit-scrollbar-thumb,
+.drawer::-webkit-scrollbar-thumb {
+    background: #b2cde2;
+    border-radius: 8px;
+}
+
+/* responsive */
+@media (max-width: 800px) {
+    .app {
+        flex-direction: column;
+    }
+
+    .drawer {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid #cbdae8;
+        max-height: 260px;
+        padding: 1rem;
+    }
+
+    .timetable-container {
+        border-right: none;
+    }
+
+    .tt-day-header,
+    .tt-day-cell {
+        min-width: 90px;
+    }
+
+    .tt-corner,
+    .tt-time {
+        width: 55px;
+        min-width: 55px;
+        font-size: 0.6rem;
+    }
+}

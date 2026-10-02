@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timetable roadmap</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app">
+        <!-- ---------- TIMETABLE ---------- -->
+        <div class="timetable-container" id="timetableContainer">
+            <div class="timetable" id="timetable">
+                <div class="tt-header" id="ttHeader"></div>
+                <div class="tt-body" id="ttBody"></div>
+            </div>
+        </div>
+
+        <!-- ---------- SIDE DRAWER ---------- -->
+        <div class="drawer" id="drawer">
+            <div class="drawer-placeholder" id="drawerPlaceholder">
+                <div class="big-icon">🔗</div>
+                <div>Click a class<br>to see its links</div>
+            </div>
+            <div id="drawerContent" style="display: none; height: 100%;">
+                <div class="drawer-header">
+                    <h2 id="drawerClassTitle">Class</h2>
+                    <div class="drawer-sub" id="drawerClassMeta"></div>
+                </div>
+                <div class="link-list" id="drawerLinkList"></div>
+                <div class="note" id="drawerNote"></div>
+            </div>
+        </div>
+    </div>
+    <script src="index.js"></script>
+</body>
+</html>

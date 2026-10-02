@@ -1,0 +1,1 @@
+A little mostly vibe-coded website that keeps track of all the relevant links for my classes. If you maybe want to use it, too, all you need to do is replace the class data in the `index.js` file `scheduleData` structure.
