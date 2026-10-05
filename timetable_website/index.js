@@ -162,8 +162,8 @@
                                 start: '09:00',
                                 end: '10:30',           
                                 links: {
-                                    classPage: 'https://is.cuni.cz/studium/predmety/index.php?id=8dd0533e31ad2ba1aff2bfbcf9f399ac&tid=&do=predmet&kod=NMAI055&skr=2026&fak=11320',
-                                    wiki: 'https://wiki.matfyz.cz/NMAI055'
+                                  classPage: 'https://kam.mff.cuni.cz/~klazar/MAII26cz.html',
+                                  wiki: 'https://wiki.matfyz.cz/NMAI055'
                                 },
                                 tags: [],
                                 note: ''
