@@ -53,6 +53,7 @@
                                 start: '12:20',
                                 end: '13:50',           
                                 links: {
+                                  classPage: 'https://d3s.mff.cuni.cz/cz/teaching/nswi183/'
                                 },
                                 tags: ['priority'],
                                 note: ''
