@@ -16,7 +16,9 @@
                                 start: '09:00',
                                 end: '10:30',           
                                 links: {
-                                    classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/'
+                                    classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/',
+                                    ATMega328PBDatasheet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/40001906A.pdf',
+                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf'
                                 },
                                 tags: [],
                                 note: 'Pry je dobre, aby si mne z prednasky pamatoval, nema rad lidi, co chteji jen kredity'
@@ -28,7 +30,9 @@
                                 start: '10:40',
                                 end: '12:10',           
                                 links: {
-                                    classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/cviceni.html'
+                                    classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/cviceni.html',
+                                    ATMega328PBDatasheet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/40001906A.pdf',
+                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf'
                                 },
                                 tags: [],
                                 note: ''
