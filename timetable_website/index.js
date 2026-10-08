@@ -180,7 +180,8 @@
                                 end: '13:50',           
                                 links: {
                                     classPage: 'https://teaching.mff.cuni.cz/nswi098-web/',
-                                    wiki: 'https://wiki.matfyz.cz/NSWI098'
+                                    wiki: 'https://wiki.matfyz.cz/NSWI098',
+                                    compilerBook: 'https://dthain.github.io/books/compiler/'
                                 },
                                 tags: [],
                                 note: ''
@@ -193,7 +194,8 @@
                                 end: '15:30',           
                                 links: {
                                     classPage: 'https://teaching.mff.cuni.cz/nswi098-web/',
-                                    wiki: 'https://wiki.matfyz.cz/NSWI098'
+                                    wiki: 'https://wiki.matfyz.cz/NSWI098',
+                                    compilerBook: 'https://dthain.github.io/books/compiler/'
                                 },
                                 tags: [],
                                 note: ''
