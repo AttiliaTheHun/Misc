@@ -18,7 +18,8 @@
                                 links: {
                                     classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/',
                                     ATMega328PBDatasheet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/40001906A.pdf',
-                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf'
+                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf',
+                                    ATMega328PXplainedMini: 'http://ww1.microchip.com/downloads/en/devicedoc/50002659a.pdf'
                                 },
                                 tags: [],
                                 note: 'Pry je dobre, aby si mne z prednasky pamatoval, nema rad lidi, co chteji jen kredity'
@@ -32,7 +33,8 @@
                                 links: {
                                     classPage: 'https://ktiml.mff.cuni.cz/~obdrzalek/vyuka/NPRG037/cviceni.html',
                                     ATMega328PBDatasheet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/40001906A.pdf',
-                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf'
+                                    AVRInstructionSet: 'https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-InstructionSet-Manual-DS40002198.pdf',
+                                    ATMega328PXplainedMini: 'http://ww1.microchip.com/downloads/en/devicedoc/50002659a.pdf'
                                 },
                                 tags: [],
                                 note: ''
